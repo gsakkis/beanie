@@ -1,234 +1,162 @@
+import dataclasses as dc
+import datetime
+import decimal
+import enum
+import ipaddress
+import operator
+import pathlib
 import re
-from collections import deque
-from datetime import datetime, timedelta
-from decimal import Decimal
-from enum import Enum
-from ipaddress import (
-    IPv4Address,
-    IPv4Interface,
-    IPv4Network,
-    IPv6Address,
-    IPv6Interface,
-    IPv6Network,
-)
-from pathlib import PurePath
-from types import GeneratorType
+import uuid
 from typing import (
-    AbstractSet,
+    TYPE_CHECKING,
     Any,
     Callable,
+    Container,
     Dict,
-    List,
+    Iterable,
     Mapping,
     Optional,
     Type,
-    Union,
 )
-from uuid import UUID
 
 import bson
-from bson import Binary, DBRef, Decimal128, ObjectId, Regex
-from pydantic import BaseModel, SecretBytes, SecretStr
-from pydantic.color import Color
+import pydantic
+import pydantic.color
 
-from beanie.odm import documents
+import beanie
 from beanie.odm.fields import Link, LinkTypes
 
-ENCODERS_BY_TYPE: Dict[Type[Any], Callable[[Any], Any]] = {
-    Color: str,
-    timedelta: lambda td: td.total_seconds(),
-    Decimal: Decimal128,
-    deque: list,
-    IPv4Address: str,
-    IPv4Interface: str,
-    IPv4Network: str,
-    IPv6Address: str,
-    IPv6Interface: str,
-    IPv6Network: str,
-    SecretBytes: SecretBytes.get_secret_value,
-    SecretStr: SecretStr.get_secret_value,
-    Enum: lambda o: o.value,
-    PurePath: str,
-    Link: lambda l: l.ref,  # noqa: E741
-    bytes: lambda b: b if isinstance(b, Binary) else Binary(b),
-    UUID: lambda u: bson.Binary.from_uuid(u),
-    re.Pattern: Regex.from_native,
+if TYPE_CHECKING:
+    from pydantic.typing import TupleGenerator
+
+    from beanie.odm.documents import DocType
+
+
+DEFAULT_CUSTOM_ENCODERS: Mapping[Type, Callable] = {
+    ipaddress.IPv4Address: str,
+    ipaddress.IPv4Interface: str,
+    ipaddress.IPv4Network: str,
+    ipaddress.IPv6Address: str,
+    ipaddress.IPv6Interface: str,
+    ipaddress.IPv6Network: str,
+    pathlib.PurePath: str,
+    pydantic.color.Color: str,
+    pydantic.SecretBytes: pydantic.SecretBytes.get_secret_value,
+    pydantic.SecretStr: pydantic.SecretStr.get_secret_value,
+    datetime.timedelta: operator.methodcaller("total_seconds"),
+    enum.Enum: operator.attrgetter("value"),
+    Link: operator.attrgetter("ref"),
+    bytes: bson.Binary,
+    decimal.Decimal: bson.Decimal128,
+    uuid.UUID: bson.Binary.from_uuid,
+    re.Pattern: bson.Regex.from_native,
 }
+BSON_SCALAR_TYPES = (
+    type(None),
+    str,
+    int,
+    float,
+    datetime.datetime,
+    bson.Binary,
+    bson.DBRef,
+    bson.Decimal128,
+    bson.ObjectId,
+)
+BACK_LINK_TYPES = frozenset(
+    [
+        LinkTypes.BACK_DIRECT,
+        LinkTypes.BACK_LIST,
+        LinkTypes.OPTIONAL_BACK_DIRECT,
+        LinkTypes.OPTIONAL_BACK_LIST,
+    ]
+)
 
 
-class Ignore:
-    ...
-
-
-IGNORE = Ignore()
-
-
+@dc.dataclass
 class Encoder:
     """
     BSON encoding class
     """
 
-    def __init__(
-        self,
-        exclude: Union[
-            AbstractSet[Union[str, int]], Mapping[Union[str, int], Any], None
-        ] = None,
-        custom_encoders: Optional[Dict[Type, Callable]] = None,
-        by_alias: bool = True,
-        to_db: bool = False,
-        keep_nulls: bool = True,
-    ):
-        self.exclude = exclude or {}
-        self.by_alias = by_alias
-        self.custom_encoders = custom_encoders or {}
-        self.to_db = to_db
-        self.keep_nulls = keep_nulls
+    exclude: Container[str] = frozenset()
+    custom_encoders: Mapping[Type, Callable] = dc.field(default_factory=dict)
+    by_alias: bool = True
+    to_db: bool = False
+    keep_nulls: bool = True
 
-    def encode(self, obj: Any):
-        """
-        Run the encoder
-        """
-        return self._encode(obj=obj)
-
-    def encode_document(self, obj):
+    def _encode_document(self, obj: "DocType") -> Mapping[str, Any]:
         """
         Beanie Document class case
         """
         obj.parse_store()
+        settings = obj.get_settings()
+        obj_dict: Dict[str, Any] = {}
+        if settings.union_doc is not None:
+            obj_dict[settings.class_id] = (
+                settings.union_doc_alias or obj.__class__.__name__
+            )
+        if obj._inheritance_inited:
+            obj_dict[settings.class_id] = obj._class_id
 
-        encoder = Encoder(
-            custom_encoders=obj.get_settings().bson_encoders,
+        link_fields = obj.get_link_fields() or {}
+        sub_encoder = Encoder(
+            # don't propagate self.exclude to subdocuments
+            custom_encoders=settings.bson_encoders,
             by_alias=self.by_alias,
             to_db=self.to_db,
             keep_nulls=self.keep_nulls,
         )
-
-        link_fields = obj.get_link_fields()
-        obj_dict: Dict[str, Any] = {}
-        if obj.get_settings().union_doc is not None:
-            obj_dict[obj.get_settings().class_id] = (
-                obj.get_settings().union_doc_alias or obj.__class__.__name__
-            )
-        if obj._inheritance_inited:
-            obj_dict[obj.get_settings().class_id] = obj._class_id
-
-        for k, o in obj._iter(to_dict=False, by_alias=self.by_alias):
-            if k not in self.exclude and (
-                self.keep_nulls is True or o is not None
-            ):
-                if link_fields and k in link_fields:
-                    if link_fields[k].link_type == LinkTypes.LIST:
-                        obj_dict[k] = [link.to_ref() for link in o]
-                    if link_fields[k].link_type == LinkTypes.DIRECT:
-                        obj_dict[k] = o.to_ref()
-                    if link_fields[k].link_type == LinkTypes.OPTIONAL_DIRECT:
-                        if o is not None:
-                            obj_dict[k] = o.to_ref()
-                        else:
-                            obj_dict[k] = o
-                    if link_fields[k].link_type == LinkTypes.OPTIONAL_LIST:
-                        if o is not None:
-                            obj_dict[k] = [link.to_ref() for link in o]
-                        else:
-                            obj_dict[k] = o
-                    if (
-                        link_fields[k].link_type == LinkTypes.BACK_DIRECT
-                        and self.to_db
-                    ):
-                        obj_dict[k] = IGNORE
-                    if (
-                        link_fields[k].link_type == LinkTypes.BACK_LIST
-                        and self.to_db
-                    ):
-                        obj_dict[k] = IGNORE
-                    if (
-                        link_fields[k].link_type
-                        == LinkTypes.OPTIONAL_BACK_DIRECT
-                        and self.to_db
-                    ):
-                        obj_dict[k] = IGNORE
-                    if (
-                        link_fields[k].link_type
-                        == LinkTypes.OPTIONAL_BACK_LIST
-                        and self.to_db
-                    ):
-                        obj_dict[k] = IGNORE
-                else:
-                    obj_dict[k] = o
-
-                if obj_dict[k] == IGNORE:
-                    del obj_dict[k]
-                else:
-                    obj_dict[k] = encoder.encode(obj_dict[k])
+        for key, value in self._iter_model_items(obj):
+            if key in link_fields:
+                link_type = link_fields[key].link_type
+                if link_type is LinkTypes.DIRECT or (
+                    link_type is LinkTypes.OPTIONAL_DIRECT
+                    and value is not None
+                ):
+                    value = value.to_ref()
+                elif link_type is LinkTypes.LIST or (
+                    link_type is LinkTypes.OPTIONAL_LIST and value is not None
+                ):
+                    value = [link.to_ref() for link in value]
+                elif link_type in BACK_LINK_TYPES and self.to_db:
+                    continue
+            obj_dict[key] = sub_encoder.encode(value)
         return obj_dict
 
-    def encode_base_model(self, obj):
-        """
-        BaseModel case
-        """
-        obj_dict = {}
-        for k, o in obj._iter(to_dict=False, by_alias=self.by_alias):
-            if k not in self.exclude and (
-                self.keep_nulls is True or o is not None
-            ):
-                obj_dict[k] = self._encode(o)
+    def _iter_model_items(self, obj: pydantic.BaseModel) -> "TupleGenerator":
+        exclude, keep_nulls = self.exclude, self.keep_nulls
+        for key, value in obj._iter(to_dict=False, by_alias=self.by_alias):
+            if key not in exclude and (keep_nulls or value is not None):
+                yield key, value
 
-        return obj_dict
-
-    def encode_dict(self, obj):
+    def encode(self, obj: Any) -> Any:
         """
-        Dictionary case
+        Run the encoder
         """
-        return {key: self._encode(value) for key, value in obj.items()}
-
-    def encode_iterable(self, obj):
-        """
-        Iterable case
-        """
-        return [self._encode(item) for item in obj]
-
-    def _encode(
-        self,
-        obj,
-    ) -> Any:
-        """"""
         if self.custom_encoders:
-            if type(obj) in self.custom_encoders:
-                return self.custom_encoders[type(obj)](obj)
-            for encoder_type, encoder in self.custom_encoders.items():
-                if isinstance(obj, encoder_type):
-                    return encoder(obj)
-        if type(obj) in ENCODERS_BY_TYPE:
-            return ENCODERS_BY_TYPE[type(obj)](obj)
-        for cls, encoder in ENCODERS_BY_TYPE.items():
-            if isinstance(obj, cls):
+            encoder = _get_encoder(obj, self.custom_encoders)
+            if encoder is not None:
                 return encoder(obj)
 
-        if isinstance(obj, documents.Document):
-            return self.encode_document(obj)
-        if isinstance(obj, BaseModel):
-            return self.encode_base_model(obj)
-        if isinstance(obj, dict):
-            return self.encode_dict(obj)
-        if isinstance(obj, (list, set, frozenset, GeneratorType, tuple)):
-            return self.encode_iterable(obj)
-
-        if isinstance(
-            obj,
-            (
-                str,
-                int,
-                float,
-                ObjectId,
-                datetime,
-                type(None),
-                DBRef,
-                Decimal128,
-            ),
-        ):
+        if isinstance(obj, BSON_SCALAR_TYPES):
             return obj
 
-        errors: List[Exception] = []
+        encoder = _get_encoder(obj, DEFAULT_CUSTOM_ENCODERS)
+        if encoder is not None:
+            return encoder(obj)
+
+        if isinstance(obj, beanie.Document):
+            return self._encode_document(obj)
+        if isinstance(obj, (pydantic.BaseModel, Mapping)):
+            if isinstance(obj, pydantic.BaseModel):
+                items = self._iter_model_items(obj)
+            else:
+                items = obj.items()
+            return {key: self.encode(value) for key, value in items}
+        if isinstance(obj, Iterable):
+            return [self.encode(value) for value in obj]
+
+        errors = []
         try:
             data = dict(obj)
         except Exception as e:
@@ -238,4 +166,16 @@ class Encoder:
             except Exception as e:
                 errors.append(e)
                 raise ValueError(errors)
-        return self._encode(data)
+        return self.encode(data)
+
+
+def _get_encoder(
+    obj: Any, custom_encoders: Mapping[Type, Callable]
+) -> Optional[Callable]:
+    encoder = custom_encoders.get(type(obj))
+    if encoder is not None:
+        return encoder
+    for cls, encoder in custom_encoders.items():
+        if isinstance(obj, cls):
+            return encoder
+    return None
