@@ -1,5 +1,3 @@
-import sys
-
 from beanie.odm.utils.pydantic import (
     parse_model,
     get_model_fields,
@@ -7,11 +5,6 @@ from beanie.odm.utils.pydantic import (
     get_extra_field_info,
     IS_PYDANTIC_V2,
 )
-
-if sys.version_info >= (3, 8):
-    from typing import get_args, get_origin
-else:
-    from typing_extensions import get_args, get_origin
 
 import importlib
 import inspect
@@ -22,6 +15,8 @@ from typing import (  # type: ignore
     Type,
     Union,
     _GenericAlias,
+    get_args,
+    get_origin,
 )
 
 from motor.motor_asyncio import AsyncIOMotorDatabase, AsyncIOMotorClient

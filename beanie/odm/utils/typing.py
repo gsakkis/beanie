@@ -1,11 +1,4 @@
-import sys
-
-if sys.version_info >= (3, 8):
-    from typing import get_args, get_origin
-else:
-    from typing_extensions import get_args, get_origin
-
-from typing import Type, Any
+from typing import get_args, get_origin, Type, Any
 import inspect
 
 
