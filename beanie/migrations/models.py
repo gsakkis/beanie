@@ -1,9 +1,8 @@
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional
 
 from pydantic import Field
-from pydantic.main import BaseModel
 
 from beanie.odm.documents import Document
 
@@ -22,12 +21,7 @@ class RunningDirections(str, Enum):
     BACKWARD = "BACKWARD"
 
 
-class RunningMode(BaseModel):
+@dataclass
+class RunningMode:
     direction: RunningDirections
-    distance: int = 0
-
-
-class ParsedMigrations(BaseModel):
-    path: str
-    names: List[str]
-    current: Optional[MigrationLog] = None
+    distance: int

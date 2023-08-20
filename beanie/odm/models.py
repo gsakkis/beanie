@@ -1,24 +1,21 @@
+from dataclasses import dataclass, field
 from typing import List
-
-from pydantic import BaseModel
 
 from beanie.odm.enums import InspectionStatuses
 from beanie.odm.fields import PydanticObjectId
 
 
-class InspectionError(BaseModel):
-    """
-    Inspection error details
-    """
+@dataclass
+class InspectionError:
+    """Inspection error details"""
 
     document_id: PydanticObjectId
     error: str
 
 
-class InspectionResult(BaseModel):
-    """
-    Collection inspection result
-    """
+@dataclass
+class InspectionResult:
+    """Collection inspection result"""
 
     status: InspectionStatuses = InspectionStatuses.OK
-    errors: List[InspectionError] = []
+    errors: List[InspectionError] = field(default_factory=list)
