@@ -38,7 +38,6 @@ from beanie.odm.actions import Delete, after_event, before_event
 from beanie.odm.fields import BackLink, Link, PydanticObjectId
 from beanie.odm.settings.timeseries import TimeSeriesConfig
 from beanie.odm.union_doc import UnionDoc
-from beanie.odm.utils.pydantic import IS_PYDANTIC_V2
 
 
 class Option2(BaseModel):
@@ -382,23 +381,13 @@ class DocumentWithRevisionTurnedOn(Document):
 
 
 class DocumentWithPydanticConfig(Document):
-    if IS_PYDANTIC_V2:
-        model_config = ConfigDict(validate_assignment=True)
-    else:
-
-        class Config:
-            validate_assignment = True
+    model_config = ConfigDict(validate_assignment=True)
 
     num_1: int
 
 
 class DocumentWithExtras(Document):
-    if IS_PYDANTIC_V2:
-        model_config = ConfigDict(extra="allow")
-    else:
-
-        class Config:
-            extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
     num_1: int
 

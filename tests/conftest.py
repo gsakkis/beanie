@@ -1,12 +1,6 @@
 import motor.motor_asyncio
 import pytest
-
-from beanie.odm.utils.pydantic import IS_PYDANTIC_V2
-
-if IS_PYDANTIC_V2:
-    from pydantic_settings import BaseSettings
-else:
-    from pydantic import BaseSettings
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):

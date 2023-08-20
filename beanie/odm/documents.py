@@ -15,23 +15,15 @@ from typing import (
 )
 from uuid import UUID, uuid4
 
-from bson import DBRef, ObjectId
+from bson import DBRef
 from lazy_model import LazyModel
-from pydantic import (
-    ConfigDict,
-    Field,
-    PrivateAttr,
-    ValidationError,
-)
+from pydantic import ConfigDict, Field, PrivateAttr, ValidationError
 from pydantic.class_validators import root_validator
 from pydantic.main import BaseModel
 from pymongo import InsertOne
 from pymongo.client_session import ClientSession
 from pymongo.errors import DuplicateKeyError
-from pymongo.results import (
-    DeleteResult,
-    InsertManyResult,
-)
+from pymongo.results import DeleteResult, InsertManyResult
 
 from beanie.exceptions import (
     CollectionWasNotInitialized,
@@ -84,7 +76,6 @@ from beanie.odm.settings.document import DocumentSettings
 from beanie.odm.utils.dump import get_dict, get_top_level_nones
 from beanie.odm.utils.parsing import merge_models
 from beanie.odm.utils.pydantic import (
-    IS_PYDANTIC_V2,
     get_extra_field_info,
     get_field_type,
     get_model_dump,
@@ -116,12 +107,6 @@ def json_schema_extra(schema: Dict[str, Any], model: Type["Document"]) -> None:
     schema["properties"] = props
 
 
-def document_alias_generator(s: str) -> str:
-    if s == "id":
-        return "_id"
-    return s
-
-
 class Document(
     LazyModel,
     SettersInterface,
@@ -144,37 +129,11 @@ class Document(
     - [UpdateMethods](https://roman-right.github.io/beanie/api/interfaces/#aggregatemethods)
     """
 
-    # class Config:
-    #     json_encoders = {
-    #         ObjectId: lambda v: str(v),
-    #     }
-    #     allow_population_by_field_name = True
-    #     # fields = {"id": "_id"}
-
-    if IS_PYDANTIC_V2:
-        model_config = ConfigDict(
-            json_schema_extra=json_schema_extra,
-            populate_by_name=True,
-            alias_generator=document_alias_generator,
-        )
-    else:
-
-        class Config:
-            json_encoders = {
-                ObjectId: lambda v: str(v),
-            }
-            allow_population_by_field_name = True
-            fields = {"id": "_id"}
-
-            @staticmethod
-            def schema_extra(
-                schema: Dict[str, Any], model: Type["Document"]
-            ) -> None:
-                props = {}
-                for k, v in schema.get("properties", {}).items():
-                    if not v.get("hidden", False):
-                        props[k] = v
-                schema["properties"] = props
+    model_config = ConfigDict(
+        json_schema_extra=json_schema_extra,
+        populate_by_name=True,
+        alias_generator=lambda s: "_id" if s == "id" else s,
+    )
 
     id: Optional[PydanticObjectId] = Field(
         default=None, description="MongoDB document ObjectID"
