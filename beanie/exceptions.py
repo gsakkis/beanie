@@ -64,7 +64,3 @@ class UnionDocNotInited(Exception):
 
 class DocWasNotRegisteredInUnionClass(Exception):
     pass
-
-
-class Deprecation(Exception):
-    pass

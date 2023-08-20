@@ -579,7 +579,6 @@ class Document(
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
         skip_actions: Optional[List[Union[ActionDirections, str]]] = None,
-        skip_sync: Optional[bool] = None,
         **pymongo_kwargs,
     ) -> DocType:
         """
@@ -592,13 +591,7 @@ class Document(
         :param pymongo_kwargs: pymongo native parameters for update operation
         :return: None
         """
-
         arguments = list(args)
-
-        if skip_sync is not None:
-            raise DeprecationWarning(
-                "skip_sync parameter is not supported. The document get synced always using atomic operation."
-            )
         use_revision_id = self.get_settings().use_revision
 
         if self.id is not None:
@@ -653,7 +646,6 @@ class Document(
         expression: Dict[Union[ExpressionField, str], Any],
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
-        skip_sync: Optional[bool] = None,
         **kwargs,
     ):
         """
@@ -676,14 +668,12 @@ class Document(
         values to set
         :param session: Optional[ClientSession] - pymongo session
         :param bulk_writer: Optional[BulkWriter] - bulk writer
-        :param skip_sync: bool - skip doc syncing. Available for the direct instances only
         :return: self
         """
         return self.update(
             SetOperator(expression),
             session=session,
             bulk_writer=bulk_writer,
-            skip_sync=skip_sync,
             **kwargs,
         )
 
@@ -692,7 +682,6 @@ class Document(
         expression: Dict[Union[ExpressionField, str], Any],
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
-        skip_sync: Optional[bool] = None,
         **kwargs,
     ):
         """
@@ -703,14 +692,12 @@ class Document(
         :param expression: Dict[Union[ExpressionField, str], Any]
         :param session: Optional[ClientSession] - pymongo session
         :param bulk_writer: Optional[BulkWriter] - bulk writer
-        :param skip_sync: bool - skip doc syncing. Available for the direct instances only
         :return: self
         """
         return self.update(
             CurrentDate(expression),
             session=session,
             bulk_writer=bulk_writer,
-            skip_sync=skip_sync,
             **kwargs,
         )
 
@@ -719,7 +706,6 @@ class Document(
         expression: Dict[Union[ExpressionField, str], Any],
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
-        skip_sync: Optional[bool] = None,
         **kwargs,
     ):
         """
@@ -741,14 +727,12 @@ class Document(
         :param expression: Dict[Union[ExpressionField, str], Any]
         :param session: Optional[ClientSession] - pymongo session
         :param bulk_writer: Optional[BulkWriter] - bulk writer
-        :param skip_sync: bool - skip doc syncing. Available for the direct instances only
         :return: self
         """
         return self.update(
             Inc(expression),
             session=session,
             bulk_writer=bulk_writer,
-            skip_sync=skip_sync,
             **kwargs,
         )
 

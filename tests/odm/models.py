@@ -694,13 +694,6 @@ class LoopedLinksB(Document):
     a: Optional[LoopedLinksA] = None
 
 
-class DocWithCollectionInnerClass(Document):
-    s: str
-
-    class Collection:
-        name = "test"
-
-
 class DocumentWithDecimalField(Document):
     model_config = ConfigDict(validate_assignment=True)
 
