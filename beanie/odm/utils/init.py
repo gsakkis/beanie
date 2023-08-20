@@ -33,13 +33,6 @@ from beanie.odm.settings.document import DocumentSettings, IndexModelField
 from beanie.odm.settings.union_doc import UnionDocSettings
 from beanie.odm.settings.view import ViewSettings
 from beanie.odm.union_doc import UnionDoc
-from beanie.odm.utils.pydantic import (
-    IS_PYDANTIC_V2,
-    get_extra_field_info,
-    get_field_type,
-    get_model_fields,
-    parse_model,
-)
 from beanie.odm.views import View
 
 
@@ -156,30 +149,13 @@ class Initializer:
         :return: None
         """
         settings_class = getattr(cls, "Settings", None)
-        settings_vars = (
-            {} if settings_class is None else dict(vars(settings_class))
-        )
+        settings = {} if settings_class is None else dict(vars(settings_class))
         if issubclass(cls, Document):
-            cls._document_settings = parse_model(
-                DocumentSettings, settings_vars
-            )
+            cls._document_settings = DocumentSettings.model_validate(settings)
         if issubclass(cls, View):
-            cls._settings = parse_model(ViewSettings, settings_vars)
+            cls._settings = ViewSettings.model_validate(settings)
         if issubclass(cls, UnionDoc):
-            cls._settings = parse_model(UnionDocSettings, settings_vars)
-
-    if not IS_PYDANTIC_V2:
-
-        def update_forward_refs(self, cls: Type[BaseModel]):
-            """
-            Update forward refs
-
-            :param cls: Type[BaseModel] - class to update forward refs
-            :return: None
-            """
-            if cls not in self.models_with_updated_forward_refs:
-                cls.update_forward_refs()
-                self.models_with_updated_forward_refs.append(cls)
+            cls._settings = UnionDocSettings.model_validate(settings)
 
     # General. Relations
 
@@ -216,9 +192,11 @@ class Initializer:
                 if cls is BackLink:
                     return LinkInfo(
                         field_name=field_name,
-                        lookup_field_name=get_extra_field_info(
-                            field, "original_field"
-                        ),  # type: ignore
+                        lookup_field_name=(
+                            field.json_schema_extra.get("original_field")
+                            if field.json_schema_extra is not None
+                            else None
+                        ),
                         document_class=DocsRegistry.evaluate_fr(args[0]),  # type: ignore
                         link_type=LinkTypes.BACK_DIRECT,
                     )
@@ -240,8 +218,10 @@ class Initializer:
                 if cls is BackLink:
                     return LinkInfo(
                         field_name=field_name,
-                        lookup_field_name=get_extra_field_info(  # type: ignore
-                            field, "original_field"
+                        lookup_field_name=(
+                            field.json_schema_extra.get("original_field")
+                            if field.json_schema_extra is not None
+                            else None
                         ),
                         document_class=DocsRegistry.evaluate_fr(get_args(args[0])[0]),  # type: ignore
                         link_type=LinkTypes.BACK_LIST,
@@ -332,17 +312,12 @@ class Initializer:
         :return: None
         """
 
-        if not IS_PYDANTIC_V2:
-            self.update_forward_refs(cls)
-
         def check_nested_links(
             link_info: LinkInfo, prev_models: List[Type[BaseModel]]
         ):
             if link_info.document_class in prev_models:
                 return
-            if not IS_PYDANTIC_V2:
-                self.update_forward_refs(link_info.document_class)
-            for k, v in get_model_fields(link_info.document_class).items():
+            for k, v in link_info.document_class.model_fields.items():
                 nested_link_info = self.detect_link(v, k)
                 if nested_link_info is None:
                     continue
@@ -358,7 +333,7 @@ class Initializer:
 
         if cls._link_fields is None:
             cls._link_fields = {}
-        for k, v in get_model_fields(cls).items():
+        for k, v in cls.model_fields.items():
             path = v.alias or k
             setattr(cls, k, ExpressionField(path))
 
@@ -462,9 +437,8 @@ class Initializer:
                     **fvalue.annotation._indexed[1],
                 )
             )
-            for k, fvalue in get_model_fields(cls).items()
-            if hasattr(get_field_type(fvalue), "_indexed")
-            and get_field_type(fvalue)._indexed
+            for k, fvalue in cls.model_fields.items()
+            if getattr(fvalue.annotation, "_indexed", False)
         ]
 
         if document_settings.merge_indexes:
@@ -580,7 +554,7 @@ class Initializer:
         ):
             if link_info.document_class in prev_models:
                 return
-            for k, v in get_model_fields(link_info.document_class).items():
+            for k, v in link_info.document_class.model_fields.items():
                 nested_link_info = self.detect_link(v, k)
                 if nested_link_info is None:
                     continue
@@ -596,7 +570,7 @@ class Initializer:
 
         if cls._link_fields is None:
             cls._link_fields = {}
-        for k, v in get_model_fields(cls).items():
+        for k, v in cls.model_fields.items():
             path = v.alias or k
             setattr(cls, k, ExpressionField(path))
 

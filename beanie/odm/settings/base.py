@@ -2,10 +2,12 @@ from datetime import timedelta
 from typing import Any, Dict, Optional, Type
 
 from motor.motor_asyncio import AsyncIOMotorCollection, AsyncIOMotorDatabase
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ItemSettings(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     name: Optional[str] = None
 
     use_cache: bool = False
@@ -22,6 +24,3 @@ class ItemSettings(BaseModel):
     class_id: str = "_class_id"
 
     is_root: bool = False
-
-    class Config:
-        arbitrary_types_allowed = True

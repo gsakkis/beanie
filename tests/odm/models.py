@@ -21,7 +21,7 @@ from pydantic import (
     SecretBytes,
     SecretStr,
 )
-from pydantic.color import Color
+from pydantic_extra_types.color import Color
 from pymongo import IndexModel
 
 from beanie import (
@@ -38,7 +38,6 @@ from beanie.odm.actions import Delete, after_event, before_event
 from beanie.odm.fields import BackLink, Link, PydanticObjectId
 from beanie.odm.settings.timeseries import TimeSeriesConfig
 from beanie.odm.union_doc import UnionDoc
-from beanie.odm.utils.pydantic import IS_PYDANTIC_V2
 
 
 class Option2(BaseModel):
@@ -382,23 +381,13 @@ class DocumentWithRevisionTurnedOn(Document):
 
 
 class DocumentWithPydanticConfig(Document):
-    if IS_PYDANTIC_V2:
-        model_config = ConfigDict(validate_assignment=True)
-    else:
-
-        class Config:
-            validate_assignment = True
+    model_config = ConfigDict(validate_assignment=True)
 
     num_1: int
 
 
 class DocumentWithExtras(Document):
-    if IS_PYDANTIC_V2:
-        model_config = ConfigDict(extra="allow")
-    else:
-
-        class Config:
-            extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
     num_1: int
 
@@ -433,15 +422,14 @@ class Roof(Document):
 
 
 class House(Document):
+    model_config = ConfigDict(extra="allow")
+
     windows: List[Link[Window]]
     door: Link[Door]
     roof: Optional[Link[Roof]] = None
     yards: Optional[List[Link[Yard]]] = None
     name: Indexed(str) = Field(hidden=True)
     height: Indexed(int) = 2
-
-    class Config:
-        extra = Extra.allow
 
 
 class DocumentForEncodingTest(Document):
@@ -616,6 +604,8 @@ class SampleWithMutableObjects(Document):
 
 
 class SampleLazyParsing(Document):
+    model_config = ConfigDict(validate_assignment=True)
+
     i: int
     s: str
     lst: List[int] = Field(
@@ -625,9 +615,6 @@ class SampleLazyParsing(Document):
     class Settings:
         lazy_parsing = True
         use_state_management = True
-
-    class Config:
-        validate_assignment = True
 
 
 class RootDocument(Document):
@@ -715,13 +702,12 @@ class DocWithCollectionInnerClass(Document):
 
 
 class DocumentWithDecimalField(Document):
+    model_config = ConfigDict(validate_assignment=True)
+
     amt: DecimalAnnotation
     other_amt: DecimalAnnotation = Field(
         decimal_places=1, multiple_of=0.5, default=0
     )
-
-    class Config:
-        validate_assignment = True
 
     class Settings:
         name = "amounts"

@@ -5,7 +5,6 @@ from typing import List, Optional, Type, Union
 from beanie.migrations.controllers.base import BaseMigrationController
 from beanie.migrations.utils import update_dict
 from beanie.odm.documents import Document
-from beanie.odm.utils.pydantic import parse_model
 
 
 class DummyOutput:
@@ -106,10 +105,9 @@ def iterative_migration(
                 await self.function(**function_kwargs)
                 output_dict = input_document.dict()
                 update_dict(output_dict, output.dict())
-                output_document = parse_model(
-                    self.output_document_model, output_dict
+                output_documents.append(
+                    self.output_document_model.model_validate(output_dict)
                 )
-                output_documents.append(output_document)
 
                 if len(output_documents) == self.batch_size:
                     all_migration_ops.append(

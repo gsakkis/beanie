@@ -15,23 +15,21 @@ from typing import (
 )
 from uuid import UUID, uuid4
 
-from bson import DBRef, ObjectId
+from bson import DBRef
 from lazy_model import LazyModel
 from pydantic import (
     ConfigDict,
     Field,
     PrivateAttr,
+    TypeAdapter,
     ValidationError,
+    model_validator,
 )
-from pydantic.class_validators import root_validator
 from pydantic.main import BaseModel
 from pymongo import InsertOne
 from pymongo.client_session import ClientSession
 from pymongo.errors import DuplicateKeyError
-from pymongo.results import (
-    DeleteResult,
-    InsertManyResult,
-)
+from pymongo.results import DeleteResult, InsertManyResult
 
 from beanie.exceptions import (
     CollectionWasNotInitialized,
@@ -83,15 +81,6 @@ from beanie.odm.queries.update import UpdateMany, UpdateResponse
 from beanie.odm.settings.document import DocumentSettings
 from beanie.odm.utils.dump import get_dict, get_top_level_nones
 from beanie.odm.utils.parsing import merge_models
-from beanie.odm.utils.pydantic import (
-    IS_PYDANTIC_V2,
-    get_extra_field_info,
-    get_field_type,
-    get_model_dump,
-    get_model_fields,
-    parse_model,
-    parse_object_as,
-)
 from beanie.odm.utils.self_validation import validate_self_before
 from beanie.odm.utils.state import (
     previous_saved_state_needed,
@@ -116,12 +105,6 @@ def json_schema_extra(schema: Dict[str, Any], model: Type["Document"]) -> None:
     schema["properties"] = props
 
 
-def document_alias_generator(s: str) -> str:
-    if s == "id":
-        return "_id"
-    return s
-
-
 class Document(
     LazyModel,
     SettersInterface,
@@ -144,37 +127,11 @@ class Document(
     - [UpdateMethods](https://roman-right.github.io/beanie/api/interfaces/#aggregatemethods)
     """
 
-    # class Config:
-    #     json_encoders = {
-    #         ObjectId: lambda v: str(v),
-    #     }
-    #     allow_population_by_field_name = True
-    #     # fields = {"id": "_id"}
-
-    if IS_PYDANTIC_V2:
-        model_config = ConfigDict(
-            json_schema_extra=json_schema_extra,
-            populate_by_name=True,
-            alias_generator=document_alias_generator,
-        )
-    else:
-
-        class Config:
-            json_encoders = {
-                ObjectId: lambda v: str(v),
-            }
-            allow_population_by_field_name = True
-            fields = {"id": "_id"}
-
-            @staticmethod
-            def schema_extra(
-                schema: Dict[str, Any], model: Type["Document"]
-            ) -> None:
-                props = {}
-                for k, v in schema.get("properties", {}).items():
-                    if not v.get("hidden", False):
-                        props[k] = v
-                schema["properties"] = props
+    model_config = ConfigDict(
+        json_schema_extra=json_schema_extra,
+        populate_by_name=True,
+        alias_generator=lambda s: "_id" if s == "id" else s,
+    )
 
     id: Optional[PydanticObjectId] = Field(
         default=None, description="MongoDB document ObjectID"
@@ -210,7 +167,8 @@ class Document(
         super(Document, self).__init__(*args, **kwargs)
         self.get_motor_collection()
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def fill_back_refs(cls, values):
         if cls._link_fields:
             for field_name, link_info in cls._link_fields.items():
@@ -235,6 +193,13 @@ class Document(
         return values
 
     @classmethod
+    def parse_document_id(cls, document_id: Any) -> Any:
+        id_annotation = cls.model_fields["id"].annotation
+        if isinstance(document_id, extract_id_class(id_annotation)):
+            return document_id
+        return TypeAdapter(id_annotation).validate_python(document_id)
+
+    @classmethod
     async def get(
         cls: Type["DocType"],
         document_id: Any,
@@ -253,16 +218,8 @@ class Document(
         :param **pymongo_kwargs: pymongo native parameters for find operation
         :return: Union["Document", None]
         """
-        if not isinstance(
-            document_id,
-            extract_id_class(get_field_type(get_model_fields(cls)["id"])),
-        ):
-            document_id = parse_object_as(
-                get_field_type(get_model_fields(cls)["id"]), document_id
-            )
-
         return await cls.find_one(
-            {"_id": document_id},
+            {"_id": cls.parse_document_id(document_id)},
             session=session,
             ignore_cache=ignore_cache,
             fetch_links=fetch_links,
@@ -312,15 +269,7 @@ class Document(
             ),
             session=session,
         )
-        new_id = result.inserted_id
-        if not isinstance(
-            new_id,
-            extract_id_class(get_field_type(get_model_fields(self)["id"])),
-        ):
-            new_id = parse_object_as(
-                get_field_type(get_model_fields(self)["id"]), new_id
-            )
-        self.id = new_id
+        self.id = self.parse_document_id(result.inserted_id)
         return self
 
     async def create(
@@ -1041,7 +990,7 @@ class Document(
             {}, session=session
         ):
             try:
-                parse_model(cls, json_document)
+                cls.model_validate(json_document)
             except ValidationError as e:
                 if inspection_result.status == InspectionStatuses.OK:
                     inspection_result.status = InspectionStatuses.FAIL
@@ -1056,8 +1005,9 @@ class Document(
     def get_hidden_fields(cls):
         return set(
             attribute_name
-            for attribute_name, model_field in get_model_fields(cls).items()
-            if get_extra_field_info(model_field, "hidden") is True
+            for attribute_name, model_field in cls.model_fields.items()
+            if model_field.json_schema_extra
+            and model_field.json_schema_extra.get("hidden")
         )
 
     def dict(
@@ -1105,7 +1055,8 @@ class Document(
     async def validate_self(self, *args, **kwargs):
         # TODO: it can be sync, but needs some actions controller improvements
         if self.get_settings().validate_on_save:
-            parse_model(self.__class__, get_model_dump(self))
+            data = self.model_dump()
+            self.__class__.model_validate(data)
 
     def to_ref(self):
         if self.id is None:

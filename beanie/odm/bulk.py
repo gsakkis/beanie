@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Mapping, Optional, Type, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from pymongo import (
     DeleteMany,
     DeleteOne,
@@ -14,6 +14,8 @@ from pymongo.results import BulkWriteResult
 
 
 class Operation(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     operation: Union[
         Type[InsertOne],
         Type[DeleteOne],
@@ -26,9 +28,6 @@ class Operation(BaseModel):
     second_query: Optional[Dict[str, Any]] = None
     pymongo_kwargs: Dict[str, Any] = Field(default_factory=dict)
     object_class: Type
-
-    class Config:
-        arbitrary_types_allowed = True
 
 
 class BulkWriter:

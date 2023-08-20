@@ -4,7 +4,6 @@ from bson import ObjectId
 from beanie import PydanticObjectId, WriteRules
 from beanie.exceptions import StateManagementIsTurnedOff, StateNotSaved
 from beanie.odm.utils.parsing import parse_obj
-from beanie.odm.utils.pydantic import IS_PYDANTIC_V2, parse_model
 from tests.odm.models import (
     DocumentWithTurnedOffStateManagement,
     DocumentWithTurnedOnReplaceObjects,
@@ -21,10 +20,7 @@ from tests.odm.models import (
 
 @pytest.fixture
 def state():
-    if IS_PYDANTIC_V2:
-        internal = InternalDoc().model_dump()
-    else:
-        internal = InternalDoc().dict()
+    internal = InternalDoc().model_dump()
     return {
         "num_1": 1,
         "num_2": 2,
@@ -35,11 +31,7 @@ def state():
 
 @pytest.fixture
 def state_without_id():
-    if IS_PYDANTIC_V2:
-        internal = InternalDoc().model_dump()
-    else:
-        internal = InternalDoc().dict()
-
+    internal = InternalDoc().model_dump()
     return {
         "num_1": 1,
         "num_2": 2,
@@ -109,10 +101,7 @@ class TestStateManagement:
         await StateAndDecimalFieldModel.all().to_list()
 
     async def test_parse_object_with_saving_state(self):
-        if IS_PYDANTIC_V2:
-            internal = InternalDoc().model_dump()
-        else:
-            internal = InternalDoc().dict()
+        internal = InternalDoc().model_dump()
         obj = {
             "num_1": 1,
             "num_2": 2,
@@ -407,9 +396,8 @@ class TestStateManagement:
                 assert doc.get_previous_saved_state() is None
 
         async def test_insert(self, state_without_id):
-            doc = parse_model(
-                DocumentWithTurnedOnStateManagement, state_without_id
-            )
+            model_validate = DocumentWithTurnedOnStateManagement.model_validate
+            doc = model_validate(state_without_id)
             assert doc.get_saved_state() is None
             await doc.insert()
             new_state = doc.get_saved_state()
