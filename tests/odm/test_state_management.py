@@ -4,7 +4,6 @@ from bson import ObjectId
 from beanie import PydanticObjectId, WriteRules
 from beanie.exceptions import StateManagementIsTurnedOff, StateNotSaved
 from beanie.odm.utils.parsing import parse_obj
-from beanie.odm.utils.pydantic import parse_model
 from tests.odm.models import (
     DocumentWithTurnedOffStateManagement,
     DocumentWithTurnedOnReplaceObjects,
@@ -397,9 +396,8 @@ class TestStateManagement:
                 assert doc.get_previous_saved_state() is None
 
         async def test_insert(self, state_without_id):
-            doc = parse_model(
-                DocumentWithTurnedOnStateManagement, state_without_id
-            )
+            model_validate = DocumentWithTurnedOnStateManagement.model_validate
+            doc = model_validate(state_without_id)
             assert doc.get_saved_state() is None
             await doc.insert()
             new_state = doc.get_saved_state()
