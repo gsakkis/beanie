@@ -1,5 +1,4 @@
 import asyncio
-import sys
 from collections import OrderedDict
 from enum import Enum
 from typing import (
@@ -14,12 +13,7 @@ from typing import (
     TYPE_CHECKING,
 )
 
-if sys.version_info >= (3, 8):
-    from typing import get_args
-else:
-    from typing_extensions import get_args
-
-from typing import OrderedDict as OrderedDictType
+from typing import OrderedDict as OrderedDictType, get_args
 
 from bson import ObjectId, DBRef
 from bson.errors import InvalidId
