@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from pydantic.color import Color
 
 from beanie.odm.enums import SortDirection
-from tests.odm.models import Sample, DocumentWithBsonEncodersFiledsTypes, House
+from tests.odm.models import DocumentWithBsonEncodersFiledsTypes, House, Sample
 
 
 async def test_find_query():

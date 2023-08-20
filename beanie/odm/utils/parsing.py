@@ -1,9 +1,10 @@
-from typing import Any, Type, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Type, Union
+
 from pydantic import BaseModel
 
 from beanie.exceptions import (
-    UnionHasNoRegisteredDocs,
     DocWasNotRegisteredInUnionClass,
+    UnionHasNoRegisteredDocs,
 )
 from beanie.odm.interfaces.detector import ModelType
 from beanie.odm.utils.pydantic import parse_model

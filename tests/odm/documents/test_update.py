@@ -7,10 +7,9 @@ from beanie.exceptions import (
 from beanie.odm.fields import PydanticObjectId
 from tests.odm.models import (
     DocumentTestModel,
-    ModelWithOptionalField,
     DocumentWithKeepNullsFalse,
+    ModelWithOptionalField,
 )
-
 
 # REPLACE
 

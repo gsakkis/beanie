@@ -1,33 +1,33 @@
 from beanie.migrations.controllers.free_fall import free_fall_migration
 from beanie.migrations.controllers.iterative import iterative_migration
 from beanie.odm.actions import (
-    before_event,
-    after_event,
+    After,
+    Before,
+    Delete,
     Insert,
     Replace,
     Save,
     SaveChanges,
-    ValidateOnSave,
-    Before,
-    After,
-    Delete,
     Update,
+    ValidateOnSave,
+    after_event,
+    before_event,
 )
 from beanie.odm.bulk import BulkWriter
 from beanie.odm.custom_types import DecimalAnnotation
+from beanie.odm.documents import Document
 from beanie.odm.fields import (
-    PydanticObjectId,
+    BackLink,
+    DeleteRules,
     Indexed,
     Link,
-    BackLink,
+    PydanticObjectId,
     WriteRules,
-    DeleteRules,
 )
-from beanie.odm.settings.timeseries import TimeSeriesConfig, Granularity
-from beanie.odm.utils.init import init_beanie
-from beanie.odm.documents import Document
-from beanie.odm.views import View
+from beanie.odm.settings.timeseries import Granularity, TimeSeriesConfig
 from beanie.odm.union_doc import UnionDoc
+from beanie.odm.utils.init import init_beanie
+from beanie.odm.views import View
 
 __version__ = "1.21.0"
 __all__ = [

@@ -1,5 +1,5 @@
-from typing import get_args, get_origin, Type, Any
 import inspect
+from typing import Any, Type, get_args, get_origin
 
 
 def extract_id_class(annotation) -> Type[Any]:

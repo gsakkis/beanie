@@ -15,22 +15,24 @@ from pathlib import PurePath
 from types import GeneratorType
 from typing import (
     AbstractSet,
+    Any,
+    Callable,
+    Dict,
     List,
     Mapping,
-    Union,
     Optional,
+    Type,
+    Union,
 )
-from typing import Any, Callable, Dict, Type
 from uuid import UUID
 
 import bson
-from bson import ObjectId, DBRef, Binary, Decimal128, Regex
-from pydantic import BaseModel
-from pydantic import SecretBytes, SecretStr
+from bson import Binary, DBRef, Decimal128, ObjectId, Regex
+from pydantic import BaseModel, SecretBytes, SecretStr
 from pydantic.color import Color
 
-from beanie.odm.fields import Link, LinkTypes
 from beanie.odm import documents
+from beanie.odm.fields import Link, LinkTypes
 
 ENCODERS_BY_TYPE: Dict[Type[Any], Callable[[Any], Any]] = {
     Color: str,
