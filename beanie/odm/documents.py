@@ -25,7 +25,6 @@ from pydantic import (
     ValidationError,
     model_validator,
 )
-from pydantic.main import BaseModel
 from pymongo import InsertOne
 from pymongo.client_session import ClientSession
 from pymongo.errors import DuplicateKeyError
@@ -94,7 +93,6 @@ if TYPE_CHECKING:
     from pydantic.typing import AbstractSetIntStr, DictStrAny, MappingIntStrAny
 
 DocType = TypeVar("DocType", bound="Document")
-DocumentProjectionType = TypeVar("DocumentProjectionType", bound=BaseModel)
 
 
 def json_schema_extra(schema: Dict[str, Any], model: Type["Document"]) -> None:

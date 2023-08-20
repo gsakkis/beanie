@@ -1,11 +1,6 @@
 from typing import TYPE_CHECKING, Any, Dict
 
-from beanie.odm.fields import (
-    ExpressionField,
-)
-
-# from pydantic.fields import ModelField
-# from pydantic.typing import get_origin
+from beanie.odm.fields import ExpressionField
 
 if TYPE_CHECKING:
     from beanie import Document

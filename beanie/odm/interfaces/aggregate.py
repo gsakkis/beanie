@@ -1,14 +1,10 @@
 from abc import abstractmethod
-from typing import Any, Dict, Optional, Type, TypeVar, Union, overload
+from typing import Any, Dict, Optional, Type, Union, overload
 
-from pydantic import BaseModel
 from pymongo.client_session import ClientSession
 
 from beanie.odm.queries.aggregation import AggregationQuery
-from beanie.odm.queries.find import FindMany
-
-DocType = TypeVar("DocType", bound="AggregateInterface")
-DocumentProjectionType = TypeVar("DocumentProjectionType", bound=BaseModel)
+from beanie.odm.queries.find import FindMany, FindQueryProjectionType
 
 
 class AggregateInterface:
@@ -20,7 +16,7 @@ class AggregateInterface:
     @overload
     @classmethod
     def aggregate(
-        cls: Type[DocType],
+        cls,
         aggregation_pipeline: list,
         projection_model: None = None,
         session: Optional[ClientSession] = None,
@@ -32,26 +28,26 @@ class AggregateInterface:
     @overload
     @classmethod
     def aggregate(
-        cls: Type[DocType],
+        cls,
         aggregation_pipeline: list,
-        projection_model: Type[DocumentProjectionType],
+        projection_model: Type[FindQueryProjectionType],
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
         **pymongo_kwargs,
-    ) -> AggregationQuery[DocumentProjectionType]:
+    ) -> AggregationQuery[FindQueryProjectionType]:
         ...
 
     @classmethod
     def aggregate(
-        cls: Type[DocType],
+        cls,
         aggregation_pipeline: list,
-        projection_model: Optional[Type[DocumentProjectionType]] = None,
+        projection_model: Optional[Type[FindQueryProjectionType]] = None,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
         **pymongo_kwargs,
     ) -> Union[
         AggregationQuery[Dict[str, Any]],
-        AggregationQuery[DocumentProjectionType],
+        AggregationQuery[FindQueryProjectionType],
     ]:
         """
         Aggregate over collection.

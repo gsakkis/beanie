@@ -1,14 +1,13 @@
-from typing import Dict, Optional, Type, TypeVar
-
-from pydantic import BaseModel
+from typing import TYPE_CHECKING, Dict, Optional, Type
 
 from beanie.odm.interfaces.detector import ModelType
 
-ProjectionModelType = TypeVar("ProjectionModelType", bound=BaseModel)
+if TYPE_CHECKING:
+    from beanie.odm.queries.find import FindQueryProjectionType
 
 
 def get_projection(
-    model: Type[ProjectionModelType],
+    model: Type["FindQueryProjectionType"],
 ) -> Optional[Dict[str, int]]:
     if hasattr(model, "get_model_type") and (
         model.get_model_type() == ModelType.UnionDoc  # type: ignore
