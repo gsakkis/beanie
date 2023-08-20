@@ -1,21 +1,19 @@
-from typing import Dict, ForwardRef, Type, Union
+from typing import Dict, ForwardRef, Generic, Type, TypeVar, Union
 
-from pydantic import BaseModel
+T = TypeVar("T")
 
 
-class DocsRegistry:
-    _registry: Dict[str, Type[BaseModel]] = {}
+class DocsRegistry(Generic[T]):
+    def __init__(self):
+        self._registry: Dict[str, Type[T]] = {}
 
-    @classmethod
-    def register(cls, name: str, doc_type: Type[BaseModel]):
-        cls._registry[name] = doc_type
+    def register(self, name: str, doc_type: Type[T]):
+        self._registry[name] = doc_type
 
-    @classmethod
-    def get(cls, name: str) -> Type[BaseModel]:
-        return cls._registry[name]
+    def get(self, name: str) -> Type[T]:
+        return self._registry[name]
 
-    @classmethod
-    def evaluate_fr(cls, forward_ref: Union[ForwardRef, Type]):
+    def evaluate_fr(self, forward_ref: Union[ForwardRef, Type]):
         """
         Evaluate forward ref
 
@@ -24,8 +22,8 @@ class DocsRegistry:
         """
         if (
             isinstance(forward_ref, ForwardRef)
-            and forward_ref.__forward_arg__ in cls._registry
+            and forward_ref.__forward_arg__ in self._registry
         ):
-            return cls._registry[forward_ref.__forward_arg__]
+            return self._registry[forward_ref.__forward_arg__]
         else:
             return forward_ref

@@ -36,6 +36,9 @@ if TYPE_CHECKING:
     from beanie.odm.documents import DocType
 
 
+DOCS_REGISTRY: DocsRegistry[BaseModel] = DocsRegistry()
+
+
 def Indexed(typ, index_type=ASCENDING, **kwargs):
     """
     Returns a subclass of `typ` with an extra attribute `_indexed` as a tuple:
@@ -273,7 +276,9 @@ class Link(Generic[T]):
     @classmethod
     def build_validation(cls, handler, source_type):
         def validate(v: Union[DBRef, T], _: core_schema.ValidationInfo):
-            document_class = DocsRegistry.evaluate_fr(get_args(source_type)[0])  # type: ignore  # noqa: F821
+            document_class = DOCS_REGISTRY.evaluate_fr(
+                get_args(source_type)[0]
+            )
 
             if isinstance(v, DBRef):
                 return cls(ref=v, document_class=document_class)
@@ -333,8 +338,10 @@ class BackLink(Generic[T]):
     @classmethod
     def build_validation(cls, handler, source_type):
         def validate(v: Union[DBRef, T], field):
-            document_class = DocsRegistry.evaluate_fr(get_args(source_type)[0])  # type: ignore  # noqa: F821
-            if isinstance(v, dict) or isinstance(v, BaseModel):
+            document_class = DOCS_REGISTRY.evaluate_fr(
+                get_args(source_type)[0]
+            )
+            if isinstance(v, (dict, BaseModel)):
                 return parse_obj(document_class, v)
             return cls(document_class=document_class)
 

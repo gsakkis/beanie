@@ -21,6 +21,7 @@ from beanie.odm.actions import ActionRegistry
 from beanie.odm.cache import LRUCache
 from beanie.odm.documents import DocType, Document
 from beanie.odm.fields import (
+    DOCS_REGISTRY,
     BackLink,
     ExpressionField,
     Link,
@@ -28,7 +29,6 @@ from beanie.odm.fields import (
     LinkTypes,
 )
 from beanie.odm.interfaces.detector import ModelType
-from beanie.odm.registry import DocsRegistry
 from beanie.odm.settings.document import DocumentSettings, IndexModelField
 from beanie.odm.settings.union_doc import UnionDocSettings
 from beanie.odm.settings.view import ViewSettings
@@ -113,7 +113,7 @@ class Initializer:
             members = inspect.getmembers(module)
             for name, obj in members:
                 if inspect.isclass(obj) and issubclass(obj, BaseModel):
-                    DocsRegistry.register(name, obj)
+                    DOCS_REGISTRY.register(name, obj)
 
     @staticmethod
     def get_model(dot_path: str) -> Type["DocType"]:
@@ -186,7 +186,7 @@ class Initializer:
                     return LinkInfo(
                         field_name=field_name,
                         lookup_field_name=field_name,
-                        document_class=DocsRegistry.evaluate_fr(args[0]),  # type: ignore
+                        document_class=DOCS_REGISTRY.evaluate_fr(args[0]),
                         link_type=LinkTypes.DIRECT,
                     )
                 if cls is BackLink:
@@ -197,7 +197,7 @@ class Initializer:
                             if field.json_schema_extra is not None
                             else None
                         ),
-                        document_class=DocsRegistry.evaluate_fr(args[0]),  # type: ignore
+                        document_class=DOCS_REGISTRY.evaluate_fr(args[0]),
                         link_type=LinkTypes.BACK_DIRECT,
                     )
 
@@ -212,7 +212,9 @@ class Initializer:
                     return LinkInfo(
                         field_name=field_name,
                         lookup_field_name=field_name,
-                        document_class=DocsRegistry.evaluate_fr(get_args(args[0])[0]),  # type: ignore
+                        document_class=DOCS_REGISTRY.evaluate_fr(
+                            get_args(args[0])[0]
+                        ),
                         link_type=LinkTypes.LIST,
                     )
                 if cls is BackLink:
@@ -223,7 +225,9 @@ class Initializer:
                             if field.json_schema_extra is not None
                             else None
                         ),
-                        document_class=DocsRegistry.evaluate_fr(get_args(args[0])[0]),  # type: ignore
+                        document_class=DOCS_REGISTRY.evaluate_fr(
+                            get_args(args[0])[0]
+                        ),
                         link_type=LinkTypes.BACK_LIST,
                     )
 
@@ -240,7 +244,9 @@ class Initializer:
                         return LinkInfo(
                             field_name=field_name,
                             lookup_field_name=field_name,
-                            document_class=DocsRegistry.evaluate_fr(optional_args[0]),  # type: ignore
+                            document_class=DOCS_REGISTRY.evaluate_fr(
+                                optional_args[0]
+                            ),
                             link_type=LinkTypes.OPTIONAL_DIRECT,
                         )
                     if cls is BackLink:
@@ -249,7 +255,9 @@ class Initializer:
                             lookup_field_name=field.json_schema_extra[  # type: ignore
                                 "original_field"
                             ],
-                            document_class=DocsRegistry.evaluate_fr(optional_args[0]),  # type: ignore
+                            document_class=DOCS_REGISTRY.evaluate_fr(
+                                optional_args[0]
+                            ),
                             link_type=LinkTypes.OPTIONAL_BACK_DIRECT,
                         )
 
@@ -263,7 +271,9 @@ class Initializer:
                         return LinkInfo(
                             field_name=field_name,
                             lookup_field_name=field_name,
-                            document_class=DocsRegistry.evaluate_fr(get_args(optional_args[0])[0]),  # type: ignore
+                            document_class=DOCS_REGISTRY.evaluate_fr(
+                                get_args(optional_args[0])[0]
+                            ),
                             link_type=LinkTypes.OPTIONAL_LIST,
                         )
                     if cls is BackLink:
@@ -272,7 +282,9 @@ class Initializer:
                             lookup_field_name=field.json_schema_extra[  # type: ignore
                                 "original_field"
                             ],
-                            document_class=DocsRegistry.evaluate_fr(get_args(optional_args[0])[0]),  # type: ignore
+                            document_class=DOCS_REGISTRY.evaluate_fr(
+                                get_args(optional_args[0])[0]
+                            ),
                             link_type=LinkTypes.OPTIONAL_BACK_LIST,
                         )
         return None
