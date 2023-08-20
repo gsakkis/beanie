@@ -23,8 +23,8 @@ from pydantic import (
     PrivateAttr,
     TypeAdapter,
     ValidationError,
+    model_validator,
 )
-from pydantic.class_validators import root_validator
 from pydantic.main import BaseModel
 from pymongo import InsertOne
 from pymongo.client_session import ClientSession
@@ -167,7 +167,8 @@ class Document(
         super(Document, self).__init__(*args, **kwargs)
         self.get_motor_collection()
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def fill_back_refs(cls, values):
         if cls._link_fields:
             for field_name, link_info in cls._link_fields.items():

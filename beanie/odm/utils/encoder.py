@@ -21,7 +21,6 @@ from typing import (
 
 import bson
 import pydantic
-import pydantic.color
 
 import beanie
 from beanie.odm.fields import Link, LinkTypes
@@ -32,7 +31,7 @@ if TYPE_CHECKING:
     from beanie.odm.documents import DocType
 
 
-DEFAULT_CUSTOM_ENCODERS: Mapping[Type, Callable] = {
+DEFAULT_CUSTOM_ENCODERS: Dict[Type, Callable] = {
     ipaddress.IPv4Address: str,
     ipaddress.IPv4Interface: str,
     ipaddress.IPv4Network: str,
@@ -40,7 +39,6 @@ DEFAULT_CUSTOM_ENCODERS: Mapping[Type, Callable] = {
     ipaddress.IPv6Interface: str,
     ipaddress.IPv6Network: str,
     pathlib.PurePath: str,
-    pydantic.color.Color: str,
     pydantic.SecretBytes: pydantic.SecretBytes.get_secret_value,
     pydantic.SecretStr: pydantic.SecretStr.get_secret_value,
     datetime.timedelta: operator.methodcaller("total_seconds"),
@@ -51,6 +49,14 @@ DEFAULT_CUSTOM_ENCODERS: Mapping[Type, Callable] = {
     uuid.UUID: bson.Binary.from_uuid,
     re.Pattern: bson.Regex.from_native,
 }
+try:
+    from pydantic_extra_types.color import Color
+except ImportError:
+    pass
+else:
+    DEFAULT_CUSTOM_ENCODERS[Color] = str
+
+
 BSON_SCALAR_TYPES = (
     type(None),
     str,

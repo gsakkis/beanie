@@ -10,7 +10,7 @@ class CachedItem(BaseModel):
     timestamp: datetime.datetime = Field(
         default_factory=datetime.datetime.utcnow
     )
-    value: Any
+    value: Any = None
 
 
 class LRUCache:
