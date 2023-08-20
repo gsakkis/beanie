@@ -3,32 +3,32 @@ from typing import List
 import pytest
 from pydantic.fields import Field
 
-from beanie import init_beanie, Document
+from beanie import Document, init_beanie
 from beanie.exceptions import DocumentWasNotSaved
-from beanie.odm.fields import DeleteRules, Link, WriteRules, BackLink
-from beanie.odm.utils.pydantic import parse_model, IS_PYDANTIC_V2
+from beanie.odm.fields import BackLink, DeleteRules, Link, WriteRules
+from beanie.odm.utils.pydantic import IS_PYDANTIC_V2, parse_model
 from tests.odm.models import (
-    Door,
-    House,
-    Lock,
-    Roof,
-    Window,
-    Yard,
-    RootDocument,
+    AddressView,
     ADocument,
     BDocument,
-    UsersAddresses,
-    Region,
-    AddressView,
-    SelfLinked,
-    LoopedLinksA,
-    LoopedLinksB,
+    DocumentToBeLinked,
     DocumentWithBackLink,
     DocumentWithLink,
     DocumentWithListBackLink,
     DocumentWithListLink,
     DocumentWithListOfLinks,
-    DocumentToBeLinked,
+    Door,
+    House,
+    Lock,
+    LoopedLinksA,
+    LoopedLinksB,
+    Region,
+    Roof,
+    RootDocument,
+    SelfLinked,
+    UsersAddresses,
+    Window,
+    Yard,
 )
 
 

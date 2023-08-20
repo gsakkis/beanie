@@ -1,16 +1,16 @@
-from typing import Dict, Any, List, Optional, Union, Type, Mapping
+from typing import Any, Dict, List, Mapping, Optional, Type, Union
 
 from pydantic import BaseModel, Field
 from pymongo import (
-    InsertOne,
-    DeleteOne,
     DeleteMany,
+    DeleteOne,
+    InsertOne,
     ReplaceOne,
-    UpdateOne,
     UpdateMany,
+    UpdateOne,
 )
-from pymongo.results import BulkWriteResult
 from pymongo.client_session import ClientSession
+from pymongo.results import BulkWriteResult
 
 
 class Operation(BaseModel):

@@ -1,13 +1,13 @@
 from beanie import Link
 from tests.odm.models import (
-    Vehicle,
     Bicycle,
     Bike,
-    Car,
     Bus,
+    Car,
     Owner,
-    TestNonRoot,
     Test2NonRoot,
+    TestNonRoot,
+    Vehicle,
 )
 
 

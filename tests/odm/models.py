@@ -1,5 +1,4 @@
 import datetime
-from beanie import DecimalAnnotation
 from ipaddress import (
     IPv4Address,
     IPv4Interface,
@@ -9,33 +8,34 @@ from ipaddress import (
     IPv6Network,
 )
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple, Union, ClassVar
+from typing import ClassVar, Dict, List, Optional, Set, Tuple, Union
 from uuid import UUID, uuid4
 
 import pymongo
 from pydantic import (
     BaseModel,
+    ConfigDict,
     Extra,
     Field,
     PrivateAttr,
     SecretBytes,
     SecretStr,
-    ConfigDict,
 )
 from pydantic.color import Color
 from pymongo import IndexModel
 
 from beanie import (
+    DecimalAnnotation,
     Document,
     Indexed,
     Insert,
     Replace,
+    Save,
     Update,
     ValidateOnSave,
-    Save,
 )
 from beanie.odm.actions import Delete, after_event, before_event
-from beanie.odm.fields import Link, PydanticObjectId, BackLink
+from beanie.odm.fields import BackLink, Link, PydanticObjectId
 from beanie.odm.settings.timeseries import TimeSeriesConfig
 from beanie.odm.union_doc import UnionDoc
 from beanie.odm.utils.pydantic import IS_PYDANTIC_V2

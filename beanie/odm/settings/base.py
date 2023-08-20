@@ -1,7 +1,7 @@
 from datetime import timedelta
-from typing import Optional, Dict, Any, Type
+from typing import Any, Dict, Optional, Type
 
-from motor.motor_asyncio import AsyncIOMotorDatabase, AsyncIOMotorCollection
+from motor.motor_asyncio import AsyncIOMotorCollection, AsyncIOMotorDatabase
 from pydantic import BaseModel, Field
 
 
