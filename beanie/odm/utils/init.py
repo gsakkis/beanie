@@ -192,11 +192,9 @@ class Initializer:
                 if cls is BackLink:
                     return LinkInfo(
                         field_name=field_name,
-                        lookup_field_name=(
-                            field.json_schema_extra.get("original_field")
-                            if field.json_schema_extra is not None
-                            else None
-                        ),
+                        lookup_field_name=field.json_schema_extra[  # type: ignore
+                            "original_field"
+                        ],
                         document_class=DOCS_REGISTRY.evaluate_fr(args[0]),
                         link_type=LinkTypes.BACK_DIRECT,
                     )
@@ -220,11 +218,9 @@ class Initializer:
                 if cls is BackLink:
                     return LinkInfo(
                         field_name=field_name,
-                        lookup_field_name=(
-                            field.json_schema_extra.get("original_field")
-                            if field.json_schema_extra is not None
-                            else None
-                        ),
+                        lookup_field_name=field.json_schema_extra[  # type: ignore
+                            "original_field"
+                        ],
                         document_class=DOCS_REGISTRY.evaluate_fr(
                             get_args(args[0])[0]
                         ),
@@ -368,8 +364,8 @@ class Initializer:
                 if hasattr(f, "has_action"):
                     ActionRegistry.add_action(
                         document_class=cls,
-                        event_types=f.event_types,  # type: ignore
-                        action_direction=f.action_direction,  # type: ignore
+                        event_types=f.event_types,
+                        action_direction=f.action_direction,
                         funct=f,
                     )
 
@@ -513,6 +509,7 @@ class Initializer:
             bases = [b for b in cls.__bases__ if issubclass(b, Document)]
             if len(bases) > 1:
                 return None
+
             parent = bases[0]
             output = await self.init_document(parent)
             if cls.get_settings().is_root and (
@@ -544,14 +541,14 @@ class Initializer:
 
             return output
 
+        elif cls._inheritance_inited:
+            assert cls._class_id is not None
+            return Output(
+                class_name=cls._class_id,
+                collection_name=cls.get_collection_name(),
+            )
         else:
-            if cls._inheritance_inited is True:
-                return Output(
-                    class_name=cls._class_id,
-                    collection_name=cls.get_collection_name(),
-                )
-            else:
-                return None
+            return None
 
     # Views
 
@@ -672,7 +669,7 @@ class Initializer:
             await self.init_union_doc(cls)
 
         if hasattr(cls, "custom_init"):
-            await cls.custom_init()  # type: ignore
+            await cls.custom_init()
 
 
 async def init_beanie(
