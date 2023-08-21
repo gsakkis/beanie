@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel
+import msgspec
 
 
 class Granularity(str, Enum):
@@ -14,10 +14,8 @@ class Granularity(str, Enum):
     hours = "hours"
 
 
-class TimeSeriesConfig(BaseModel):
-    """
-    Time Series Collection config
-    """
+class TimeSeriesConfig(msgspec.Struct):
+    """Time Series Collection config"""
 
     time_field: str
     meta_field: Optional[str] = None

@@ -588,9 +588,6 @@ class Initializer:
         if view_settings.name is None:
             view_settings.name = cls.__name__
 
-        if inspect.isclass(view_settings.source):
-            view_settings.source = view_settings.source.get_collection_name()
-
         view_settings.motor_collection = self.database[view_settings.name]
 
     async def init_view(self, cls: Type[View]):
@@ -613,7 +610,7 @@ class Initializer:
             await self.database.command(
                 {
                     "create": cls.get_settings().name,
-                    "viewOn": cls.get_settings().source,
+                    "viewOn": cls.get_settings().source.get_collection_name(),
                     "pipeline": cls.get_settings().pipeline,
                 }
             )
