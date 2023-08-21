@@ -5,20 +5,13 @@ from pydantic import BaseModel
 
 from beanie.exceptions import ViewWasNotInitialized
 from beanie.odm.fields import Link, LinkInfo
-from beanie.odm.interfaces.aggregate import AggregateInterface
 from beanie.odm.interfaces.find import FindInterface
-from beanie.odm.interfaces.getters import OtherGettersInterface
 from beanie.odm.settings.view import ViewSettings
 
 
-class View(
-    BaseModel, FindInterface, AggregateInterface, OtherGettersInterface
-):
+class View(BaseModel, FindInterface):
     """
-    What is needed:
-
-    Source collection or view
-    pipeline
+    What is needed: Source collection or view pipeline
     """
 
     _sort_order: ClassVar[int] = 2

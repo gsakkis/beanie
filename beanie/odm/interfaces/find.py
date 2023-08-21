@@ -14,10 +14,12 @@ from typing import (
     overload,
 )
 
+from motor.motor_asyncio import AsyncIOMotorCollection
 from pymongo.client_session import ClientSession
 
 import beanie
 from beanie.odm.fields import SortDirection
+from beanie.odm.queries.aggregation import AggregationQuery
 from beanie.odm.queries.find import FindMany, FindOne
 from beanie.odm.settings.base import ItemSettings
 
@@ -27,12 +29,7 @@ if TYPE_CHECKING:
 
 
 class FindInterface:
-    # Customization
-    # Query builders could be replaced in the inherited classes
-    _find_one_query_class: ClassVar[Type] = FindOne
-    _find_many_query_class: ClassVar[Type] = FindMany
-
-    _inheritance_inited: bool
+    _inheritance_inited: ClassVar[bool]
     _class_id: ClassVar[Optional[str]]
     _children: ClassVar[Dict[str, Type]]
 
@@ -40,6 +37,22 @@ class FindInterface:
     @abstractmethod
     def get_settings(cls) -> ItemSettings:
         pass
+
+    @classmethod
+    def get_motor_collection(cls) -> AsyncIOMotorCollection:
+        return cls.get_settings().motor_collection
+
+    @classmethod
+    def get_collection_name(cls):
+        return cls.get_settings().name
+
+    @classmethod
+    def get_bson_encoders(cls):
+        return cls.get_settings().bson_encoders
+
+    @classmethod
+    def get_link_fields(cls):
+        return None
 
     @overload
     @classmethod
@@ -93,7 +106,7 @@ class FindInterface:
         :return: [FindOne](https://roman-right.github.io/beanie/api/queries/#findone) - find query instance
         """
         args = cls._add_class_id_filter(args, with_children)
-        return cls._find_one_query_class(document_model=cls).find_one(
+        return FindOne(document_model=cls).find_one(
             *args,
             projection_model=projection_model,
             session=session,
@@ -169,7 +182,7 @@ class FindInterface:
         :return: [FindMany](https://roman-right.github.io/beanie/api/queries/#findmany) - query instance
         """
         args = cls._add_class_id_filter(args, with_children)
-        return cls._find_many_query_class(document_model=cls).find_many(
+        return FindMany(document_model=cls).find_many(
             *args,
             sort=sort,
             skip=skip,
@@ -388,6 +401,60 @@ class FindInterface:
         :return: int
         """
         return await cls.find_all().count()  # type: ignore
+
+    @overload
+    @classmethod
+    def aggregate(
+        cls,
+        aggregation_pipeline: list,
+        projection_model: None = None,
+        session: Optional[ClientSession] = None,
+        ignore_cache: bool = False,
+        **pymongo_kwargs,
+    ) -> AggregationQuery[Dict[str, Any]]:
+        ...
+
+    @overload
+    @classmethod
+    def aggregate(
+        cls,
+        aggregation_pipeline: list,
+        projection_model: Type["FindQueryProjectionType"],
+        session: Optional[ClientSession] = None,
+        ignore_cache: bool = False,
+        **pymongo_kwargs,
+    ) -> AggregationQuery["FindQueryProjectionType"]:
+        ...
+
+    @classmethod
+    def aggregate(
+        cls,
+        aggregation_pipeline: list,
+        projection_model: Optional[Type["FindQueryProjectionType"]] = None,
+        session: Optional[ClientSession] = None,
+        ignore_cache: bool = False,
+        **pymongo_kwargs,
+    ) -> Union[
+        AggregationQuery[Dict[str, Any]],
+        AggregationQuery["FindQueryProjectionType"],
+    ]:
+        """
+        Aggregate over collection.
+        Returns [AggregationQuery](https://roman-right.github.io/beanie/api/queries/#aggregationquery) query object
+        :param aggregation_pipeline: list - aggregation pipeline
+        :param projection_model: Type[BaseModel]
+        :param session: Optional[ClientSession]
+        :param ignore_cache: bool
+        :param **pymongo_kwargs: pymongo native parameters for aggregate operation
+        :return: [AggregationQuery](https://roman-right.github.io/beanie/api/queries/#aggregationquery)
+        """
+        return cls.find_all().aggregate(  # type: ignore[misc]
+            aggregation_pipeline=aggregation_pipeline,
+            projection_model=projection_model,
+            session=session,
+            ignore_cache=ignore_cache,
+            **pymongo_kwargs,
+        )
 
     @classmethod
     def _add_class_id_filter(cls, args: Tuple, with_children: bool = False):

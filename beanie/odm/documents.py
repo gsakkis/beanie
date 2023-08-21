@@ -55,9 +55,7 @@ from beanie.odm.fields import (
     PydanticObjectId,
     WriteRules,
 )
-from beanie.odm.interfaces.aggregate import AggregateInterface
 from beanie.odm.interfaces.find import FindInterface
-from beanie.odm.interfaces.getters import OtherGettersInterface
 from beanie.odm.interfaces.inheritance import InheritanceInterface
 from beanie.odm.interfaces.setters import SettersInterface
 from beanie.odm.models import (
@@ -103,12 +101,7 @@ def json_schema_extra(schema: Dict[str, Any], model: Type["Document"]) -> None:
 
 
 class Document(
-    LazyModel,
-    SettersInterface,
-    InheritanceInterface,
-    FindInterface,
-    AggregateInterface,
-    OtherGettersInterface,
+    LazyModel, SettersInterface, InheritanceInterface, FindInterface
 ):
     """
     Document Mapping class.
