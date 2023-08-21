@@ -1,15 +1,12 @@
-from typing import TYPE_CHECKING, Any, Type, Union
+from typing import Any, Type, Union
 
 from pydantic import BaseModel
 
+import beanie
 from beanie.exceptions import (
     DocWasNotRegisteredInUnionClass,
     UnionHasNoRegisteredDocs,
 )
-from beanie.odm.enums import ModelType
-
-if TYPE_CHECKING:
-    from beanie.odm.documents import Document
 
 
 def merge_models(left: BaseModel, right: BaseModel) -> None:
@@ -38,64 +35,44 @@ def merge_models(left: BaseModel, right: BaseModel) -> None:
             left.__setattr__(k, right_value)
 
 
-def save_state_swap_revision(item: BaseModel):
-    if hasattr(item, "_save_state"):
-        item._save_state()  # type: ignore
-    if hasattr(item, "_swap_revision"):
-        item._swap_revision()  # type: ignore
-
-
 def parse_obj(
-    model: Union[Type[BaseModel], Type["Document"]],
+    model: Union[Type[BaseModel], Type["beanie.UnionDoc"]],
     data: Any,
     lazy_parse: bool = False,
 ) -> BaseModel:
-    if (
-        hasattr(model, "get_model_type")
-        and model.get_model_type() == ModelType.UnionDoc  # type: ignore
-    ):
-        if model._document_models is None:  # type: ignore
+    if issubclass(model, beanie.UnionDoc):
+        if model._document_models is None:
             raise UnionHasNoRegisteredDocs
 
         if isinstance(data, dict):
-            class_name = data[model.get_settings().class_id]  # type: ignore
+            class_name = data[model.get_settings().class_id]
         else:
             class_name = data._class_id
 
-        if class_name not in model._document_models:  # type: ignore
+        if class_name not in model._document_models:
             raise DocWasNotRegisteredInUnionClass
-        return parse_obj(
-            model=model._document_models[class_name],  # type: ignore
-            data=data,
-            lazy_parse=lazy_parse,
-        )  # type: ignore
-    if (
-        hasattr(model, "get_model_type")
-        and model.get_model_type() == ModelType.Document  # type: ignore
-        and model._inheritance_inited  # type: ignore
-    ):
+        return parse_obj(model._document_models[class_name], data, lazy_parse)
+
+    if issubclass(model, beanie.Document) and model._inheritance_inited:
         if isinstance(data, dict):
-            class_name = data.get(model.get_settings().class_id)  # type: ignore
-        elif hasattr(data, model.get_settings().class_id):  # type: ignore
+            class_name = data.get(model.get_settings().class_id)
+        elif hasattr(data, model.get_settings().class_id):
             class_name = data._class_id
         else:
             class_name = None
 
-        if model._children and class_name in model._children:  # type: ignore
-            return parse_obj(
-                model=model._children[class_name],  # type: ignore
-                data=data,
-                lazy_parse=lazy_parse,
-            )  # type: ignore
+        if model._children and class_name in model._children:
+            return parse_obj(model._children[class_name], data, lazy_parse)
 
-    if (
-        lazy_parse
-        and hasattr(model, "get_model_type")
-        and model.get_model_type() == ModelType.Document  # type: ignore
-    ):
-        o = model.lazy_parse(data, {"_id"})  # type: ignore
+    if issubclass(model, beanie.Document) and lazy_parse:
+        o = model.lazy_parse(data, {"_id"})
         o._saved_state = {"_id": o.id}
         return o
+
     result = model.model_validate(data)
-    save_state_swap_revision(result)
+
+    if isinstance(result, beanie.Document):
+        result._save_state()
+        result._swap_revision()
+
     return result
