@@ -6,7 +6,7 @@ from beanie.exceptions import (
     DocWasNotRegisteredInUnionClass,
     UnionHasNoRegisteredDocs,
 )
-from beanie.odm.interfaces.detector import ModelType
+from beanie.odm.enums import ModelType
 
 if TYPE_CHECKING:
     from beanie.odm.documents import Document

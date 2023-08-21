@@ -45,6 +45,7 @@ from beanie.odm.actions import (
 )
 from beanie.odm.bulk import BulkWriter, Operation
 from beanie.odm.cache import LRUCache
+from beanie.odm.enums import ModelType
 from beanie.odm.fields import (
     BackLink,
     DeleteRules,
@@ -56,7 +57,6 @@ from beanie.odm.fields import (
     WriteRules,
 )
 from beanie.odm.interfaces.aggregate import AggregateInterface
-from beanie.odm.interfaces.detector import ModelType
 from beanie.odm.interfaces.find import FindInterface
 from beanie.odm.interfaces.getters import OtherGettersInterface
 from beanie.odm.interfaces.inheritance import InheritanceInterface

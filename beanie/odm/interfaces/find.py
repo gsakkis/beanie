@@ -16,8 +16,7 @@ from typing import (
 
 from pymongo.client_session import ClientSession
 
-from beanie.odm.enums import SortDirection
-from beanie.odm.interfaces.detector import ModelType
+from beanie.odm.enums import ModelType, SortDirection
 from beanie.odm.queries.find import FindMany, FindOne
 from beanie.odm.settings.base import ItemSettings
 

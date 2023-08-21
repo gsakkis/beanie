@@ -20,6 +20,7 @@ from beanie.exceptions import MongoDBVersionError
 from beanie.odm.actions import ActionRegistry
 from beanie.odm.cache import LRUCache
 from beanie.odm.documents import DocType, Document
+from beanie.odm.enums import ModelType
 from beanie.odm.fields import (
     DOCS_REGISTRY,
     BackLink,
@@ -28,7 +29,6 @@ from beanie.odm.fields import (
     LinkInfo,
     LinkTypes,
 )
-from beanie.odm.interfaces.detector import ModelType
 from beanie.odm.settings.document import DocumentSettings, IndexModelField
 from beanie.odm.settings.union_doc import UnionDocSettings
 from beanie.odm.settings.view import ViewSettings

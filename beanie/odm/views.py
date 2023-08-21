@@ -4,27 +4,22 @@ from typing import Any, ClassVar, Dict, Optional, Union
 from pydantic import BaseModel
 
 from beanie.exceptions import ViewWasNotInitialized
+from beanie.odm.enums import ModelType
 from beanie.odm.fields import Link, LinkInfo
 from beanie.odm.interfaces.aggregate import AggregateInterface
-from beanie.odm.interfaces.detector import DetectionInterface, ModelType
 from beanie.odm.interfaces.find import FindInterface
 from beanie.odm.interfaces.getters import OtherGettersInterface
 from beanie.odm.settings.view import ViewSettings
 
 
 class View(
-    BaseModel,
-    FindInterface,
-    AggregateInterface,
-    OtherGettersInterface,
-    DetectionInterface,
+    BaseModel, FindInterface, AggregateInterface, OtherGettersInterface
 ):
     """
     What is needed:
 
     Source collection or view
     pipeline
-
     """
 
     # Relations

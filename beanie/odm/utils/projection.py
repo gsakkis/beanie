@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Dict, Optional, Type
 
-from beanie.odm.interfaces.detector import ModelType
+from beanie.odm.enums import ModelType
 
 if TYPE_CHECKING:
     from beanie.odm.queries.find import FindQueryProjectionType

@@ -1,19 +1,14 @@
 from typing import ClassVar, Dict, Optional, Type
 
 from beanie.exceptions import UnionDocNotInited
+from beanie.odm.enums import ModelType
 from beanie.odm.interfaces.aggregate import AggregateInterface
-from beanie.odm.interfaces.detector import DetectionInterface, ModelType
 from beanie.odm.interfaces.find import FindInterface
 from beanie.odm.interfaces.getters import OtherGettersInterface
 from beanie.odm.settings.union_doc import UnionDocSettings
 
 
-class UnionDoc(
-    FindInterface,
-    AggregateInterface,
-    OtherGettersInterface,
-    DetectionInterface,
-):
+class UnionDoc(FindInterface, AggregateInterface, OtherGettersInterface):
     _document_models: ClassVar[Optional[Dict[str, Type]]] = None
     _is_inited: ClassVar[bool] = False
     _settings: ClassVar[UnionDocSettings]

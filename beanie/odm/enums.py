@@ -19,3 +19,9 @@ class InspectionStatuses(str, Enum):
 
     FAIL = "FAIL"
     OK = "OK"
+
+
+class ModelType(str, Enum):
+    Document = "Document"
+    View = "View"
+    UnionDoc = "UnionDoc"
