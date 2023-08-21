@@ -20,7 +20,6 @@ from beanie.exceptions import MongoDBVersionError
 from beanie.odm.actions import ActionRegistry
 from beanie.odm.cache import LRUCache
 from beanie.odm.documents import DocType, Document
-from beanie.odm.enums import ModelType
 from beanie.odm.fields import (
     DOCS_REGISTRY,
     BackLink,
@@ -85,12 +84,6 @@ class Initializer:
 
         self.database: AsyncIOMotorDatabase = database
 
-        sort_order = {
-            ModelType.UnionDoc: 0,
-            ModelType.Document: 1,
-            ModelType.View: 2,
-        }
-
         self.document_models: List[Union[Type[DocType], Type[View]]] = [
             self.get_model(model) if isinstance(model, str) else model
             for model in document_models
@@ -98,9 +91,7 @@ class Initializer:
 
         self.fill_docs_registry()
 
-        self.document_models.sort(
-            key=lambda val: sort_order[val.get_model_type()]
-        )
+        self.document_models.sort(key=lambda val: val._sort_order)
 
     def __await__(self):
         for model in self.document_models:

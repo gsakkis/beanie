@@ -45,7 +45,6 @@ from beanie.odm.actions import (
 )
 from beanie.odm.bulk import BulkWriter, Operation
 from beanie.odm.cache import LRUCache
-from beanie.odm.enums import ModelType
 from beanie.odm.fields import (
     BackLink,
     DeleteRules,
@@ -155,6 +154,7 @@ class Document(
 
     # Other
     _hidden_fields: ClassVar[Set[str]] = set()
+    _sort_order: ClassVar[int] = 1
 
     def _swap_revision(self):
         if self.get_settings().use_revision:
@@ -1065,10 +1065,6 @@ class Document(
     @classmethod
     def get_link_fields(cls) -> Optional[Dict[str, LinkInfo]]:
         return cls._link_fields
-
-    @classmethod
-    def get_model_type(cls) -> ModelType:
-        return ModelType.Document
 
     @classmethod
     async def distinct(

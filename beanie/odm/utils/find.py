@@ -1,20 +1,16 @@
-from typing import TYPE_CHECKING, Any, Dict, List, Type
+from typing import Any, Dict, List
 
+import beanie
 from beanie.exceptions import NotSupported
-from beanie.odm.enums import ModelType
 from beanie.odm.fields import LinkInfo, LinkTypes
-
-if TYPE_CHECKING:
-    from beanie import Document
-
 
 # TODO: check if this is the most efficient way for
 #  appending subqueries to the queries var
 
 
-def construct_lookup_queries(cls: Type["Document"]) -> List[Dict[str, Any]]:
-    if cls.get_model_type() == ModelType.UnionDoc:
-        raise NotSupported("UnionDoc doesn't support link fetching")
+def construct_lookup_queries(cls: type) -> List[Dict[str, Any]]:
+    if not issubclass(cls, beanie.Document):
+        raise NotSupported(f"{cls} doesn't support link fetching")
     queries: List = []
     link_fields = cls.get_link_fields()
     if link_fields is not None:

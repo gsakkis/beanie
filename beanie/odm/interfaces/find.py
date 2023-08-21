@@ -16,7 +16,7 @@ from typing import (
 
 from pymongo.client_session import ClientSession
 
-from beanie.odm.enums import ModelType
+import beanie
 from beanie.odm.fields import SortDirection
 from beanie.odm.queries.find import FindMany, FindOne
 from beanie.odm.settings.base import ItemSettings
@@ -35,11 +35,6 @@ class FindInterface:
     _inheritance_inited: bool
     _class_id: ClassVar[Optional[str]]
     _children: ClassVar[Dict[str, Type]]
-
-    @classmethod
-    @abstractmethod
-    def get_model_type(cls) -> ModelType:
-        pass
 
     @classmethod
     @abstractmethod
@@ -406,10 +401,7 @@ class FindInterface:
         ):
             return args
 
-        if (
-            cls.get_model_type() == ModelType.Document
-            and cls._inheritance_inited
-        ):
+        if issubclass(cls, beanie.Document) and cls._inheritance_inited:
             if not with_children:
                 args += ({cls.get_settings().class_id: cls._class_id},)
             else:

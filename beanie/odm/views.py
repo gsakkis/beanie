@@ -4,7 +4,6 @@ from typing import Any, ClassVar, Dict, Optional, Union
 from pydantic import BaseModel
 
 from beanie.exceptions import ViewWasNotInitialized
-from beanie.odm.enums import ModelType
 from beanie.odm.fields import Link, LinkInfo
 from beanie.odm.interfaces.aggregate import AggregateInterface
 from beanie.odm.interfaces.find import FindInterface
@@ -21,6 +20,8 @@ class View(
     Source collection or view
     pipeline
     """
+
+    _sort_order: ClassVar[int] = 2
 
     # Relations
     _link_fields: ClassVar[Optional[Dict[str, LinkInfo]]] = None
@@ -60,7 +61,3 @@ class View(
     @classmethod
     def get_link_fields(cls) -> Optional[Dict[str, LinkInfo]]:
         return cls._link_fields
-
-    @classmethod
-    def get_model_type(cls) -> ModelType:
-        return ModelType.View
