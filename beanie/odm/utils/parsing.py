@@ -10,29 +10,16 @@ from beanie.exceptions import (
 
 
 def merge_models(left: BaseModel, right: BaseModel) -> None:
-    from beanie.odm.fields import Link
-
-    if hasattr(left, "_previous_revision_id") and hasattr(
-        right, "_previous_revision_id"
+    if isinstance(left, beanie.Document) and isinstance(
+        right, beanie.Document
     ):
-        left._previous_revision_id = right._previous_revision_id  # type: ignore
-    for k, right_value in right.__iter__():
-        left_value = getattr(left, k)
-        if isinstance(right_value, BaseModel) and isinstance(
-            left_value, BaseModel
-        ):
-            merge_models(left_value, right_value)
-            continue
-        if isinstance(right_value, list):
-            links_found = False
-            for i in right_value:
-                if isinstance(i, Link):
-                    links_found = True
-                    break
-            if links_found:
-                continue
-        elif not isinstance(right_value, Link):
-            left.__setattr__(k, right_value)
+        left._previous_revision_id = right._previous_revision_id
+    for k, rvalue in right:
+        lvalue = getattr(left, k)
+        if isinstance(rvalue, BaseModel) and isinstance(lvalue, BaseModel):
+            merge_models(lvalue, rvalue)
+        elif not isinstance(rvalue, (beanie.Link, list)):
+            setattr(left, k, rvalue)
 
 
 def parse_obj(
