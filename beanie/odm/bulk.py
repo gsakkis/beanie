@@ -1,6 +1,6 @@
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Mapping, Optional, Type, Union
 
-from pydantic import BaseModel, ConfigDict, Field
 from pymongo import (
     DeleteMany,
     DeleteOne,
@@ -13,9 +13,8 @@ from pymongo.client_session import ClientSession
 from pymongo.results import BulkWriteResult
 
 
-class Operation(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
+@dataclass
+class Operation:
     operation: Union[
         Type[InsertOne],
         Type[DeleteOne],
@@ -24,10 +23,10 @@ class Operation(BaseModel):
         Type[UpdateOne],
         Type[UpdateMany],
     ]
+    object_class: Type
     first_query: Mapping[str, Any]
     second_query: Optional[Dict[str, Any]] = None
-    pymongo_kwargs: Dict[str, Any] = Field(default_factory=dict)
-    object_class: Type
+    pymongo_kwargs: Dict[str, Any] = field(default_factory=dict)
 
 
 class BulkWriter:
@@ -46,26 +45,21 @@ class BulkWriter:
         Commit all the operations to the database
         :return:
         """
-        obj_class = None
         requests = []
         if self.operations:
+            obj_class = self.operations[0].object_class
             for op in self.operations:
-                if obj_class is None:
-                    obj_class = op.object_class
-
                 if obj_class != op.object_class:
                     raise ValueError(
                         "All the operations should be for a single document model"
                     )
-                if op.operation in [InsertOne, DeleteOne]:
-                    query = op.operation(op.first_query, **op.pymongo_kwargs)  # type: ignore
-                else:
-                    query = op.operation(
-                        op.first_query, op.second_query, **op.pymongo_kwargs  # type: ignore
-                    )
-                requests.append(query)
 
-            return await obj_class.get_motor_collection().bulk_write(  # type: ignore
+                args = [op.first_query]
+                if op.second_query is not None:
+                    args.append(op.second_query)
+                requests.append(op.operation(*args, **op.pymongo_kwargs))
+
+            return await obj_class.get_motor_collection().bulk_write(
                 requests, session=self.session
             )
         return None
