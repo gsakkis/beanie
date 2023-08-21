@@ -15,6 +15,7 @@ from typing import (
 )
 from typing import OrderedDict as OrderedDictType
 
+import pymongo
 from bson import DBRef, ObjectId
 from bson.errors import InvalidId
 from pydantic import (
@@ -25,9 +26,7 @@ from pydantic import (
 )
 from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import core_schema
-from pymongo import ASCENDING, IndexModel
 
-from beanie.odm.enums import SortDirection
 from beanie.odm.operators.find.comparison import GT, GTE, LT, LTE, NE, Eq, In
 from beanie.odm.registry import DocsRegistry
 from beanie.odm.utils.parsing import parse_obj
@@ -39,7 +38,7 @@ if TYPE_CHECKING:
 DOCS_REGISTRY: DocsRegistry[BaseModel] = DocsRegistry()
 
 
-def Indexed(typ, index_type=ASCENDING, **kwargs):
+def Indexed(typ, index_type=pymongo.ASCENDING, **kwargs):
     """
     Returns a subclass of `typ` with an extra attribute `_indexed` as a tuple:
     - Index 0: `index_type` such as `pymongo.ASCENDING`
@@ -108,6 +107,15 @@ class PydanticObjectId(ObjectId):
             example="5eb7cf5a86d9755df3a6c593",
         )
         return json_schema
+
+
+class SortDirection(int, Enum):
+    """
+    Sorting directions
+    """
+
+    ASCENDING = pymongo.ASCENDING
+    DESCENDING = pymongo.DESCENDING
 
 
 class ExpressionField(str):
@@ -360,7 +368,7 @@ class BackLink(Generic[T]):
 
 
 class IndexModelField:
-    def __init__(self, index: IndexModel):
+    def __init__(self, index: pymongo.IndexModel):
         self.index = index
         self.name = index.document["name"]
 
@@ -403,7 +411,7 @@ class IndexModelField:
 
             options = {k: v for k, v in details.items() if k != "key"}
             index_model = IndexModelField(
-                IndexModel(fields, name=name, **options)
+                pymongo.IndexModel(fields, name=name, **options)
             )
             result.append(index_model)
         return result
@@ -434,9 +442,8 @@ class IndexModelField:
         cls, source_type: Any, handler: GetCoreSchemaHandler
     ) -> core_schema.CoreSchema:  # type: ignore
         def validate(v, _):
-            if isinstance(v, IndexModel):
-                return IndexModelField(v)
-            else:
-                return IndexModelField(IndexModel(v))
+            if not isinstance(v, pymongo.IndexModel):
+                v = pymongo.IndexModel(v)
+            return IndexModelField(v)
 
         return core_schema.general_plain_validator_function(validate)

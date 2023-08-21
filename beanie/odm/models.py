@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import List
 
-from beanie.odm.enums import InspectionStatuses
 from beanie.odm.fields import PydanticObjectId
 
 
@@ -11,6 +11,15 @@ class InspectionError:
 
     document_id: PydanticObjectId
     error: str
+
+
+class InspectionStatuses(str, Enum):
+    """
+    Statuses of the collection inspection
+    """
+
+    FAIL = "FAIL"
+    OK = "OK"
 
 
 @dataclass

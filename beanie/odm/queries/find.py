@@ -25,7 +25,7 @@ from pymongo.results import UpdateResult
 from beanie.exceptions import DocumentNotFound
 from beanie.odm.bulk import BulkWriter, Operation
 from beanie.odm.cache import LRUCache
-from beanie.odm.enums import SortDirection
+from beanie.odm.fields import SortDirection
 from beanie.odm.interfaces.aggregation_methods import AggregateMethods
 from beanie.odm.interfaces.clone import CloneInterface
 from beanie.odm.interfaces.session import SessionMethods
