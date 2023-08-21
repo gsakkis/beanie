@@ -11,11 +11,11 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
-    Container,
     Dict,
     Iterable,
     Mapping,
     Optional,
+    Set,
     Type,
 )
 
@@ -84,16 +84,18 @@ class Encoder:
     BSON encoding class
     """
 
-    exclude: Container[str] = frozenset()
+    exclude: Set[str] = dc.field(default_factory=set)
     custom_encoders: Mapping[Type, Callable] = dc.field(default_factory=dict)
-    by_alias: bool = True
     to_db: bool = False
     keep_nulls: bool = True
 
+    def __post_init__(self):
+        # replace _id alias with id field name
+        if "_id" in self.exclude and "id" not in self.exclude:
+            self.exclude.add("id")
+            self.exclude.remove("_id")
+
     def _encode_document(self, obj: "DocType") -> Mapping[str, Any]:
-        """
-        Beanie Document class case
-        """
         obj.parse_store()
         settings = obj.get_settings()
         obj_dict: Dict[str, Any] = {}
@@ -108,7 +110,6 @@ class Encoder:
         sub_encoder = Encoder(
             # don't propagate self.exclude to subdocuments
             custom_encoders=settings.bson_encoders,
-            by_alias=self.by_alias,
             to_db=self.to_db,
             keep_nulls=self.keep_nulls,
         )
@@ -130,15 +131,13 @@ class Encoder:
         return obj_dict
 
     def _iter_model_items(self, obj: pydantic.BaseModel) -> "TupleGenerator":
-        exclude, keep_nulls = self.exclude, self.keep_nulls
-        for key, value in obj._iter(to_dict=False, by_alias=self.by_alias):
-            if key not in exclude and (keep_nulls or value is not None):
-                yield key, value
+        return obj._iter(
+            by_alias=True,
+            exclude=self.exclude,
+            exclude_none=not self.keep_nulls,
+        )
 
     def encode(self, obj: Any) -> Any:
-        """
-        Run the encoder
-        """
         if self.custom_encoders:
             encoder = _get_encoder(obj, self.custom_encoders)
             if encoder is not None:
@@ -153,12 +152,11 @@ class Encoder:
 
         if isinstance(obj, beanie.Document):
             return self._encode_document(obj)
-        if isinstance(obj, (pydantic.BaseModel, Mapping)):
-            if isinstance(obj, pydantic.BaseModel):
-                items = self._iter_model_items(obj)
-            else:
-                items = obj.items()
+        if isinstance(obj, pydantic.BaseModel):
+            items = self._iter_model_items(obj)
             return {key: self.encode(value) for key, value in items}
+        if isinstance(obj, Mapping):
+            return {key: self.encode(value) for key, value in obj.items()}
         if isinstance(obj, Iterable):
             return [self.encode(value) for value in obj]
 

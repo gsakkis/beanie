@@ -1031,7 +1031,7 @@ class Document(
         if skip_defaults:
             kwargs["skip_defaults"] = skip_defaults
 
-        return super().dict(**kwargs)
+        return self.model_dump(**kwargs)
 
     @wrap_with_actions(event_type=EventTypes.VALIDATE_ON_SAVE)
     async def validate_self(self, *args, **kwargs):
