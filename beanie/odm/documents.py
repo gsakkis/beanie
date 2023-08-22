@@ -55,7 +55,6 @@ from beanie.odm.fields import (
 )
 from beanie.odm.interfaces.find import FindInterface
 from beanie.odm.interfaces.inheritance import InheritanceInterface
-from beanie.odm.interfaces.setters import SettersInterface
 from beanie.odm.models import (
     InspectionError,
     InspectionResult,
@@ -96,9 +95,7 @@ def json_schema_extra(schema: Dict[str, Any], model: Type["Document"]) -> None:
     schema["properties"] = props
 
 
-class Document(
-    LazyModel, SettersInterface, InheritanceInterface, FindInterface
-):
+class Document(LazyModel, InheritanceInterface, FindInterface):
     """
     Document Mapping class.
 
@@ -944,6 +941,27 @@ class Document(
         if cls._document_settings is None:
             raise CollectionWasNotInitialized
         return cls._document_settings
+
+    @classmethod
+    def set_collection(cls, collection):
+        """
+        Collection setter
+        """
+        cls.get_settings().motor_collection = collection
+
+    @classmethod
+    def set_database(cls, database):
+        """
+        Database setter
+        """
+        cls.get_settings().motor_db = database
+
+    @classmethod
+    def set_collection_name(cls, name: str):
+        """
+        Collection name setter
+        """
+        cls.get_settings().name = name
 
     @classmethod
     async def inspect_collection(
