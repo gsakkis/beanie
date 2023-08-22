@@ -25,7 +25,3 @@ class LRUCache:
             if len(self.cache) >= self.capacity:
                 self.cache.popitem(last=False)
         self.cache[key] = (value, datetime.utcnow())
-
-    @staticmethod
-    def create_key(*args):
-        return str(args)  # TODO think about this

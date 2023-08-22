@@ -79,6 +79,18 @@ class FindQuery(SessionMethods, CloneInterface):
             return self.document_model._cache
         return None
 
+    @property
+    def cache_key(self) -> str:
+        return str(self._cache_key_dict())
+
+    def _cache_key_dict(self) -> Dict[str, Any]:
+        return dict(
+            type=self.__class__.__name__,
+            filter=self.get_filter_query(),
+            projection=self.get_projection(),
+            fetch_links=self.fetch_links,
+        )
+
     def get_filter_query(self) -> Mapping[str, Any]:
         """Returns: MongoDB filter query"""
         if self.document_model.get_link_fields() is not None:
@@ -147,16 +159,10 @@ class AggregationQuery(FindQuery, BaseCursorQuery):
             document_model, projection_model, ignore_cache, **pymongo_kwargs
         )
 
-    @property
-    def cache_key(self) -> str:
-        return LRUCache.create_key(
-            {
-                "type": "Aggregation",
-                "filter": self.find_query,
-                "pipeline": self.aggregation_pipeline,
-                "projection": self.get_projection(),
-            }
-        )
+    def _cache_key_dict(self) -> Dict[str, Any]:
+        d = super()._cache_key_dict()
+        d.update(filter=self.find_query, pipeline=self.aggregation_pipeline)
+        return d
 
     @property
     def motor_cursor(self) -> AgnosticBaseCursor:
@@ -198,18 +204,14 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods, AggregateMethods):
         self.skip_number = 0
         self.limit_number = 0
 
-    @property
-    def cache_key(self) -> str:
-        return LRUCache.create_key(
-            {
-                "type": "FindMany",
-                "filter": self.get_filter_query(),
-                "sort": self.sort_expressions,
-                "projection": self.get_projection(),
-                "skip": self.skip_number,
-                "limit": self.limit_number,
-            }
+    def _cache_key_dict(self) -> Dict[str, Any]:
+        d = super()._cache_key_dict()
+        d.update(
+            sort=self.sort_expressions,
+            skip=self.skip_number,
+            limit=self.limit_number,
         )
+        return d
 
     @property
     def motor_cursor(self) -> AgnosticBaseCursor:
@@ -590,16 +592,6 @@ class FindOne(FindQuery, UpdateMethods):
         super().__init__(
             document_model=document_model,
             projection_model=cast(Type[ParseableModel], document_model),
-        )
-
-    @property
-    def cache_key(self) -> str:
-        return LRUCache.create_key(
-            "FindOne",
-            self.get_filter_query(),
-            self.projection_model,
-            self.session,
-            self.fetch_links,
         )
 
     def find_one(
