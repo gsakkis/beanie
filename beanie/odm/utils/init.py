@@ -516,10 +516,13 @@ class Initializer:
                 cls._inheritance_inited = True
             elif output is not None:
                 output.class_name = f"{output.class_name}.{cls.__name__}"
-                cls._class_id = output.class_name
+                class_id = cls._class_id = output.class_name
                 cls.set_collection_name(output.collection_name)
-                parent.add_child(cls._class_id, cls)
                 cls._parent = parent
+                while parent is not None:
+                    parent._children[class_id] = cls
+                    parent = parent._parent
+
                 cls._inheritance_inited = True
 
             await self.init_document_collection(cls)

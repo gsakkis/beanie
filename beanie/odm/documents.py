@@ -54,7 +54,6 @@ from beanie.odm.fields import (
     WriteRules,
 )
 from beanie.odm.interfaces.find import FindInterface
-from beanie.odm.interfaces.inheritance import InheritanceInterface
 from beanie.odm.models import (
     InspectionError,
     InspectionResult,
@@ -95,7 +94,7 @@ def json_schema_extra(schema: Dict[str, Any], model: Type["Document"]) -> None:
     schema["properties"] = props
 
 
-class Document(LazyModel, InheritanceInterface, FindInterface):
+class Document(LazyModel, FindInterface):
     """
     Document Mapping class.
 
