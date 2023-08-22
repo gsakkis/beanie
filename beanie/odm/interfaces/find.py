@@ -1,7 +1,6 @@
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from typing import (
-    TYPE_CHECKING,
     Any,
     ClassVar,
     Dict,
@@ -11,7 +10,6 @@ from typing import (
     Tuple,
     Type,
     Union,
-    overload,
 )
 
 from motor.motor_asyncio import AsyncIOMotorCollection
@@ -19,16 +17,16 @@ from pymongo.client_session import ClientSession
 
 import beanie
 from beanie.odm.fields import SortDirection
-from beanie.odm.queries.aggregation import AggregationQuery
-from beanie.odm.queries.find import FindMany, FindOne
+from beanie.odm.queries.find import (
+    AggregationQuery,
+    FindMany,
+    FindOne,
+)
 from beanie.odm.settings.base import ItemSettings
-
-if TYPE_CHECKING:
-    from beanie.odm.documents import DocType
-    from beanie.odm.queries.find import FindQueryProjectionType
+from beanie.odm.utils.parsing import ParseableModel
 
 
-class FindInterface:
+class FindInterface(ABC):
     _inheritance_inited: ClassVar[bool]
     _class_id: ClassVar[Optional[str]]
     _children: ClassVar[Dict[str, Type]]
@@ -54,45 +52,17 @@ class FindInterface:
     def get_link_fields(cls):
         return None
 
-    @overload
     @classmethod
-    def find_one(  # type: ignore
-        cls: Type["DocType"],
+    def find_one(
+        cls,
         *args: Union[Mapping[str, Any], bool],
-        projection_model: None = None,
+        projection_model: Optional[Type[ParseableModel]] = None,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
         fetch_links: bool = False,
         with_children: bool = False,
         **pymongo_kwargs,
-    ) -> FindOne["DocType"]:
-        ...
-
-    @overload
-    @classmethod
-    def find_one(  # type: ignore
-        cls: Type["DocType"],
-        *args: Union[Mapping[str, Any], bool],
-        projection_model: Type["FindQueryProjectionType"],
-        session: Optional[ClientSession] = None,
-        ignore_cache: bool = False,
-        fetch_links: bool = False,
-        with_children: bool = False,
-        **pymongo_kwargs,
-    ) -> FindOne["FindQueryProjectionType"]:
-        ...
-
-    @classmethod
-    def find_one(  # type: ignore
-        cls: Type["DocType"],
-        *args: Union[Mapping[str, Any], bool],
-        projection_model: Optional[Type["FindQueryProjectionType"]] = None,
-        session: Optional[ClientSession] = None,
-        ignore_cache: bool = False,
-        fetch_links: bool = False,
-        with_children: bool = False,
-        **pymongo_kwargs,
-    ) -> Union[FindOne["DocType"], FindOne["FindQueryProjectionType"]]:
+    ) -> FindOne:
         """
         Find one document by criteria.
         Returns [FindOne](https://roman-right.github.io/beanie/api/queries/#findone) query object.
@@ -115,12 +85,11 @@ class FindInterface:
             **pymongo_kwargs,
         )
 
-    @overload
     @classmethod
-    def find_many(  # type: ignore
-        cls: Type["DocType"],
+    def find_many(
+        cls,
         *args: Union[Mapping[str, Any], bool],
-        projection_model: None = None,
+        projection_model: Optional[Type[ParseableModel]] = None,
         skip: Optional[int] = None,
         limit: Optional[int] = None,
         sort: Union[None, str, List[Tuple[str, SortDirection]]] = None,
@@ -130,42 +99,7 @@ class FindInterface:
         with_children: bool = False,
         lazy_parse: bool = False,
         **pymongo_kwargs,
-    ) -> FindMany["DocType"]:
-        ...
-
-    @overload
-    @classmethod
-    def find_many(  # type: ignore
-        cls: Type["DocType"],
-        *args: Union[Mapping[str, Any], bool],
-        projection_model: Optional[Type["FindQueryProjectionType"]] = None,
-        skip: Optional[int] = None,
-        limit: Optional[int] = None,
-        sort: Union[None, str, List[Tuple[str, SortDirection]]] = None,
-        session: Optional[ClientSession] = None,
-        ignore_cache: bool = False,
-        fetch_links: bool = False,
-        with_children: bool = False,
-        lazy_parse: bool = False,
-        **pymongo_kwargs,
-    ) -> FindMany["FindQueryProjectionType"]:
-        ...
-
-    @classmethod
-    def find_many(  # type: ignore
-        cls: Type["DocType"],
-        *args: Union[Mapping[str, Any], bool],
-        projection_model: Optional[Type["FindQueryProjectionType"]] = None,
-        skip: Optional[int] = None,
-        limit: Optional[int] = None,
-        sort: Union[None, str, List[Tuple[str, SortDirection]]] = None,
-        session: Optional[ClientSession] = None,
-        ignore_cache: bool = False,
-        fetch_links: bool = False,
-        with_children: bool = False,
-        lazy_parse: bool = False,
-        **pymongo_kwargs,
-    ) -> Union[FindMany["DocType"], FindMany["FindQueryProjectionType"]]:
+    ) -> FindMany:
         """
         Find many documents by criteria.
         Returns [FindMany](https://roman-right.github.io/beanie/api/queries/#findmany) query object
@@ -195,12 +129,11 @@ class FindInterface:
             **pymongo_kwargs,
         )
 
-    @overload
     @classmethod
-    def find(  # type: ignore
-        cls: Type["DocType"],
+    def find(
+        cls,
         *args: Union[Mapping[str, Any], bool],
-        projection_model: None = None,
+        projection_model: Optional[Type[ParseableModel]] = None,
         skip: Optional[int] = None,
         limit: Optional[int] = None,
         sort: Union[None, str, List[Tuple[str, SortDirection]]] = None,
@@ -210,42 +143,7 @@ class FindInterface:
         with_children: bool = False,
         lazy_parse: bool = False,
         **pymongo_kwargs,
-    ) -> FindMany["DocType"]:
-        ...
-
-    @overload
-    @classmethod
-    def find(  # type: ignore
-        cls: Type["DocType"],
-        *args: Union[Mapping[str, Any], bool],
-        projection_model: Type["FindQueryProjectionType"],
-        skip: Optional[int] = None,
-        limit: Optional[int] = None,
-        sort: Union[None, str, List[Tuple[str, SortDirection]]] = None,
-        session: Optional[ClientSession] = None,
-        ignore_cache: bool = False,
-        fetch_links: bool = False,
-        with_children: bool = False,
-        lazy_parse: bool = False,
-        **pymongo_kwargs,
-    ) -> FindMany["FindQueryProjectionType"]:
-        ...
-
-    @classmethod
-    def find(  # type: ignore
-        cls: Type["DocType"],
-        *args: Union[Mapping[str, Any], bool],
-        projection_model: Optional[Type["FindQueryProjectionType"]] = None,
-        skip: Optional[int] = None,
-        limit: Optional[int] = None,
-        sort: Union[None, str, List[Tuple[str, SortDirection]]] = None,
-        session: Optional[ClientSession] = None,
-        ignore_cache: bool = False,
-        fetch_links: bool = False,
-        with_children: bool = False,
-        lazy_parse: bool = False,
-        **pymongo_kwargs,
-    ) -> Union[FindMany["DocType"], FindMany["FindQueryProjectionType"]]:
+    ) -> FindMany:
         """
         The same as find_many
         """
@@ -263,51 +161,19 @@ class FindInterface:
             **pymongo_kwargs,
         )
 
-    @overload
     @classmethod
-    def find_all(  # type: ignore
-        cls: Type["DocType"],
+    def find_all(
+        cls,
         skip: Optional[int] = None,
         limit: Optional[int] = None,
         sort: Union[None, str, List[Tuple[str, SortDirection]]] = None,
-        projection_model: None = None,
+        projection_model: Optional[Type[ParseableModel]] = None,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
         with_children: bool = False,
         lazy_parse: bool = False,
         **pymongo_kwargs,
-    ) -> FindMany["DocType"]:
-        ...
-
-    @overload
-    @classmethod
-    def find_all(  # type: ignore
-        cls: Type["DocType"],
-        skip: Optional[int] = None,
-        limit: Optional[int] = None,
-        sort: Union[None, str, List[Tuple[str, SortDirection]]] = None,
-        projection_model: Optional[Type["FindQueryProjectionType"]] = None,
-        session: Optional[ClientSession] = None,
-        ignore_cache: bool = False,
-        with_children: bool = False,
-        lazy_parse: bool = False,
-        **pymongo_kwargs,
-    ) -> FindMany["FindQueryProjectionType"]:
-        ...
-
-    @classmethod
-    def find_all(  # type: ignore
-        cls: Type["DocType"],
-        skip: Optional[int] = None,
-        limit: Optional[int] = None,
-        sort: Union[None, str, List[Tuple[str, SortDirection]]] = None,
-        projection_model: Optional[Type["FindQueryProjectionType"]] = None,
-        session: Optional[ClientSession] = None,
-        ignore_cache: bool = False,
-        with_children: bool = False,
-        lazy_parse: bool = False,
-        **pymongo_kwargs,
-    ) -> Union[FindMany["DocType"], FindMany["FindQueryProjectionType"]]:
+    ) -> FindMany:
         """
         Get all the documents
 
@@ -332,11 +198,10 @@ class FindInterface:
             **pymongo_kwargs,
         )
 
-    @overload
     @classmethod
-    def all(  # type: ignore
-        cls: Type["DocType"],
-        projection_model: None = None,
+    def all(
+        cls,
+        projection_model: Optional[Type[ParseableModel]] = None,
         skip: Optional[int] = None,
         limit: Optional[int] = None,
         sort: Union[None, str, List[Tuple[str, SortDirection]]] = None,
@@ -345,38 +210,7 @@ class FindInterface:
         with_children: bool = False,
         lazy_parse: bool = False,
         **pymongo_kwargs,
-    ) -> FindMany["DocType"]:
-        ...
-
-    @overload
-    @classmethod
-    def all(  # type: ignore
-        cls: Type["DocType"],
-        projection_model: Type["FindQueryProjectionType"],
-        skip: Optional[int] = None,
-        limit: Optional[int] = None,
-        sort: Union[None, str, List[Tuple[str, SortDirection]]] = None,
-        session: Optional[ClientSession] = None,
-        ignore_cache: bool = False,
-        with_children: bool = False,
-        lazy_parse: bool = False,
-        **pymongo_kwargs,
-    ) -> FindMany["FindQueryProjectionType"]:
-        ...
-
-    @classmethod
-    def all(  # type: ignore
-        cls: Type["DocType"],
-        projection_model: Optional[Type["FindQueryProjectionType"]] = None,
-        skip: Optional[int] = None,
-        limit: Optional[int] = None,
-        sort: Union[None, str, List[Tuple[str, SortDirection]]] = None,
-        session: Optional[ClientSession] = None,
-        ignore_cache: bool = False,
-        with_children: bool = False,
-        lazy_parse: bool = False,
-        **pymongo_kwargs,
-    ) -> Union[FindMany["DocType"], FindMany["FindQueryProjectionType"]]:
+    ) -> FindMany:
         """
         the same as find_all
         """
@@ -400,44 +234,17 @@ class FindInterface:
 
         :return: int
         """
-        return await cls.find_all().count()  # type: ignore
-
-    @overload
-    @classmethod
-    def aggregate(
-        cls,
-        aggregation_pipeline: list,
-        projection_model: None = None,
-        session: Optional[ClientSession] = None,
-        ignore_cache: bool = False,
-        **pymongo_kwargs,
-    ) -> AggregationQuery[Dict[str, Any]]:
-        ...
-
-    @overload
-    @classmethod
-    def aggregate(
-        cls,
-        aggregation_pipeline: list,
-        projection_model: Type["FindQueryProjectionType"],
-        session: Optional[ClientSession] = None,
-        ignore_cache: bool = False,
-        **pymongo_kwargs,
-    ) -> AggregationQuery["FindQueryProjectionType"]:
-        ...
+        return await cls.find_all().count()
 
     @classmethod
     def aggregate(
         cls,
         aggregation_pipeline: list,
-        projection_model: Optional[Type["FindQueryProjectionType"]] = None,
+        projection_model: Optional[Type[ParseableModel]] = None,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
         **pymongo_kwargs,
-    ) -> Union[
-        AggregationQuery[Dict[str, Any]],
-        AggregationQuery["FindQueryProjectionType"],
-    ]:
+    ) -> AggregationQuery:
         """
         Aggregate over collection.
         Returns [AggregationQuery](https://roman-right.github.io/beanie/api/queries/#aggregationquery) query object
@@ -448,7 +255,7 @@ class FindInterface:
         :param **pymongo_kwargs: pymongo native parameters for aggregate operation
         :return: [AggregationQuery](https://roman-right.github.io/beanie/api/queries/#aggregationquery)
         """
-        return cls.find_all().aggregate(  # type: ignore[misc]
+        return cls.find_all().aggregate(
             aggregation_pipeline=aggregation_pipeline,
             projection_model=projection_model,
             session=session,

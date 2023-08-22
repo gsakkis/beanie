@@ -22,10 +22,11 @@ def merge_models(left: BaseModel, right: BaseModel) -> None:
             setattr(left, k, rvalue)
 
 
+ParseableModel = Union[BaseModel, "beanie.UnionDoc"]
+
+
 def parse_obj(
-    model: Union[Type[BaseModel], Type["beanie.UnionDoc"]],
-    data: Any,
-    lazy_parse: bool = False,
+    model: Type[ParseableModel], data: Any, lazy_parse: bool = False
 ) -> BaseModel:
     if issubclass(model, beanie.UnionDoc):
         if model._document_models is None:

@@ -12,6 +12,7 @@ from typing import (
     Type,
     TypeVar,
     Union,
+    cast,
 )
 from uuid import UUID, uuid4
 
@@ -29,6 +30,7 @@ from pymongo import InsertOne
 from pymongo.client_session import ClientSession
 from pymongo.errors import DuplicateKeyError
 from pymongo.results import DeleteResult, InsertManyResult
+from typing_extensions import Self
 
 from beanie.exceptions import (
     CollectionWasNotInitialized,
@@ -38,11 +40,7 @@ from beanie.exceptions import (
     ReplaceError,
     RevisionIdWasChanged,
 )
-from beanie.odm.actions import (
-    ActionDirections,
-    EventTypes,
-    wrap_with_actions,
-)
+from beanie.odm.actions import ActionDirections, EventTypes, wrap_with_actions
 from beanie.odm.bulk import BulkWriter, Operation
 from beanie.odm.cache import LRUCache
 from beanie.odm.fields import (
@@ -70,9 +68,7 @@ from beanie.odm.operators.update.general import (
     SetRevisionId,
     Unset,
 )
-from beanie.odm.operators.update.general import (
-    Set as SetOperator,
-)
+from beanie.odm.operators.update.general import Set as SetOperator
 from beanie.odm.queries.update import UpdateMany, UpdateResponse
 from beanie.odm.settings.document import DocumentSettings
 from beanie.odm.utils.dump import get_dict, get_top_level_nones
@@ -192,14 +188,14 @@ class Document(
 
     @classmethod
     async def get(
-        cls: Type["DocType"],
+        cls,
         document_id: Any,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
         fetch_links: bool = False,
         with_children: bool = False,
         **pymongo_kwargs,
-    ) -> Optional["DocType"]:
+    ) -> Optional[Self]:
         """
         Get document by id, returns None if document does not exist
 
@@ -209,13 +205,16 @@ class Document(
         :param **pymongo_kwargs: pymongo native parameters for find operation
         :return: Union["Document", None]
         """
-        return await cls.find_one(
-            {"_id": cls.parse_document_id(document_id)},
-            session=session,
-            ignore_cache=ignore_cache,
-            fetch_links=fetch_links,
-            with_children=with_children,
-            **pymongo_kwargs,
+        return cast(
+            Optional[Self],
+            await cls.find_one(
+                {"_id": cls.parse_document_id(document_id)},
+                session=session,
+                ignore_cache=ignore_cache,
+                fetch_links=fetch_links,
+                with_children=with_children,
+                **pymongo_kwargs,
+            ),
         )
 
     @wrap_with_actions(EventTypes.INSERT)
@@ -223,12 +222,12 @@ class Document(
     @swap_revision_after
     @validate_self_before
     async def insert(
-        self: DocType,
+        self,
         *,
         link_rule: WriteRules = WriteRules.DO_NOTHING,
         session: Optional[ClientSession] = None,
         skip_actions: Optional[List[Union[ActionDirections, str]]] = None,
-    ) -> DocType:
+    ) -> Self:
         """
         Insert the document (self) to the collection
         :return: Document
@@ -263,10 +262,7 @@ class Document(
         self.id = self.parse_document_id(result.inserted_id)
         return self
 
-    async def create(
-        self: DocType,
-        session: Optional[ClientSession] = None,
-    ) -> DocType:
+    async def create(self, session: Optional[ClientSession] = None) -> Self:
         """
         The same as self.insert()
         :return: Document
@@ -275,12 +271,12 @@ class Document(
 
     @classmethod
     async def insert_one(
-        cls: Type[DocType],
-        document: DocType,
+        cls,
+        document: Self,
         session: Optional[ClientSession] = None,
         bulk_writer: Optional["BulkWriter"] = None,
         link_rule: WriteRules = WriteRules.DO_NOTHING,
-    ) -> Optional[DocType]:
+    ) -> Optional[Self]:
         """
         Insert one document to the collection
         :param document: Document - document to insert
@@ -315,8 +311,8 @@ class Document(
 
     @classmethod
     async def insert_many(
-        cls: Type[DocType],
-        documents: List[DocType],
+        cls,
+        documents: List[Self],
         session: Optional[ClientSession] = None,
         link_rule: WriteRules = WriteRules.DO_NOTHING,
         **pymongo_kwargs,
@@ -350,13 +346,13 @@ class Document(
     @swap_revision_after
     @validate_self_before
     async def replace(
-        self: DocType,
+        self,
         ignore_revision: bool = False,
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
         link_rule: WriteRules = WriteRules.DO_NOTHING,
         skip_actions: Optional[List[Union[ActionDirections, str]]] = None,
-    ) -> DocType:
+    ) -> Self:
         """
         Fully update the document in the database
 
@@ -427,7 +423,7 @@ class Document(
     @wrap_with_actions(EventTypes.SAVE)
     @save_state_after
     async def save(
-        self: DocType,
+        self,
         session: Optional[ClientSession] = None,
         link_rule: WriteRules = WriteRules.DO_NOTHING,
         ignore_revision: bool = False,
@@ -539,9 +535,7 @@ class Document(
 
     @classmethod
     async def replace_many(
-        cls: Type[DocType],
-        documents: List[DocType],
-        session: Optional[ClientSession] = None,
+        cls, documents: List[Self], session: Optional[ClientSession] = None
     ) -> None:
         """
         Replace list of documents
@@ -571,7 +565,7 @@ class Document(
         bulk_writer: Optional[BulkWriter] = None,
         skip_actions: Optional[List[Union[ActionDirections, str]]] = None,
         **pymongo_kwargs,
-    ) -> DocType:
+    ) -> Self:
         """
         Partially update the document in the database
 
@@ -608,7 +602,8 @@ class Document(
         if bulk_writer is None:
             if use_revision_id and not ignore_revision and result is None:
                 raise RevisionIdWasChanged
-            merge_models(self, result)
+            if result is not None:
+                merge_models(self, result)
         return self
 
     @classmethod

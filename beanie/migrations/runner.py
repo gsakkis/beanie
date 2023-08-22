@@ -1,7 +1,7 @@
 import logging
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
-from typing import Optional, Type
+from typing import Optional, Type, cast
 
 from beanie.migrations.controllers.iterative import BaseMigrationController
 from beanie.migrations.database import DBHandler
@@ -174,7 +174,10 @@ class MigrationNode:
         await init_beanie(
             database=db, document_models=[MigrationLog]  # type: ignore
         )
-        current_migration = await MigrationLog.find_one({"is_current": True})
+        current_migration = cast(
+            Optional[MigrationLog],
+            await MigrationLog.find_one({"is_current": True}),
+        )
 
         root_migration_node = cls("root")
         prev_migration_node = root_migration_node

@@ -10,7 +10,7 @@ from beanie.odm.interfaces.clone import CloneInterface
 from beanie.odm.interfaces.session import SessionMethods
 
 if TYPE_CHECKING:
-    from beanie.odm.documents import DocType
+    from beanie.odm.interfaces.find import FindInterface
 
 
 class DeleteQuery(SessionMethods, CloneInterface):
@@ -20,10 +20,10 @@ class DeleteQuery(SessionMethods, CloneInterface):
 
     def __init__(
         self,
-        document_model: Type["DocType"],
+        document_model: Type["FindInterface"],
         find_query: Mapping[str, Any],
         bulk_writer: Optional[BulkWriter] = None,
-        **pymongo_kwargs,
+        **pymongo_kwargs: Any,
     ):
         self.document_model = document_model
         self.find_query = find_query
@@ -33,25 +33,9 @@ class DeleteQuery(SessionMethods, CloneInterface):
 
 
 class DeleteMany(DeleteQuery):
-    def __await__(
-        self,
-    ) -> Generator[DeleteResult, None, Optional[DeleteResult]]:
-        """
-        Run the query
-        :return:
-        """
-        if self.bulk_writer is None:
-            return (
-                yield from self.document_model.get_motor_collection()
-                .delete_many(
-                    self.find_query,
-                    session=self.session,
-                    **self.pymongo_kwargs,
-                )
-                .__await__()
-            )
-        else:
-            self.bulk_writer.add_operation(
+    def __await__(self) -> Generator[None, None, Optional[DeleteResult]]:
+        if self.bulk_writer is not None:
+            return self.bulk_writer.add_operation(
                 Operation(
                     operation=DeleteManyPyMongo,
                     first_query=self.find_query,
@@ -59,29 +43,19 @@ class DeleteMany(DeleteQuery):
                     pymongo_kwargs=self.pymongo_kwargs,
                 )
             )
-            return None
+        return (
+            yield from self.document_model.get_motor_collection()
+            .delete_many(
+                self.find_query, session=self.session, **self.pymongo_kwargs
+            )
+            .__await__()
+        )
 
 
 class DeleteOne(DeleteQuery):
-    def __await__(
-        self,
-    ) -> Generator[DeleteResult, None, Optional[DeleteResult]]:
-        """
-        Run the query
-        :return:
-        """
-        if self.bulk_writer is None:
-            return (
-                yield from self.document_model.get_motor_collection()
-                .delete_one(
-                    self.find_query,
-                    session=self.session,
-                    **self.pymongo_kwargs,
-                )
-                .__await__()
-            )
-        else:
-            self.bulk_writer.add_operation(
+    def __await__(self) -> Generator[None, None, Optional[DeleteResult]]:
+        if self.bulk_writer is not None:
+            return self.bulk_writer.add_operation(
                 Operation(
                     operation=DeleteOnePyMongo,
                     first_query=self.find_query,
@@ -89,4 +63,10 @@ class DeleteOne(DeleteQuery):
                     pymongo_kwargs=self.pymongo_kwargs,
                 )
             )
-            return None
+        return (
+            yield from self.document_model.get_motor_collection()
+            .delete_one(
+                self.find_query, session=self.session, **self.pymongo_kwargs
+            )
+            .__await__()
+        )
