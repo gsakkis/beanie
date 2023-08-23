@@ -1,4 +1,5 @@
 import asyncio
+import copy
 
 import pytest
 
@@ -211,7 +212,7 @@ async def test_update_pymongo_kwargs(preset_documents):
 
 def test_clone():
     q = Sample.find_many(Sample.integer == 1).update(Set({Sample.integer: 10}))
-    new_q = q.clone()
+    new_q = copy.deepcopy(q)
     new_q.update(Max({Sample.integer: 10}))
     assert q.update_query == {"$set": {"integer": 10}}
     assert new_q.update_query == {

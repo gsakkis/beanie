@@ -20,7 +20,6 @@ from pymongo.results import InsertOneResult, UpdateResult
 from typing_extensions import Self
 
 from beanie.odm.bulk import BulkWriter, Operation
-from beanie.odm.interfaces.clone import CloneInterface
 from beanie.odm.interfaces.session import SessionMethods
 from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.operators.update import BaseUpdateOperator
@@ -38,7 +37,7 @@ class UpdateResponse(str, Enum):
     NEW_DOCUMENT = "NEW_DOCUMENT"  # Updated document
 
 
-class UpdateQuery(UpdateMethods, SessionMethods, CloneInterface):
+class UpdateQuery(UpdateMethods, SessionMethods):
     """
     Update Query base class
 

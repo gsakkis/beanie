@@ -6,14 +6,13 @@ from pymongo.client_session import ClientSession
 from pymongo.results import DeleteResult
 
 from beanie.odm.bulk import BulkWriter, Operation
-from beanie.odm.interfaces.clone import CloneInterface
 from beanie.odm.interfaces.session import SessionMethods
 
 if TYPE_CHECKING:
     from beanie.odm.interfaces.find import FindInterface
 
 
-class DeleteQuery(SessionMethods, CloneInterface):
+class DeleteQuery(SessionMethods):
     """
     Deletion Query
     """

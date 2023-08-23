@@ -1,3 +1,5 @@
+import copy
+
 import pytest
 from pydantic import Field
 from pydantic.main import BaseModel
@@ -101,7 +103,7 @@ async def test_clone(preset_documents):
     q = Sample.find(Sample.increment >= 4).aggregate(
         [{"$group": {"_id": "$string", "total": {"$sum": "$integer"}}}]
     )
-    new_q = q.clone()
+    new_q = copy.deepcopy(q)
     new_q.aggregation_pipeline.append({"a": "b"})
     assert q.get_aggregation_pipeline() == [
         {"$match": {"increment": {"$gte": 4}}},

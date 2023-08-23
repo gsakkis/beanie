@@ -1,3 +1,4 @@
+import copy
 import datetime
 
 import pytest
@@ -375,7 +376,7 @@ def test_find_clone():
         .limit(100)
     )
 
-    new_q = q.clone()
+    new_q = copy.deepcopy(q)
     new_q.find(Sample.nested.integer >= 100).sort(Sample.string).limit(10)
 
     assert q.get_filter_query() == {
