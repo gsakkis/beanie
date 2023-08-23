@@ -22,29 +22,9 @@ def get_dict(
     return encoder.encode(document)
 
 
-def get_nulls(
-    document: "Document",
-    exclude: Optional[Set[str]] = None,
-):
-    dictionary = get_dict(document, exclude=exclude, keep_nulls=True)
-    return filter_none(dictionary)
-
-
 def get_top_level_nones(
     document: "Document",
     exclude: Optional[Set[str]] = None,
 ):
     dictionary = get_dict(document, exclude=exclude, keep_nulls=True)
     return {k: v for k, v in dictionary.items() if v is None}
-
-
-def filter_none(d):
-    result = {}
-    for k, v in d.items():
-        if isinstance(v, dict):
-            filtered = filter_none(v)
-            if filtered:
-                result[k] = filtered
-        elif v is None:
-            result[k] = v
-    return result

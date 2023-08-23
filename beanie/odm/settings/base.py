@@ -1,7 +1,7 @@
 from datetime import timedelta
 from typing import Any, Dict, Optional, Type
 
-from motor.motor_asyncio import AsyncIOMotorCollection, AsyncIOMotorDatabase
+from motor.motor_asyncio import AsyncIOMotorCollection
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -16,7 +16,6 @@ class ItemSettings(BaseModel):
     bson_encoders: Dict[Any, Any] = Field(default_factory=dict)
     projection: Optional[Dict[str, Any]] = None
 
-    motor_db: Optional[AsyncIOMotorDatabase] = None
     motor_collection: Optional[AsyncIOMotorCollection] = None
 
     union_doc: Optional[Type] = None

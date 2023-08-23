@@ -1,4 +1,3 @@
-import asyncio
 from collections import OrderedDict
 from enum import Enum
 from typing import (
@@ -218,10 +217,6 @@ class Link(Generic[T]):
         return result or self
 
     @classmethod
-    async def fetch_one(cls, link: "Link"):
-        return await link.fetch()
-
-    @classmethod
     async def fetch_list(
         cls, links: List[Union["Link", "DocType"]], fetch_links: bool = False
     ):
@@ -234,7 +229,7 @@ class Link(Generic[T]):
         data = Link.repack_links(links)  # type: ignore
         ids_to_fetch = []
         document_class = None
-        for doc_id, link in data.items():
+        for link in data.values():
             if isinstance(link, Link):
                 if document_class is None:
                     document_class = link.document_class
@@ -267,13 +262,6 @@ class Link(Generic[T]):
             else:
                 result[link.id] = link
         return result
-
-    @classmethod
-    async def fetch_many(cls, links: List["Link"]):
-        coros = []
-        for link in links:
-            coros.append(link.fetch())
-        return await asyncio.gather(*coros)
 
     @staticmethod
     def serialize(value: Union["Link", BaseModel]):
@@ -325,9 +313,6 @@ class Link(Generic[T]):
             serialization=core_schema.plain_serializer_function_ser_schema(  # type: ignore
                 lambda instance: cls.serialize(instance)  # type: ignore
             ),
-        )
-        return core_schema.general_plain_validator_function(
-            cls.build_validation(handler, source_type)
         )
 
     def to_ref(self):
@@ -415,18 +400,6 @@ class IndexModelField:
             )
             result.append(index_model)
         return result
-
-    def same_fields(self, other: "IndexModelField"):
-        return self.fields == other.fields
-
-    @staticmethod
-    def find_index_with_the_same_fields(
-        indexes: List["IndexModelField"], index: "IndexModelField"
-    ):
-        for i in indexes:
-            if i.same_fields(index):
-                return i
-        return None
 
     @staticmethod
     def merge_indexes(

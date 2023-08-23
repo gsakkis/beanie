@@ -1,12 +1,4 @@
-class WrongDocumentUpdateStrategy(Exception):
-    pass
-
-
 class DocumentNotFound(Exception):
-    pass
-
-
-class DocumentAlreadyCreated(Exception):
     pass
 
 
@@ -15,10 +7,6 @@ class DocumentWasNotSaved(Exception):
 
 
 class CollectionWasNotInitialized(Exception):
-    pass
-
-
-class MigrationException(Exception):
     pass
 
 
@@ -47,10 +35,6 @@ class MongoDBVersionError(Exception):
 
 
 class ViewWasNotInitialized(Exception):
-    pass
-
-
-class ViewHasNoSettings(Exception):
     pass
 
 

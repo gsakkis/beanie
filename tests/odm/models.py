@@ -613,7 +613,6 @@ class SampleLazyParsing(Document):
     )
 
     class Settings:
-        lazy_parsing = True
         use_state_management = True
 
 

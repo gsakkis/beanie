@@ -15,12 +15,9 @@ class DocumentSettings(ItemSettings):
     state_management_save_previous: bool = False
     validate_on_save: bool = False
     use_revision: bool = False
-    single_root_inheritance: bool = False
 
     indexes: List[IndexModelField] = Field(default_factory=list)
     merge_indexes: bool = False
     timeseries: Optional[TimeSeriesConfig] = None
-
-    lazy_parsing: bool = False
 
     keep_nulls: bool = True

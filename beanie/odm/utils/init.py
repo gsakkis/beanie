@@ -362,8 +362,6 @@ class Initializer:
         :param cls:
         :return:
         """
-        cls.set_database(self.database)
-
         document_settings = cls.get_settings()
 
         # register in the Union Doc
@@ -593,7 +591,6 @@ class Initializer:
         if inspect.isclass(view_settings.source):
             view_settings.source = view_settings.source.get_collection_name()
 
-        view_settings.motor_db = self.database
         view_settings.motor_collection = self.database[view_settings.name]
 
     async def init_view(self, cls: Type[View]):
@@ -634,7 +631,6 @@ class Initializer:
         if cls._settings.name is None:
             cls._settings.name = cls.__name__
 
-        cls._settings.motor_db = self.database
         cls._settings.motor_collection = self.database[cls._settings.name]
         cls._is_inited = True
 

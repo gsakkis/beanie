@@ -47,7 +47,6 @@ class UpdateQuery(BaseQuery, UpdateMethods):
         self.document_model = document_model
         self.find_query = find_query
         self.update_expressions: List[Mapping[str, Any]] = []
-        self.is_upsert = False
         self.upsert_insert_doc: Optional["DocType"] = None
         self.encoders: Dict[Any, Callable[[Any], Any]] = {}
         self.bulk_writer: Optional[BulkWriter] = None
