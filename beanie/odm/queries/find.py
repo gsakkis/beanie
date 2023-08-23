@@ -134,14 +134,16 @@ class AggregationQuery(FindQuery, BaseCursorQuery):
         find_query: Mapping[str, Any],
         document_model: Type["FindInterface"],
         projection_model: Optional[Type[ParseableModel]] = None,
+        session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
         **pymongo_kwargs: Any,
     ):
-        self.aggregation_pipeline = aggregation_pipeline
-        self.find_query = find_query
         super().__init__(
             document_model, projection_model, ignore_cache, **pymongo_kwargs
         )
+        self.set_session(session)
+        self.aggregation_pipeline = aggregation_pipeline
+        self.find_query = find_query
 
     def _cache_key_dict(self) -> Dict[str, Any]:
         d = super()._cache_key_dict()
@@ -358,13 +360,14 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods):
         if not issubclass(self.document_model, beanie.Document):
             raise RuntimeError("can update only beanie.Document")
         self.set_session(session)
-        return (
-            UpdateMany(
-                document_model=self.document_model,
-                find_query=self.get_filter_query(),
-            )
-            .update(*args, bulk_writer=bulk_writer, **pymongo_kwargs)
-            .set_session(self.session)
+        return UpdateMany(
+            document_model=self.document_model,
+            find_query=self.get_filter_query(),
+        ).update(
+            *args,
+            session=self.session,
+            bulk_writer=bulk_writer,
+            **pymongo_kwargs,
         )
 
     def upsert(
@@ -387,13 +390,11 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods):
         if not issubclass(self.document_model, beanie.Document):
             raise RuntimeError("can upsert only beanie.Document")
         self.set_session(session)
-        return (
-            UpdateMany(
-                document_model=self.document_model,
-                find_query=self.get_filter_query(),
-            )
-            .upsert(*args, on_insert=on_insert, **pymongo_kwargs)
-            .set_session(self.session)
+        return UpdateMany(
+            document_model=self.document_model,
+            find_query=self.get_filter_query(),
+        ).upsert(
+            *args, on_insert=on_insert, session=self.session, **pymongo_kwargs
         )
 
     def update_many(
@@ -431,9 +432,10 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods):
         return DeleteMany(
             document_model=self.document_model,
             find_query=self.get_filter_query(),
+            session=self.session,
             bulk_writer=bulk_writer,
             **pymongo_kwargs,
-        ).set_session(session)
+        )
 
     def delete_many(
         self,
@@ -507,9 +509,10 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods):
             document_model=self.document_model,
             projection_model=projection_model,
             find_query=find_query,
+            session=self.session,
             ignore_cache=ignore_cache,
             **pymongo_kwargs,
-        ).set_session(self.session)
+        )
 
     async def count(self) -> int:
         """
@@ -734,18 +737,15 @@ class FindOne(FindQuery, UpdateMethods):
         if not issubclass(self.document_model, beanie.Document):
             raise RuntimeError("can update only beanie.Document")
         self.set_session(session)
-        return (
-            UpdateOne(
-                document_model=self.document_model,
-                find_query=self.get_filter_query(),
-            )
-            .update(
-                *args,
-                bulk_writer=bulk_writer,
-                response_type=response_type,
-                **pymongo_kwargs,
-            )
-            .set_session(self.session)
+        return UpdateOne(
+            document_model=self.document_model,
+            find_query=self.get_filter_query(),
+        ).update(
+            *args,
+            session=self.session,
+            bulk_writer=bulk_writer,
+            response_type=response_type,
+            **pymongo_kwargs,
         )
 
     def upsert(
@@ -770,18 +770,15 @@ class FindOne(FindQuery, UpdateMethods):
         if not issubclass(self.document_model, beanie.Document):
             raise RuntimeError("can upsert only beanie.Document")
         self.set_session(session)
-        return (
-            UpdateOne(
-                document_model=self.document_model,
-                find_query=self.get_filter_query(),
-            )
-            .upsert(
-                *args,
-                on_insert=on_insert,
-                response_type=response_type,
-                **pymongo_kwargs,
-            )
-            .set_session(self.session)
+        return UpdateOne(
+            document_model=self.document_model,
+            find_query=self.get_filter_query(),
+        ).upsert(
+            *args,
+            on_insert=on_insert,
+            session=self.session,
+            response_type=response_type,
+            **pymongo_kwargs,
         )
 
     def update_one(
@@ -824,9 +821,10 @@ class FindOne(FindQuery, UpdateMethods):
         return DeleteOne(
             document_model=self.document_model,
             find_query=self.get_filter_query(),
+            session=self.session,
             bulk_writer=bulk_writer,
             **pymongo_kwargs,
-        ).set_session(session)
+        )
 
     def delete_one(
         self,
