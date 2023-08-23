@@ -884,35 +884,41 @@ class FindOne(FindQuery, UpdateMethods):
             )
             return None
 
-    async def _find_one(self):
-        if self.fetch_links:
-            return await self.document_model.find_many(
+    def __await__(self) -> Generator[None, None, Optional[BaseModel]]:
+        return self._find_one(use_cache=True, parse=True).__await__()
+
+    async def _find_one(
+        self, use_cache: bool, parse: bool
+    ) -> Optional[BaseModel]:
+        if use_cache:
+            cache = self.cache
+            if cache is None:
+                return await self._find_one(use_cache=False, parse=parse)
+
+            cache_key = self.cache_key
+            doc = cache.get(cache_key)
+            if doc is None:
+                doc = await self._find_one(use_cache=False, parse=False)
+                cache.set(cache_key, doc)
+        elif self.fetch_links:
+            doc = await self.document_model.find_many(
                 *self.find_expressions,
                 session=self.session,
                 fetch_links=self.fetch_links,
                 projection_model=self.projection_model,
                 **self.pymongo_kwargs,
             ).first_or_none()
-        return await self.document_model.get_motor_collection().find_one(
-            filter=self.get_filter_query(),
-            projection=self.get_projection(),
-            session=self.session,
-            **self.pymongo_kwargs,
-        )
-
-    def __await__(self) -> Generator[None, None, Optional[BaseModel]]:
-        cache = self.cache
-        if cache is not None:
-            cache_key = self.cache_key
-            document = cache.get(cache_key)
-            if document is None:
-                document = yield from self._find_one().__await__()
-                cache.set(cache_key, document)
         else:
-            document = yield from self._find_one().__await__()
-        if document is None or isinstance(document, self.projection_model):
-            return document
-        return parse_obj(self.projection_model, document)
+            doc = await self.document_model.get_motor_collection().find_one(
+                filter=self.get_filter_query(),
+                projection=self.get_projection(),
+                session=self.session,
+                **self.pymongo_kwargs,
+            )
+
+        if not parse or doc is None or isinstance(doc, self.projection_model):
+            return doc
+        return parse_obj(self.projection_model, doc)
 
     async def count(self) -> int:
         """

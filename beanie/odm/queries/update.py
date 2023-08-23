@@ -149,28 +149,28 @@ class UpdateMany(UpdateQuery):
                     pymongo_kwargs=self.pymongo_kwargs,
                 )
             )
-        return await self.document_model.get_motor_collection().update_many(
+        result = await self.document_model.get_motor_collection().update_many(
             self.find_query,
             self.update_query,
             session=self.session,
             **self.pymongo_kwargs,
         )
+        if (
+            self.upsert_insert_doc is not None
+            and result is not None
+            and result.matched_count == 0
+        ):
+            result = await self.document_model.insert_one(
+                document=self.upsert_insert_doc,
+                session=self.session,
+                bulk_writer=self.bulk_writer,
+            )
+        return result
 
     def __await__(
         self,
     ) -> Generator[None, None, Union[UpdateResult, InsertOneResult]]:
-        update_result = yield from self._update().__await__()
-        if self.upsert_insert_doc is None:
-            return update_result
-        if update_result is not None and update_result.matched_count == 0:
-            return (
-                yield from self.document_model.insert_one(
-                    document=self.upsert_insert_doc,
-                    session=self.session,
-                    bulk_writer=self.bulk_writer,
-                ).__await__()
-            )
-        return update_result
+        return self._update().__await__()
 
 
 class UpdateOne(UpdateQuery):
@@ -263,7 +263,9 @@ class UpdateOne(UpdateQuery):
             **pymongo_kwargs,
         )
 
-    async def _update(self) -> Union[UpdateResult, "DocType", None]:
+    async def _update(
+        self,
+    ) -> Union[InsertOneResult, UpdateResult, "DocType", None]:
         if self.bulk_writer:
             return self.bulk_writer.add_operation(
                 Operation(
@@ -275,25 +277,45 @@ class UpdateOne(UpdateQuery):
                 )
             )
 
+        collection = self.document_model.get_motor_collection()
         if self.response_type == UpdateResponse.UPDATE_RESULT:
-            return await self.document_model.get_motor_collection().update_one(
+            result = await collection.update_one(
                 self.find_query,
                 self.update_query,
                 session=self.session,
                 **self.pymongo_kwargs,
             )
+        else:
+            result = await collection.find_one_and_update(
+                self.find_query,
+                self.update_query,
+                session=self.session,
+                return_document=(
+                    ReturnDocument.BEFORE
+                    if self.response_type == UpdateResponse.OLD_DOCUMENT
+                    else ReturnDocument.AFTER
+                ),
+                **self.pymongo_kwargs,
+            )
+            if result is not None:
+                result = parse_obj(self.document_model, result)
 
-        result = await self.document_model.get_motor_collection().find_one_and_update(
-            self.find_query,
-            self.update_query,
-            session=self.session,
-            return_document=ReturnDocument.BEFORE
-            if self.response_type == UpdateResponse.OLD_DOCUMENT
-            else ReturnDocument.AFTER,
-            **self.pymongo_kwargs,
-        )
-        if result is not None:
-            result = parse_obj(self.document_model, result)
+        if (
+            self.upsert_insert_doc is not None
+            and self.response_type == UpdateResponse.UPDATE_RESULT
+            and result is not None
+            and result.matched_count == 0
+        ) or (
+            self.upsert_insert_doc is not None
+            and self.response_type != UpdateResponse.UPDATE_RESULT
+            and result is None
+        ):
+            result = await self.document_model.insert_one(
+                document=self.upsert_insert_doc,
+                session=self.session,
+                bulk_writer=self.bulk_writer,
+            )
+
         return result
 
     def __await__(
@@ -301,22 +323,4 @@ class UpdateOne(UpdateQuery):
     ) -> Generator[
         None, None, Union[InsertOneResult, UpdateResult, "DocType", None]
     ]:
-        update_result = yield from self._update().__await__()
-        if (
-            self.upsert_insert_doc is not None
-            and self.response_type == UpdateResponse.UPDATE_RESULT
-            and update_result is not None
-            and update_result.matched_count == 0
-        ) or (
-            self.upsert_insert_doc is not None
-            and self.response_type != UpdateResponse.UPDATE_RESULT
-            and update_result is None
-        ):
-            return (
-                yield from self.document_model.insert_one(
-                    document=self.upsert_insert_doc,
-                    session=self.session,
-                    bulk_writer=self.bulk_writer,
-                ).__await__()
-            )
-        return update_result
+        return self._update().__await__()

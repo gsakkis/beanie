@@ -93,10 +93,6 @@ class Initializer:
 
         self.document_models.sort(key=lambda val: val._sort_order)
 
-    def __await__(self):
-        for model in self.document_models:
-            yield from self.init_class(model).__await__()
-
     # General
     def fill_docs_registry(self):
         for model in self.document_models:
@@ -686,11 +682,12 @@ async def init_beanie(
     Default False
     :return: None
     """
-
-    await Initializer(
+    initializer = Initializer(
         database=database,
         connection_string=connection_string,
         document_models=document_models,
         allow_index_dropping=allow_index_dropping,
         recreate_views=recreate_views,
     )
+    for model in initializer.document_models:
+        await initializer.init_class(model)
