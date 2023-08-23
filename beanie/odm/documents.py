@@ -71,7 +71,6 @@ from beanie.odm.queries.update import UpdateMany, UpdateResponse
 from beanie.odm.settings.document import DocumentSettings
 from beanie.odm.utils.dump import get_dict, get_top_level_nones
 from beanie.odm.utils.parsing import merge_models
-from beanie.odm.utils.self_validation import validate_self_before
 from beanie.odm.utils.state import (
     previous_saved_state_needed,
     save_state_after,
@@ -216,7 +215,6 @@ class Document(LazyModel, FindInterface):
     @wrap_with_actions(EventTypes.INSERT)
     @save_state_after
     @swap_revision_after
-    @validate_self_before
     async def insert(
         self,
         *,
@@ -228,6 +226,7 @@ class Document(LazyModel, FindInterface):
         Insert the document (self) to the collection
         :return: Document
         """
+        await self.validate_self(skip_actions=skip_actions)
         if self.get_settings().use_revision:
             self.revision_id = uuid4()
         if link_rule == WriteRules.WRITE:
@@ -340,9 +339,9 @@ class Document(LazyModel, FindInterface):
     @wrap_with_actions(EventTypes.REPLACE)
     @save_state_after
     @swap_revision_after
-    @validate_self_before
     async def replace(
         self,
+        *,
         ignore_revision: bool = False,
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
@@ -358,6 +357,7 @@ class Document(LazyModel, FindInterface):
         :param bulk_writer: "BulkWriter" - Beanie bulk writer
         :return: self
         """
+        await self.validate_self(skip_actions=skip_actions)
         if self.id is None:
             raise ValueError("Document must have an id")
 
@@ -494,9 +494,9 @@ class Document(LazyModel, FindInterface):
 
     @saved_state_needed
     @wrap_with_actions(EventTypes.SAVE_CHANGES)
-    @validate_self_before
     async def save_changes(
         self,
+        *,
         ignore_revision: bool = False,
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
@@ -510,6 +510,7 @@ class Document(LazyModel, FindInterface):
         :param bulk_writer: "BulkWriter" - Beanie bulk writer
         :return: None
         """
+        await self.validate_self(skip_actions=skip_actions)
         if not self.is_changed:
             return None
         changes = self.get_changes()
@@ -721,6 +722,7 @@ class Document(LazyModel, FindInterface):
     @wrap_with_actions(EventTypes.DELETE)
     async def delete(
         self,
+        *,
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
         link_rule: DeleteRules = DeleteRules.DO_NOTHING,
@@ -1032,7 +1034,11 @@ class Document(LazyModel, FindInterface):
         return self.model_dump(**kwargs)
 
     @wrap_with_actions(event_type=EventTypes.VALIDATE_ON_SAVE)
-    async def validate_self(self, *args, **kwargs):
+    async def validate_self(
+        self,
+        *,
+        skip_actions: Optional[List[Union[ActionDirections, str]]] = None,
+    ):
         # TODO: it can be sync, but needs some actions controller improvements
         if self.get_settings().validate_on_save:
             data = self.model_dump()
