@@ -49,13 +49,12 @@ class FindQuery(SessionMethods):
     Inherited from:
 
     - [SessionMethods](https://roman-right.github.io/beanie/api/interfaces/#sessionmethods)
-    - [UpdateMethods](https://roman-right.github.io/beanie/api/interfaces/#aggregatemethods)
     """
 
     def __init__(
         self,
         document_model: Type["FindInterface"],
-        projection_model: Optional[Type[ParseableModel]] = None,
+        projection_model: Optional[Type[ParseableModel]],
         ignore_cache: bool = False,
         **pymongo_kwargs: Any,
     ):
@@ -139,7 +138,7 @@ class AggregationQuery(FindQuery, BaseCursorQuery):
 
     Inherited from:
 
-    - [SessionMethods](https://roman-right.github.io/beanie/api/interfaces/#sessionmethods) - session methods
+    - [FindQuery](https://roman-right.github.io/beanie/api/queries/#findquery)
     - [BaseCursorQuery](https://roman-right.github.io/beanie/api/queries/#basecursorquery) - async generator
     """
 
@@ -176,8 +175,7 @@ class AggregationQuery(FindQuery, BaseCursorQuery):
         if self.find_query:
             pipeline.append({"$match": self.find_query})
         pipeline.extend(self.aggregation_pipeline)
-        projection = self.get_projection()
-        if projection is not None:
+        if (projection := self.get_projection()) is not None:
             pipeline.append({"$project": projection})
         return pipeline
 
@@ -196,8 +194,7 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods, AggregateMethods):
 
     def __init__(self, document_model: Type["FindInterface"]):
         super().__init__(
-            document_model=document_model,
-            projection_model=cast(Type[ParseableModel], document_model),
+            document_model, cast(Type[ParseableModel], document_model)
         )
         self.sort_expressions: List[Tuple[str, SortDirection]] = []
         self.skip_number = 0
@@ -215,12 +212,8 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods, AggregateMethods):
     @property
     def motor_cursor(self) -> AgnosticBaseCursor:
         if self.fetch_links:
-            aggregation_pipeline = self.build_aggregation_pipeline()
-            projection = self.get_projection()
-            if projection is not None:
-                aggregation_pipeline.append({"$project": projection})
             return self.document_model.get_motor_collection().aggregate(
-                aggregation_pipeline,
+                self.build_aggregation_pipeline(project=True),
                 session=self.session,
                 **self.pymongo_kwargs,
             )
@@ -503,8 +496,8 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods, AggregateMethods):
         if not self.fetch_links:
             find_query = self.get_filter_query()
         else:
-            aggregation_pipeline = (
-                self.build_aggregation_pipeline() + aggregation_pipeline
+            aggregation_pipeline = self.build_aggregation_pipeline(
+                *aggregation_pipeline
             )
             find_query = {}
         return AggregationQuery(
@@ -516,20 +509,22 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods, AggregateMethods):
             **pymongo_kwargs,
         ).set_session(session=self.session)
 
-    def build_aggregation_pipeline(self) -> List[Dict[str, Any]]:
-        aggregation_pipeline: List[Dict[str, Any]] = construct_lookup_queries(
-            self.document_model
-        )
-
+    def build_aggregation_pipeline(
+        self,
+        *extra_stages: Dict[str, Any],
+        project: bool = False,
+    ) -> List[Dict[str, Any]]:
+        aggregation_pipeline = construct_lookup_queries(self.document_model)
         aggregation_pipeline.append({"$match": self.get_filter_query()})
-
-        sort_pipeline = {"$sort": {i[0]: i[1] for i in self.sort_expressions}}
-        if sort_pipeline["$sort"]:
-            aggregation_pipeline.append(sort_pipeline)
+        if self.sort_expressions:
+            aggregation_pipeline.append({"$sort": dict(self.sort_expressions)})
         if self.skip_number != 0:
             aggregation_pipeline.append({"$skip": self.skip_number})
         if self.limit_number != 0:
             aggregation_pipeline.append({"$limit": self.limit_number})
+        aggregation_pipeline.extend(extra_stages)
+        if project and (projection := self.get_projection()) is not None:
+            aggregation_pipeline.append({"$project": projection})
         return aggregation_pipeline
 
     async def first_or_none(self) -> Union[BaseModel, Dict[str, Any], None]:
@@ -545,32 +540,18 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods, AggregateMethods):
         :return: int
         """
         if self.fetch_links:
-            aggregation_pipeline: List[
-                Dict[str, Any]
-            ] = construct_lookup_queries(self.document_model)
-
-            aggregation_pipeline.append({"$match": self.get_filter_query()})
-
-            if self.skip_number != 0:
-                aggregation_pipeline.append({"$skip": self.skip_number})
-            if self.limit_number != 0:
-                aggregation_pipeline.append({"$limit": self.limit_number})
-
-            aggregation_pipeline.append({"$count": "count"})
-
             result = (
                 await self.document_model.get_motor_collection()
                 .aggregate(
-                    aggregation_pipeline,
+                    self.build_aggregation_pipeline({"$count": "count"}),
                     session=self.session,
                     **self.pymongo_kwargs,
                 )
                 .to_list(length=1)
             )
-
             return result[0]["count"] if result else 0
 
-        return await super(FindMany, self).count()
+        return await super().count()
 
 
 class FindOne(FindQuery, UpdateMethods):
@@ -589,8 +570,7 @@ class FindOne(FindQuery, UpdateMethods):
 
     def __init__(self, document_model: Type["FindInterface"]):
         super().__init__(
-            document_model=document_model,
-            projection_model=cast(Type[ParseableModel], document_model),
+            document_model, cast(Type[ParseableModel], document_model)
         )
 
     def find_one(
@@ -835,4 +815,4 @@ class FindOne(FindQuery, UpdateMethods):
                 fetch_links=self.fetch_links,
                 **self.pymongo_kwargs,
             ).count()
-        return await super(FindOne, self).count()
+        return await super().count()
