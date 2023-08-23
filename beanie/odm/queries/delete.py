@@ -2,20 +2,17 @@ from typing import TYPE_CHECKING, Any, Dict, Generator, Mapping, Optional, Type
 
 from pymongo import DeleteMany as DeleteManyPyMongo
 from pymongo import DeleteOne as DeleteOnePyMongo
-from pymongo.client_session import ClientSession
 from pymongo.results import DeleteResult
 
 from beanie.odm.bulk import BulkWriter, Operation
-from beanie.odm.interfaces.session import SessionMethods
+from beanie.odm.queries import BaseQuery
 
 if TYPE_CHECKING:
     from beanie.odm.interfaces.find import FindInterface
 
 
-class DeleteQuery(SessionMethods):
-    """
-    Deletion Query
-    """
+class DeleteQuery(BaseQuery):
+    """Deletion Query"""
 
     def __init__(
         self,
@@ -24,9 +21,9 @@ class DeleteQuery(SessionMethods):
         bulk_writer: Optional[BulkWriter] = None,
         **pymongo_kwargs: Any,
     ):
+        super().__init__()
         self.document_model = document_model
         self.find_query = find_query
-        self.session: Optional[ClientSession] = None
         self.bulk_writer = bulk_writer
         self.pymongo_kwargs: Dict[str, Any] = pymongo_kwargs
 

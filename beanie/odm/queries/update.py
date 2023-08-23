@@ -20,10 +20,10 @@ from pymongo.results import InsertOneResult, UpdateResult
 from typing_extensions import Self
 
 from beanie.odm.bulk import BulkWriter, Operation
-from beanie.odm.interfaces.session import SessionMethods
 from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.operators.update import BaseUpdateOperator
 from beanie.odm.operators.update.general import SetRevisionId
+from beanie.odm.queries import BaseQuery
 from beanie.odm.utils.encoder import Encoder
 from beanie.odm.utils.parsing import parse_obj
 
@@ -37,23 +37,16 @@ class UpdateResponse(str, Enum):
     NEW_DOCUMENT = "NEW_DOCUMENT"  # Updated document
 
 
-class UpdateQuery(UpdateMethods, SessionMethods):
-    """
-    Update Query base class
-
-    Inherited from:
-
-    - [SessionMethods](https://roman-right.github.io/beanie/api/interfaces/#sessionmethods)
-    - [UpdateMethods](https://roman-right.github.io/beanie/api/interfaces/#aggregatemethods)
-    """
+class UpdateQuery(BaseQuery, UpdateMethods):
+    """Update Query base class"""
 
     def __init__(
         self, document_model: Type["DocType"], find_query: Mapping[str, Any]
     ):
+        super().__init__()
         self.document_model = document_model
         self.find_query = find_query
         self.update_expressions: List[Mapping[str, Any]] = []
-        self.session = None
         self.is_upsert = False
         self.upsert_insert_doc: Optional["DocType"] = None
         self.encoders: Dict[Any, Callable[[Any], Any]] = {}
@@ -79,13 +72,7 @@ class UpdateQuery(UpdateMethods, SessionMethods):
 
 
 class UpdateMany(UpdateQuery):
-    """
-    Update Many query class
-
-    Inherited from:
-
-    - [UpdateQuery](https://roman-right.github.io/beanie/api/queries/#updatequery)
-    """
+    """Update Many query class"""
 
     def update(
         self,
@@ -101,9 +88,9 @@ class UpdateMany(UpdateQuery):
         :param session: Optional[ClientSession]
         :param bulk_writer: Optional[BulkWriter]
         :param pymongo_kwargs: pymongo native parameters for update operation
-        :return: UpdateMany query
+        :return: self
         """
-        self.set_session(session=session)
+        self.set_session(session)
         self.update_expressions += args
         if bulk_writer:
             self.bulk_writer = bulk_writer
@@ -125,7 +112,7 @@ class UpdateMany(UpdateQuery):
         document in the collection
         :param session: Optional[ClientSession]
         :param **pymongo_kwargs: pymongo native parameters for update operation
-        :return: UpdateMany query
+        :return: self
         """
         self.upsert_insert_doc = on_insert  # type: ignore
         self.update(*args, session=session, **pymongo_kwargs)
@@ -145,7 +132,7 @@ class UpdateMany(UpdateQuery):
         :param session: Optional[ClientSession]
         :param bulk_writer: "BulkWriter" - Beanie bulk writer
         :param pymongo_kwargs: pymongo native parameters for update operation
-        :return: UpdateMany query
+        :return: self
         """
         return self.update(
             *args, session=session, bulk_writer=bulk_writer, **pymongo_kwargs
@@ -187,13 +174,7 @@ class UpdateMany(UpdateQuery):
 
 
 class UpdateOne(UpdateQuery):
-    """
-    Update One query class
-
-    Inherited from:
-
-    - [UpdateQuery](https://roman-right.github.io/beanie/api/queries/#updatequery)
-    """
+    """Update One query class"""
 
     def __init__(
         self, document_model: Type["DocType"], find_query: Mapping[str, Any]
@@ -217,9 +198,9 @@ class UpdateOne(UpdateQuery):
         :param bulk_writer: Optional[BulkWriter]
         :param response_type: UpdateResponse
         :param pymongo_kwargs: pymongo native parameters for update operation
-        :return: UpdateMany query
+        :return: self
         """
-        self.set_session(session=session)
+        self.set_session(session)
         self.update_expressions += args
         if response_type is not None:
             self.response_type = response_type
@@ -245,7 +226,7 @@ class UpdateOne(UpdateQuery):
         :param session: Optional[ClientSession]
         :param response_type: Optional[UpdateResponse]
         :param pymongo_kwargs: pymongo native parameters for update operation
-        :return: UpdateMany query
+        :return: self
         """
         self.upsert_insert_doc = on_insert  # type: ignore
         self.update(
@@ -272,7 +253,7 @@ class UpdateOne(UpdateQuery):
         :param bulk_writer: "BulkWriter" - Beanie bulk writer
         :param response_type: Optional[UpdateResponse]
         :param pymongo_kwargs: pymongo native parameters for update operation
-        :return: UpdateMany query
+        :return: self
         """
         return self.update(
             *args,

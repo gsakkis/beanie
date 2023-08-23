@@ -24,9 +24,9 @@ from beanie.exceptions import DocumentNotFound
 from beanie.odm.bulk import BulkWriter, Operation
 from beanie.odm.cache import LRUCache
 from beanie.odm.fields import ExpressionField, SortDirection
-from beanie.odm.interfaces.session import SessionMethods
 from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.operators.find.logical import And
+from beanie.odm.queries import BaseQuery
 from beanie.odm.queries.cursor import BaseCursorQuery
 from beanie.odm.queries.delete import DeleteMany, DeleteOne
 from beanie.odm.queries.update import UpdateMany, UpdateOne, UpdateResponse
@@ -41,14 +41,8 @@ if TYPE_CHECKING:
     from beanie.odm.interfaces.find import FindInterface
 
 
-class FindQuery(SessionMethods):
-    """
-    Find Query base class
-
-    Inherited from:
-
-    - [SessionMethods](https://roman-right.github.io/beanie/api/interfaces/#sessionmethods)
-    """
+class FindQuery(BaseQuery):
+    """Find Query base class"""
 
     def __init__(
         self,
@@ -57,6 +51,7 @@ class FindQuery(SessionMethods):
         ignore_cache: bool = False,
         **pymongo_kwargs: Any,
     ):
+        super().__init__()
         self.document_model = document_model
         self.projection_model = projection_model
         self.find_expressions: List[Dict[str, Any]] = []
@@ -64,7 +59,6 @@ class FindQuery(SessionMethods):
         self.ignore_cache = ignore_cache
         self.fetch_links = False
         self.lazy_parse = False
-        self.session = None
 
     @property
     def cache(self) -> Optional[LRUCache]:
@@ -132,14 +126,7 @@ class FindQuery(SessionMethods):
 
 
 class AggregationQuery(FindQuery, BaseCursorQuery):
-    """
-    Aggregation Query
-
-    Inherited from:
-
-    - [FindQuery](https://roman-right.github.io/beanie/api/queries/#findquery)
-    - [BaseCursorQuery](https://roman-right.github.io/beanie/api/queries/#basecursorquery) - async generator
-    """
+    """Aggregation Query"""
 
     def __init__(
         self,
@@ -180,14 +167,7 @@ class AggregationQuery(FindQuery, BaseCursorQuery):
 
 
 class FindMany(FindQuery, BaseCursorQuery, UpdateMethods):
-    """
-    Find Many query class
-
-    Inherited from:
-
-    - [FindQuery](https://roman-right.github.io/beanie/api/queries/#findquery)
-    - [BaseCursorQuery](https://roman-right.github.io/beanie/api/queries/#basecursorquery) - async generator
-    """
+    """Find Many query class"""
 
     def __init__(self, document_model: Type["FindInterface"]):
         super().__init__(
@@ -258,7 +238,7 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods):
         self.limit(limit)
         self.sort(sort)
         self.project(projection_model)
-        self.set_session(session=session)
+        self.set_session(session)
         self.ignore_cache = ignore_cache
         self.fetch_links = fetch_links
         self.pymongo_kwargs.update(pymongo_kwargs)
@@ -384,7 +364,7 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods):
                 find_query=self.get_filter_query(),
             )
             .update(*args, bulk_writer=bulk_writer, **pymongo_kwargs)
-            .set_session(session=self.session)
+            .set_session(self.session)
         )
 
     def upsert(
@@ -413,7 +393,7 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods):
                 find_query=self.get_filter_query(),
             )
             .upsert(*args, on_insert=on_insert, **pymongo_kwargs)
-            .set_session(session=self.session)
+            .set_session(self.session)
         )
 
     def update_many(
@@ -447,13 +427,13 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods):
         :param session: Optional[ClientSession]
         :return: Union[DeleteOne, DeleteMany]
         """
-        self.set_session(session=session)
+        self.set_session(session)
         return DeleteMany(
             document_model=self.document_model,
             find_query=self.get_filter_query(),
             bulk_writer=bulk_writer,
             **pymongo_kwargs,
-        ).set_session(session=session)
+        ).set_session(session)
 
     def delete_many(
         self,
@@ -514,7 +494,7 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods):
         :param ignore_cache: bool
         :return:[AggregationQuery](https://roman-right.github.io/beanie/api/queries/#aggregationquery)
         """
-        self.set_session(session=session)
+        self.set_session(session)
         if not self.fetch_links:
             find_query = self.get_filter_query()
         else:
@@ -529,7 +509,7 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods):
             find_query=find_query,
             ignore_cache=ignore_cache,
             **pymongo_kwargs,
-        ).set_session(session=self.session)
+        ).set_session(self.session)
 
     async def count(self) -> int:
         """
@@ -694,13 +674,7 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods):
 
 
 class FindOne(FindQuery, UpdateMethods):
-    """
-    Find One query class
-
-    Inherited from:
-
-    - [FindQuery](https://roman-right.github.io/beanie/api/queries/#findquery)
-    """
+    """Find One query class"""
 
     # TODO probably merge FindOne and FindMany to one class to avoid this
     #  code duplication
@@ -733,7 +707,7 @@ class FindOne(FindQuery, UpdateMethods):
         """
         self.find_expressions += args  # type: ignore # bool workaround
         self.project(projection_model)
-        self.set_session(session=session)
+        self.set_session(session)
         self.ignore_cache = ignore_cache
         self.fetch_links = fetch_links
         self.pymongo_kwargs.update(pymongo_kwargs)
@@ -771,7 +745,7 @@ class FindOne(FindQuery, UpdateMethods):
                 response_type=response_type,
                 **pymongo_kwargs,
             )
-            .set_session(session=self.session)
+            .set_session(self.session)
         )
 
     def upsert(
@@ -807,7 +781,7 @@ class FindOne(FindQuery, UpdateMethods):
                 response_type=response_type,
                 **pymongo_kwargs,
             )
-            .set_session(session=self.session)
+            .set_session(self.session)
         )
 
     def update_one(
@@ -846,13 +820,13 @@ class FindOne(FindQuery, UpdateMethods):
         :param session: Optional[ClientSession]
         :return: Union[DeleteOne, DeleteMany]
         """
-        self.set_session(session=session)
+        self.set_session(session)
         return DeleteOne(
             document_model=self.document_model,
             find_query=self.get_filter_query(),
             bulk_writer=bulk_writer,
             **pymongo_kwargs,
-        ).set_session(session=session)
+        ).set_session(session)
 
     def delete_one(
         self,
@@ -882,7 +856,7 @@ class FindOne(FindQuery, UpdateMethods):
         :param bulk_writer: Optional[BulkWriter] - Beanie bulk writer
         :return: UpdateResult
         """
-        self.set_session(session=session)
+        self.set_session(session)
         if bulk_writer is None:
             result: UpdateResult = (
                 await self.document_model.get_motor_collection().replace_one(

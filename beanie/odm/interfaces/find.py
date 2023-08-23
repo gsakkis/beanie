@@ -17,11 +17,7 @@ from pymongo.client_session import ClientSession
 
 import beanie
 from beanie.odm.fields import SortDirection
-from beanie.odm.queries.find import (
-    AggregationQuery,
-    FindMany,
-    FindOne,
-)
+from beanie.odm.queries.find import AggregationQuery, FindMany, FindOne
 from beanie.odm.settings.base import ItemSettings
 from beanie.odm.utils.parsing import ParseableModel
 
