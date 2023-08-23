@@ -4,7 +4,7 @@ from pymongo import IndexModel
 
 from beanie import Document, Indexed, init_beanie
 from beanie.exceptions import CollectionWasNotInitialized
-from beanie.odm.utils.projection import get_projection
+from beanie.odm.queries.find import get_projection
 from tests.odm.models import (
     DocumentTestModel,
     DocumentTestModelStringImport,
