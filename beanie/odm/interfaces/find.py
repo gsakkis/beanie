@@ -61,7 +61,7 @@ class FindInterface(ABC):
         ignore_cache: bool = False,
         fetch_links: bool = False,
         with_children: bool = False,
-        **pymongo_kwargs,
+        **pymongo_kwargs: Any,
     ) -> FindOne:
         """
         Find one document by criteria.
@@ -98,7 +98,7 @@ class FindInterface(ABC):
         fetch_links: bool = False,
         with_children: bool = False,
         lazy_parse: bool = False,
-        **pymongo_kwargs,
+        **pymongo_kwargs: Any,
     ) -> FindMany:
         """
         Find many documents by criteria.
@@ -142,7 +142,7 @@ class FindInterface(ABC):
         fetch_links: bool = False,
         with_children: bool = False,
         lazy_parse: bool = False,
-        **pymongo_kwargs,
+        **pymongo_kwargs: Any,
     ) -> FindMany:
         """
         The same as find_many
@@ -172,7 +172,7 @@ class FindInterface(ABC):
         ignore_cache: bool = False,
         with_children: bool = False,
         lazy_parse: bool = False,
-        **pymongo_kwargs,
+        **pymongo_kwargs: Any,
     ) -> FindMany:
         """
         Get all the documents
@@ -209,7 +209,7 @@ class FindInterface(ABC):
         ignore_cache: bool = False,
         with_children: bool = False,
         lazy_parse: bool = False,
-        **pymongo_kwargs,
+        **pymongo_kwargs: Any,
     ) -> FindMany:
         """
         the same as find_all
@@ -243,7 +243,7 @@ class FindInterface(ABC):
         projection_model: Optional[Type[ParseableModel]] = None,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
-        **pymongo_kwargs,
+        **pymongo_kwargs: Any,
     ) -> AggregationQuery:
         """
         Aggregate over collection.

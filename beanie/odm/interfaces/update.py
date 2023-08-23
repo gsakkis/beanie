@@ -5,11 +5,7 @@ from pymongo.client_session import ClientSession
 
 from beanie.odm.bulk import BulkWriter
 from beanie.odm.fields import ExpressionField
-from beanie.odm.operators.update.general import (
-    CurrentDate,
-    Inc,
-    Set,
-)
+from beanie.odm.operators.update.general import CurrentDate, Inc, Set
 
 
 class UpdateMethods:
@@ -23,16 +19,16 @@ class UpdateMethods:
         *args: Mapping[str, Any],
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
-        **kwargs,
+        **pymongo_kwargs: Any,
     ):
-        return self
+        ...
 
     def set(
         self,
         expression: Dict[Union[ExpressionField, str], Any],
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
-        **kwargs,
+        **pymongo_kwargs: Any,
     ):
         """
         Set values
@@ -57,7 +53,10 @@ class UpdateMethods:
         :return: self
         """
         return self.update(
-            Set(expression), session=session, bulk_writer=bulk_writer, **kwargs
+            Set(expression),
+            session=session,
+            bulk_writer=bulk_writer,
+            **pymongo_kwargs,
         )
 
     def current_date(
@@ -65,7 +64,7 @@ class UpdateMethods:
         expression: Dict[Union[ExpressionField, str], Any],
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
-        **kwargs,
+        **pymongo_kwargs: Any,
     ):
         """
         Set current date
@@ -81,7 +80,7 @@ class UpdateMethods:
             CurrentDate(expression),
             session=session,
             bulk_writer=bulk_writer,
-            **kwargs,
+            **pymongo_kwargs,
         )
 
     def inc(
@@ -89,7 +88,7 @@ class UpdateMethods:
         expression: Dict[Union[ExpressionField, str], Any],
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
-        **kwargs,
+        **pymongo_kwargs: Any,
     ):
         """
         Increment
@@ -113,5 +112,8 @@ class UpdateMethods:
         :return: self
         """
         return self.update(
-            Inc(expression), session=session, bulk_writer=bulk_writer, **kwargs
+            Inc(expression),
+            session=session,
+            bulk_writer=bulk_writer,
+            **pymongo_kwargs,
         )

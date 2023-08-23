@@ -190,7 +190,7 @@ class Document(LazyModel, FindInterface):
         ignore_cache: bool = False,
         fetch_links: bool = False,
         with_children: bool = False,
-        **pymongo_kwargs,
+        **pymongo_kwargs: Any,
     ) -> Optional[Self]:
         """
         Get document by id, returns None if document does not exist
@@ -311,7 +311,7 @@ class Document(LazyModel, FindInterface):
         documents: List[Self],
         session: Optional[ClientSession] = None,
         link_rule: WriteRules = WriteRules.DO_NOTHING,
-        **pymongo_kwargs,
+        **pymongo_kwargs: Any,
     ) -> InsertManyResult:
         """
         Insert many documents to the collection
@@ -560,7 +560,7 @@ class Document(LazyModel, FindInterface):
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
         skip_actions: Optional[List[Union[ActionDirections, str]]] = None,
-        **pymongo_kwargs,
+        **pymongo_kwargs: Any,
     ) -> Self:
         """
         Partially update the document in the database
@@ -608,7 +608,7 @@ class Document(LazyModel, FindInterface):
         *args: Union[dict, Mapping],
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
-        **pymongo_kwargs,
+        **pymongo_kwargs: Any,
     ) -> UpdateMany:
         """
         Partially update all the documents
@@ -725,7 +725,7 @@ class Document(LazyModel, FindInterface):
         bulk_writer: Optional[BulkWriter] = None,
         link_rule: DeleteRules = DeleteRules.DO_NOTHING,
         skip_actions: Optional[List[Union[ActionDirections, str]]] = None,
-        **pymongo_kwargs,
+        **pymongo_kwargs: Any,
     ) -> Optional[DeleteResult]:
         """
         Delete the document
@@ -776,7 +776,7 @@ class Document(LazyModel, FindInterface):
         cls,
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
-        **pymongo_kwargs,
+        **pymongo_kwargs: Any,
     ) -> Optional[DeleteResult]:
         """
         Delete all the documents

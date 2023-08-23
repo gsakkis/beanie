@@ -148,7 +148,7 @@ class AggregationQuery(FindQuery, BaseCursorQuery):
         document_model: Type["FindInterface"],
         projection_model: Optional[Type[ParseableModel]] = None,
         ignore_cache: bool = False,
-        **pymongo_kwargs,
+        **pymongo_kwargs: Any,
     ):
         self.aggregation_pipeline = aggregation_pipeline
         self.find_query = find_query
@@ -236,7 +236,7 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods):
         ignore_cache: bool = False,
         fetch_links: bool = False,
         lazy_parse: bool = False,
-        **pymongo_kwargs,
+        **pymongo_kwargs: Any,
     ) -> Self:
         """
         Find many documents by criteria
@@ -280,7 +280,7 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods):
         ignore_cache: bool = False,
         fetch_links: bool = False,
         lazy_parse: bool = False,
-        **pymongo_kwargs,
+        **pymongo_kwargs: Any,
     ) -> Self:
         """
         The same as `find_many(...)`
@@ -364,7 +364,7 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods):
         *args: Mapping[str, Any],
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
-        **pymongo_kwargs,
+        **pymongo_kwargs: Any,
     ) -> UpdateMany:
         """
         Create Update with modifications query
@@ -392,7 +392,7 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods):
         *args: Mapping[str, Any],
         on_insert: "beanie.Document",
         session: Optional[ClientSession] = None,
-        **pymongo_kwargs,
+        **pymongo_kwargs: Any,
     ) -> UpdateMany:
         """
         Create Update with modifications query
@@ -421,7 +421,7 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods):
         *args: Mapping[str, Any],
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
-        **pymongo_kwargs,
+        **pymongo_kwargs: Any,
     ) -> UpdateMany:
         """
         Provide search criteria to the
@@ -439,7 +439,7 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods):
         self,
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
-        **pymongo_kwargs,
+        **pymongo_kwargs: Any,
     ) -> DeleteMany:
         """
         Provide search criteria to the Delete query
@@ -459,7 +459,7 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods):
         self,
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
-        **pymongo_kwargs,
+        **pymongo_kwargs: Any,
     ) -> DeleteMany:
         """
         Provide search criteria to the [DeleteMany](https://roman-right.github.io/beanie/api/queries/#deletemany) query
@@ -719,7 +719,7 @@ class FindOne(FindQuery, UpdateMethods):
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
         fetch_links: bool = False,
-        **pymongo_kwargs,
+        **pymongo_kwargs: Any,
     ) -> Self:
         """
         Find one document by criteria
@@ -745,7 +745,7 @@ class FindOne(FindQuery, UpdateMethods):
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
         response_type: Optional[UpdateResponse] = None,
-        **pymongo_kwargs,
+        **pymongo_kwargs: Any,
     ) -> UpdateOne:
         """
         Create Update with modifications query
@@ -780,7 +780,7 @@ class FindOne(FindQuery, UpdateMethods):
         on_insert: "beanie.Document",
         session: Optional[ClientSession] = None,
         response_type: Optional[UpdateResponse] = None,
-        **pymongo_kwargs,
+        **pymongo_kwargs: Any,
     ) -> UpdateOne:
         """
         Create Update with modifications query
@@ -816,7 +816,7 @@ class FindOne(FindQuery, UpdateMethods):
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
         response_type: Optional[UpdateResponse] = None,
-        **pymongo_kwargs,
+        **pymongo_kwargs: Any,
     ) -> UpdateOne:
         """
         Create [UpdateOne](https://roman-right.github.io/beanie/api/queries/#updateone) query using modifications and
@@ -838,7 +838,7 @@ class FindOne(FindQuery, UpdateMethods):
         self,
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
-        **pymongo_kwargs,
+        **pymongo_kwargs: Any,
     ) -> DeleteOne:
         """
         Provide search criteria to the Delete query
@@ -858,7 +858,7 @@ class FindOne(FindQuery, UpdateMethods):
         self,
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
-        **pymongo_kwargs,
+        **pymongo_kwargs: Any,
     ) -> DeleteOne:
         """
         Provide search criteria to the [DeleteOne](https://roman-right.github.io/beanie/api/queries/#deleteone) query
