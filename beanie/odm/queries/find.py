@@ -23,8 +23,7 @@ import beanie
 from beanie.exceptions import DocumentNotFound
 from beanie.odm.bulk import BulkWriter, Operation
 from beanie.odm.cache import LRUCache
-from beanie.odm.fields import SortDirection
-from beanie.odm.interfaces.aggregation_methods import AggregateMethods
+from beanie.odm.fields import ExpressionField, SortDirection
 from beanie.odm.interfaces.session import SessionMethods
 from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.operators.find.logical import And
@@ -180,7 +179,7 @@ class AggregationQuery(FindQuery, BaseCursorQuery):
         return pipeline
 
 
-class FindMany(FindQuery, BaseCursorQuery, UpdateMethods, AggregateMethods):
+class FindMany(FindQuery, BaseCursorQuery, UpdateMethods):
     """
     Find Many query class
 
@@ -188,8 +187,6 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods, AggregateMethods):
 
     - [FindQuery](https://roman-right.github.io/beanie/api/queries/#findquery)
     - [BaseCursorQuery](https://roman-right.github.io/beanie/api/queries/#basecursorquery) - async generator
-    - [AggregateMethods](https://roman-right.github.io/beanie/api/interfaces/#aggregatemethods)
-
     """
 
     def __init__(self, document_model: Type["FindInterface"]):
@@ -474,13 +471,38 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods, AggregateMethods):
             session=session, bulk_writer=bulk_writer, **pymongo_kwargs
         )
 
+    def build_aggregation_pipeline(
+        self,
+        *extra_stages: Dict[str, Any],
+        project: bool = False,
+    ) -> List[Dict[str, Any]]:
+        aggregation_pipeline = construct_lookup_queries(self.document_model)
+        aggregation_pipeline.append({"$match": self.get_filter_query()})
+        if self.sort_expressions:
+            aggregation_pipeline.append({"$sort": dict(self.sort_expressions)})
+        if self.skip_number != 0:
+            aggregation_pipeline.append({"$skip": self.skip_number})
+        if self.limit_number != 0:
+            aggregation_pipeline.append({"$limit": self.limit_number})
+        aggregation_pipeline.extend(extra_stages)
+        if project and (projection := self.get_projection()) is not None:
+            aggregation_pipeline.append({"$project": projection})
+        return aggregation_pipeline
+
+    async def first_or_none(self) -> Union[BaseModel, Dict[str, Any], None]:
+        """
+        Returns the first found element or None if no elements were found
+        """
+        res = await self.limit(1).to_list()
+        return res[0] if res else None
+
     def aggregate(
         self,
         aggregation_pipeline: List[Any],
         projection_model: Optional[Type[ParseableModel]] = None,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
-        **pymongo_kwargs,
+        **pymongo_kwargs: Any,
     ) -> AggregationQuery:
         """
         Provide search criteria to the [AggregationQuery](https://roman-right.github.io/beanie/api/queries/#aggregationquery)
@@ -509,49 +531,166 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods, AggregateMethods):
             **pymongo_kwargs,
         ).set_session(session=self.session)
 
-    def build_aggregation_pipeline(
-        self,
-        *extra_stages: Dict[str, Any],
-        project: bool = False,
-    ) -> List[Dict[str, Any]]:
-        aggregation_pipeline = construct_lookup_queries(self.document_model)
-        aggregation_pipeline.append({"$match": self.get_filter_query()})
-        if self.sort_expressions:
-            aggregation_pipeline.append({"$sort": dict(self.sort_expressions)})
-        if self.skip_number != 0:
-            aggregation_pipeline.append({"$skip": self.skip_number})
-        if self.limit_number != 0:
-            aggregation_pipeline.append({"$limit": self.limit_number})
-        aggregation_pipeline.extend(extra_stages)
-        if project and (projection := self.get_projection()) is not None:
-            aggregation_pipeline.append({"$project": projection})
-        return aggregation_pipeline
-
-    async def first_or_none(self) -> Union[BaseModel, Dict[str, Any], None]:
-        """
-        Returns the first found element or None if no elements were found
-        """
-        res = await self.limit(1).to_list()
-        return res[0] if res else None
-
     async def count(self) -> int:
         """
         Number of found documents
         :return: int
         """
         if self.fetch_links:
-            result = (
-                await self.document_model.get_motor_collection()
-                .aggregate(
-                    self.build_aggregation_pipeline({"$count": "count"}),
+            result = cast(
+                List[Dict[str, Any]],
+                await self.aggregate(
+                    aggregation_pipeline=[{"$count": "count"}],
                     session=self.session,
+                    ignore_cache=self.ignore_cache,
                     **self.pymongo_kwargs,
-                )
-                .to_list(length=1)
+                ).to_list(length=1),
             )
             return result[0]["count"] if result else 0
 
         return await super().count()
+
+    async def sum(
+        self,
+        field: Union[str, ExpressionField],
+        session: Optional[ClientSession] = None,
+        ignore_cache: bool = False,
+        **pymongo_kwargs: Any,
+    ) -> Optional[float]:
+        """
+        Sum of values of the given field
+
+        Example:
+
+        ```python
+
+        class Sample(Document):
+            price: int
+            count: int
+
+        sum_count = await Document.find(Sample.price <= 100).sum(Sample.count)
+
+        ```
+
+        :param field: Union[str, ExpressionField]
+        :param session: Optional[ClientSession] - pymongo session
+        :param ignore_cache: bool
+        :return: float - sum. None if there are no items.
+        """
+        return await self._compute_aggregate(
+            "sum", field, session, ignore_cache, **pymongo_kwargs
+        )
+
+    async def avg(
+        self,
+        field: Union[str, ExpressionField],
+        session: Optional[ClientSession] = None,
+        ignore_cache: bool = False,
+        **pymongo_kwargs: Any,
+    ) -> Optional[float]:
+        """
+        Average of values of the given field
+
+        Example:
+
+        ```python
+
+        class Sample(Document):
+            price: int
+            count: int
+
+        avg_count = await Document.find(Sample.price <= 100).avg(Sample.count)
+        ```
+
+        :param field: Union[str, ExpressionField]
+        :param session: Optional[ClientSession] - pymongo session
+        :param ignore_cache: bool
+        :return: Optional[float] - avg. None if there are no items.
+        """
+        return await self._compute_aggregate(
+            "avg", field, session, ignore_cache, **pymongo_kwargs
+        )
+
+    async def max(
+        self,
+        field: Union[str, ExpressionField],
+        session: Optional[ClientSession] = None,
+        ignore_cache: bool = False,
+        **pymongo_kwargs: Any,
+    ) -> Optional[float]:
+        """
+        Max of the values of the given field
+
+        Example:
+
+        ```python
+
+        class Sample(Document):
+            price: int
+            count: int
+
+        max_count = await Document.find(Sample.price <= 100).max(Sample.count)
+        ```
+
+        :param field: Union[str, ExpressionField]
+        :param session: Optional[ClientSession] - pymongo session
+        :return: float - max. None if there are no items.
+        """
+        return await self._compute_aggregate(
+            "max", field, session, ignore_cache, **pymongo_kwargs
+        )
+
+    async def min(
+        self,
+        field: Union[str, ExpressionField],
+        session: Optional[ClientSession] = None,
+        ignore_cache: bool = False,
+        **pymongo_kwargs: Any,
+    ) -> Optional[float]:
+        """
+        Min of the values of the given field
+
+        Example:
+
+        ```python
+
+        class Sample(Document):
+            price: int
+            count: int
+
+        min_count = await Document.find(Sample.price <= 100).min(Sample.count)
+        ```
+
+        :param field: Union[str, ExpressionField]
+        :param session: Optional[ClientSession] - pymongo session
+        :return: float - min. None if there are no items.
+        """
+        return await self._compute_aggregate(
+            "min", field, session, ignore_cache, **pymongo_kwargs
+        )
+
+    async def _compute_aggregate(
+        self,
+        operator: str,
+        field: Union[str, ExpressionField],
+        session: Optional[ClientSession] = None,
+        ignore_cache: bool = False,
+        **pymongo_kwargs: Any,
+    ) -> Optional[float]:
+        pipeline = [
+            {"$group": {"_id": None, "value": {f"${operator}": f"${field}"}}},
+            {"$project": {"_id": 0, "value": 1}},
+        ]
+        result = cast(
+            List[Dict[str, Any]],
+            await self.aggregate(
+                pipeline,
+                session=session,
+                ignore_cache=ignore_cache,
+                **pymongo_kwargs,
+            ).to_list(length=1),
+        )
+        return result[0]["value"] if result else None
 
 
 class FindOne(FindQuery, UpdateMethods):
