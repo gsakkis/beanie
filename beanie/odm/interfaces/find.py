@@ -9,17 +9,20 @@ from typing import (
     Optional,
     Tuple,
     Type,
+    TypeVar,
     Union,
 )
 
 from motor.motor_asyncio import AsyncIOMotorCollection
+from pydantic import BaseModel
 from pymongo.client_session import ClientSession
 
 import beanie
 from beanie.odm.fields import SortDirection
 from beanie.odm.queries.find import AggregationQuery, FindMany, FindOne
 from beanie.odm.settings.base import ItemSettings
-from beanie.odm.utils.parsing import ParseableModel
+
+ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
 class FindInterface(ABC):
@@ -52,13 +55,13 @@ class FindInterface(ABC):
     def find_one(
         cls,
         *args: Union[Mapping[str, Any], bool],
-        projection_model: Optional[Type[ParseableModel]] = None,
+        projection_model: Optional[Type[ModelT]] = None,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
         fetch_links: bool = False,
         with_children: bool = False,
         **pymongo_kwargs: Any,
-    ) -> FindOne:
+    ) -> FindOne[ModelT]:
         """
         Find one document by criteria.
         Returns [FindOne](https://roman-right.github.io/beanie/api/queries/#findone) query object.
@@ -72,7 +75,7 @@ class FindInterface(ABC):
         :return: [FindOne](https://roman-right.github.io/beanie/api/queries/#findone) - find query instance
         """
         args = cls._add_class_id_filter(args, with_children)
-        return FindOne(document_model=cls).find_one(
+        return FindOne[ModelT](document_model=cls).find_one(
             *args,
             projection_model=projection_model,
             session=session,
@@ -85,7 +88,7 @@ class FindInterface(ABC):
     def find_many(
         cls,
         *args: Union[Mapping[str, Any], bool],
-        projection_model: Optional[Type[ParseableModel]] = None,
+        projection_model: Optional[Type[ModelT]] = None,
         skip: Optional[int] = None,
         limit: Optional[int] = None,
         sort: Union[None, str, List[Tuple[str, SortDirection]]] = None,
@@ -95,7 +98,7 @@ class FindInterface(ABC):
         with_children: bool = False,
         lazy_parse: bool = False,
         **pymongo_kwargs: Any,
-    ) -> FindMany:
+    ) -> Union[FindMany[ModelT], FindMany[Dict[str, Any]]]:
         """
         Find many documents by criteria.
         Returns [FindMany](https://roman-right.github.io/beanie/api/queries/#findmany) query object
@@ -112,7 +115,7 @@ class FindInterface(ABC):
         :return: [FindMany](https://roman-right.github.io/beanie/api/queries/#findmany) - query instance
         """
         args = cls._add_class_id_filter(args, with_children)
-        return FindMany(document_model=cls).find_many(
+        return FindMany[Any](document_model=cls).find_many(
             *args,
             sort=sort,
             skip=skip,
@@ -129,7 +132,7 @@ class FindInterface(ABC):
     def find(
         cls,
         *args: Union[Mapping[str, Any], bool],
-        projection_model: Optional[Type[ParseableModel]] = None,
+        projection_model: Optional[Type[ModelT]] = None,
         skip: Optional[int] = None,
         limit: Optional[int] = None,
         sort: Union[None, str, List[Tuple[str, SortDirection]]] = None,
@@ -139,7 +142,7 @@ class FindInterface(ABC):
         with_children: bool = False,
         lazy_parse: bool = False,
         **pymongo_kwargs: Any,
-    ) -> FindMany:
+    ) -> Union[FindMany[ModelT], FindMany[Dict[str, Any]]]:
         """
         The same as find_many
         """
@@ -160,16 +163,17 @@ class FindInterface(ABC):
     @classmethod
     def find_all(
         cls,
+        *,
+        projection_model: Optional[Type[ModelT]] = None,
         skip: Optional[int] = None,
         limit: Optional[int] = None,
         sort: Union[None, str, List[Tuple[str, SortDirection]]] = None,
-        projection_model: Optional[Type[ParseableModel]] = None,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
         with_children: bool = False,
         lazy_parse: bool = False,
         **pymongo_kwargs: Any,
-    ) -> FindMany:
+    ) -> Union[FindMany[ModelT], FindMany[Dict[str, Any]]]:
         """
         Get all the documents
 
@@ -181,23 +185,24 @@ class FindInterface(ABC):
         :param **pymongo_kwargs: pymongo native parameters for find operation (if Document class contains links, this parameter must fit the respective parameter of the aggregate MongoDB function)
         :return: [FindMany](https://roman-right.github.io/beanie/api/queries/#findmany) - query instance
         """
-        return cls.find_many(
-            {},
+        kwargs = dict(
             skip=skip,
             limit=limit,
             sort=sort,
-            projection_model=projection_model,
             session=session,
             ignore_cache=ignore_cache,
             with_children=with_children,
             lazy_parse=lazy_parse,
             **pymongo_kwargs,
         )
+        if projection_model is None:
+            return cls.find_many({}, **kwargs)
+        return cls.find_many({}, projection_model=projection_model, **kwargs)
 
     @classmethod
     def all(
         cls,
-        projection_model: Optional[Type[ParseableModel]] = None,
+        projection_model: Optional[Type[ModelT]] = None,
         skip: Optional[int] = None,
         limit: Optional[int] = None,
         sort: Union[None, str, List[Tuple[str, SortDirection]]] = None,
@@ -206,7 +211,7 @@ class FindInterface(ABC):
         with_children: bool = False,
         lazy_parse: bool = False,
         **pymongo_kwargs: Any,
-    ) -> FindMany:
+    ) -> Union[FindMany[ModelT], FindMany[Dict[str, Any]]]:
         """
         the same as find_all
         """
@@ -236,11 +241,11 @@ class FindInterface(ABC):
     def aggregate(
         cls,
         aggregation_pipeline: list,
-        projection_model: Optional[Type[ParseableModel]] = None,
+        projection_model: Optional[Type[ModelT]] = None,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
         **pymongo_kwargs: Any,
-    ) -> AggregationQuery:
+    ) -> Union[AggregationQuery[ModelT], AggregationQuery[Dict[str, Any]]]:
         """
         Aggregate over collection.
         Returns [AggregationQuery](https://roman-right.github.io/beanie/api/queries/#aggregationquery) query object
@@ -251,7 +256,7 @@ class FindInterface(ABC):
         :param **pymongo_kwargs: pymongo native parameters for aggregate operation
         :return: [AggregationQuery](https://roman-right.github.io/beanie/api/queries/#aggregationquery)
         """
-        return cls.find_all().aggregate(
+        return cls.find_all(projection_model=projection_model).aggregate(
             aggregation_pipeline=aggregation_pipeline,
             projection_model=projection_model,
             session=session,

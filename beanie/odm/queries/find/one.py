@@ -2,9 +2,11 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Generator,
+    Generic,
     Mapping,
     Optional,
     Type,
+    TypeVar,
     Union,
     cast,
 )
@@ -31,18 +33,17 @@ if TYPE_CHECKING:
     from beanie.odm.interfaces.find import FindInterface
 
 
-class FindOne(FindQuery, UpdateMethods):
+ModelT = TypeVar("ModelT", bound=BaseModel)
+
+
+class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
     """Find One query class"""
 
-    # TODO probably merge FindOne and FindMany to one class to avoid this
-    #  code duplication
-
-    projection_model: Type[ParseableModel]
+    projection_model: Type[ModelT]
 
     def __init__(self, document_model: Type["FindInterface"]):
-        super().__init__(
-            document_model, cast(Type[ParseableModel], document_model)
-        )
+        projection_model = cast(Type[ParseableModel], document_model)
+        super().__init__(document_model, projection_model)
 
     def find_one(
         self,
@@ -253,12 +254,12 @@ class FindOne(FindQuery, UpdateMethods):
             ).count()
         return await super().count()
 
-    def __await__(self) -> Generator[None, None, Optional[BaseModel]]:
+    def __await__(self) -> Generator[None, None, Optional[ModelT]]:
         return self._find_one(use_cache=True, parse=True).__await__()
 
     async def _find_one(
         self, use_cache: bool, parse: bool
-    ) -> Optional[BaseModel]:
+    ) -> Optional[ModelT]:
         if use_cache:
             cache = self._cache
             if cache is None:
@@ -287,4 +288,4 @@ class FindOne(FindQuery, UpdateMethods):
 
         if not parse or doc is None or isinstance(doc, self.projection_model):
             return doc
-        return parse_obj(self.projection_model, doc)
+        return cast(ModelT, parse_obj(self.projection_model, doc))

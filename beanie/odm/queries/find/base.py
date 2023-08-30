@@ -21,7 +21,7 @@ class FindQuery(BaseQuery):
     def __init__(
         self,
         document_model: Type["FindInterface"],
-        projection_model: Optional[Type[ParseableModel]],
+        projection_model: Optional[Type[ParseableModel]] = None,
         ignore_cache: bool = False,
         **pymongo_kwargs: Any,
     ):
@@ -32,7 +32,6 @@ class FindQuery(BaseQuery):
         self.pymongo_kwargs = pymongo_kwargs
         self.ignore_cache = ignore_cache
         self.fetch_links = False
-        self.lazy_parse = False
 
     def get_filter_query(self) -> Mapping[str, Any]:
         """Returns: MongoDB filter query"""

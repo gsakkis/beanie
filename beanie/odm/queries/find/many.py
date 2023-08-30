@@ -9,10 +9,10 @@ from typing import (
     Type,
     Union,
     cast,
+    overload,
 )
 
 from motor.core import AgnosticBaseCursor
-from pydantic import BaseModel
 from pymongo.client_session import ClientSession
 from typing_extensions import Self
 
@@ -20,7 +20,7 @@ import beanie
 from beanie.odm.bulk import BulkWriter
 from beanie.odm.fields import ExpressionField, SortDirection
 from beanie.odm.interfaces.update import UpdateMethods
-from beanie.odm.queries.cursor import BaseCursorQuery
+from beanie.odm.queries.cursor import BaseCursorQuery, ProjectionT
 from beanie.odm.queries.delete import DeleteMany
 from beanie.odm.queries.update import UpdateMany
 from beanie.odm.utils.find import construct_lookup_queries
@@ -29,10 +29,10 @@ from beanie.odm.utils.parsing import ParseableModel
 from .base import FindQuery
 
 if TYPE_CHECKING:
-    from beanie.odm.interfaces.find import FindInterface
+    from beanie.odm.interfaces.find import FindInterface, ModelT
 
 
-class AggregationQuery(FindQuery, BaseCursorQuery):
+class AggregationQuery(FindQuery, BaseCursorQuery[ProjectionT]):
     """Aggregation Query"""
 
     def __init__(
@@ -75,13 +75,12 @@ class AggregationQuery(FindQuery, BaseCursorQuery):
         return pipeline
 
 
-class FindMany(FindQuery, BaseCursorQuery, UpdateMethods):
+class FindMany(FindQuery, BaseCursorQuery[ProjectionT], UpdateMethods):
     """Find Many query class"""
 
     def __init__(self, document_model: Type["FindInterface"]):
-        super().__init__(
-            document_model, cast(Type[ParseableModel], document_model)
-        )
+        projection_model = cast(Type[ParseableModel], document_model)
+        super().__init__(document_model, projection_model)
         self.sort_expressions: List[Tuple[str, SortDirection]] = []
         self.skip_number = 0
         self.limit_number = 0
@@ -123,12 +122,8 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods):
         self.ignore_cache = ignore_cache
         self.fetch_links = fetch_links
         self.pymongo_kwargs.update(pymongo_kwargs)
-        if lazy_parse is True:
-            self.lazy_parse = lazy_parse
+        self.lazy_parse = lazy_parse
         return self
-
-    # TODO probably merge FindOne and FindMany to one class to avoid this
-    #  code duplication
 
     def find(
         self,
@@ -350,12 +345,34 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods):
             aggregation_pipeline.append({"$project": projection})
         return aggregation_pipeline
 
-    async def first_or_none(self) -> Union[BaseModel, Dict[str, Any], None]:
+    async def first_or_none(self) -> Optional[ProjectionT]:
         """
         Returns the first found element or None if no elements were found
         """
         res = await self.limit(1).to_list()
         return res[0] if res else None
+
+    @overload
+    def aggregate(
+        self,
+        aggregation_pipeline: List[Any],
+        projection_model: Type["ModelT"],
+        session: Optional[ClientSession] = None,
+        ignore_cache: bool = False,
+        **pymongo_kwargs: Any,
+    ) -> AggregationQuery["ModelT"]:
+        ...
+
+    @overload
+    def aggregate(
+        self,
+        aggregation_pipeline: List[Any],
+        projection_model: None = None,
+        session: Optional[ClientSession] = None,
+        ignore_cache: bool = False,
+        **pymongo_kwargs: Any,
+    ) -> AggregationQuery[Dict[str, Any]]:
+        ...
 
     def aggregate(
         self,
@@ -364,7 +381,7 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods):
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
         **pymongo_kwargs: Any,
-    ) -> AggregationQuery:
+    ) -> Union[AggregationQuery["ModelT"], AggregationQuery[Dict[str, Any]]]:
         """
         Provide search criteria to the [AggregationQuery](https://roman-right.github.io/beanie/api/queries/#aggregationquery)
 
@@ -383,7 +400,7 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods):
                 *aggregation_pipeline
             )
             find_query = {}
-        return AggregationQuery(
+        return AggregationQuery[Any](
             aggregation_pipeline=aggregation_pipeline,
             document_model=self.document_model,
             projection_model=projection_model,
@@ -399,15 +416,12 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods):
         :return: int
         """
         if self.fetch_links:
-            result = cast(
-                List[Dict[str, Any]],
-                await self.aggregate(
-                    aggregation_pipeline=[{"$count": "count"}],
-                    session=self.session,
-                    ignore_cache=self.ignore_cache,
-                    **self.pymongo_kwargs,
-                ).to_list(length=1),
-            )
+            result = await self.aggregate(
+                aggregation_pipeline=[{"$count": "count"}],
+                session=self.session,
+                ignore_cache=self.ignore_cache,
+                **self.pymongo_kwargs,
+            ).to_list(length=1)
             return result[0]["count"] if result else 0
 
         return await super().count()
@@ -543,15 +557,12 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods):
             {"$group": {"_id": None, "value": {f"${operator}": f"${field}"}}},
             {"$project": {"_id": 0, "value": 1}},
         ]
-        result = cast(
-            List[Dict[str, Any]],
-            await self.aggregate(
-                pipeline,
-                session=session,
-                ignore_cache=ignore_cache,
-                **pymongo_kwargs,
-            ).to_list(length=1),
-        )
+        result = await self.aggregate(
+            pipeline,
+            session=session,
+            ignore_cache=ignore_cache,
+            **pymongo_kwargs,
+        ).to_list(length=1)
         return result[0]["value"] if result else None
 
     def _cache_key_dict(self) -> Dict[str, Any]:
