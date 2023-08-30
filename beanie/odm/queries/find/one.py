@@ -239,6 +239,20 @@ class FindOne(FindQuery, UpdateMethods):
             )
             return None
 
+    async def count(self) -> int:
+        """
+        Count the number of documents matching the query
+        :return: int
+        """
+        if self.fetch_links:
+            return await self.document_model.find_many(
+                *self.find_expressions,
+                session=self.session,
+                fetch_links=self.fetch_links,
+                **self.pymongo_kwargs,
+            ).count()
+        return await super().count()
+
     def __await__(self) -> Generator[None, None, Optional[BaseModel]]:
         return self._find_one(use_cache=True, parse=True).__await__()
 
@@ -246,11 +260,11 @@ class FindOne(FindQuery, UpdateMethods):
         self, use_cache: bool, parse: bool
     ) -> Optional[BaseModel]:
         if use_cache:
-            cache = self.cache
+            cache = self._cache
             if cache is None:
                 return await self._find_one(use_cache=False, parse=parse)
 
-            cache_key = self.cache_key
+            cache_key = self._cache_key
             doc = cache.get(cache_key)
             if doc is None:
                 doc = await self._find_one(use_cache=False, parse=False)
@@ -266,7 +280,7 @@ class FindOne(FindQuery, UpdateMethods):
         else:
             doc = await self.document_model.get_motor_collection().find_one(
                 filter=self.get_filter_query(),
-                projection=self.get_projection(),
+                projection=self._get_projection(),
                 session=self.session,
                 **self.pymongo_kwargs,
             )
@@ -274,17 +288,3 @@ class FindOne(FindQuery, UpdateMethods):
         if not parse or doc is None or isinstance(doc, self.projection_model):
             return doc
         return parse_obj(self.projection_model, doc)
-
-    async def count(self) -> int:
-        """
-        Count the number of documents matching the query
-        :return: int
-        """
-        if self.fetch_links:
-            return await self.document_model.find_many(
-                *self.find_expressions,
-                session=self.session,
-                fetch_links=self.fetch_links,
-                **self.pymongo_kwargs,
-            ).count()
-        return await super().count()

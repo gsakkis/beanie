@@ -34,28 +34,6 @@ class FindQuery(BaseQuery):
         self.fetch_links = False
         self.lazy_parse = False
 
-    @property
-    def cache(self) -> Optional[LRUCache]:
-        if (
-            not self.ignore_cache
-            and self.document_model.get_settings().use_cache
-            and issubclass(self.document_model, beanie.Document)
-        ):
-            return self.document_model._cache
-        return None
-
-    @property
-    def cache_key(self) -> str:
-        return str(self._cache_key_dict())
-
-    def _cache_key_dict(self) -> Dict[str, Any]:
-        return dict(
-            type=self.__class__.__name__,
-            filter=self.get_filter_query(),
-            projection=self.get_projection(),
-            fetch_links=self.fetch_links,
-        )
-
     def get_filter_query(self) -> Mapping[str, Any]:
         """Returns: MongoDB filter query"""
         if self.document_model.get_link_fields() is not None:
@@ -68,13 +46,6 @@ class FindQuery(BaseQuery):
                 custom_encoders=self.document_model.get_bson_encoders()
             ).encode(And(*self.find_expressions).query)
         return {}
-
-    def get_projection(self) -> Optional[Dict[str, Any]]:
-        if self.projection_model is None or not issubclass(
-            self.projection_model, BaseModel
-        ):
-            return None
-        return get_projection(self.projection_model)
 
     def project(
         self, projection_model: Optional[Type[ParseableModel]] = None
@@ -99,6 +70,35 @@ class FindQuery(BaseQuery):
         :return: bool
         """
         return await self.count() > 0
+
+    @property
+    def _cache(self) -> Optional[LRUCache]:
+        if (
+            not self.ignore_cache
+            and self.document_model.get_settings().use_cache
+            and issubclass(self.document_model, beanie.Document)
+        ):
+            return self.document_model._cache
+        return None
+
+    @property
+    def _cache_key(self) -> str:
+        return str(self._cache_key_dict())
+
+    def _cache_key_dict(self) -> Dict[str, Any]:
+        return dict(
+            type=self.__class__.__name__,
+            filter=self.get_filter_query(),
+            projection=self._get_projection(),
+            fetch_links=self.fetch_links,
+        )
+
+    def _get_projection(self) -> Optional[Dict[str, Any]]:
+        if self.projection_model is None or not issubclass(
+            self.projection_model, BaseModel
+        ):
+            return None
+        return get_projection(self.projection_model)
 
 
 def get_projection(model: Type[BaseModel]) -> Optional[Dict[str, Any]]:

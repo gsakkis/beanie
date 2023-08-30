@@ -19,24 +19,9 @@ class BaseCursorQuery(ABC):
     projection_model: Optional[Type[ParseableModel]]
     lazy_parse: bool
 
-    @property
-    @abstractmethod
-    def motor_cursor(self) -> AgnosticBaseCursor:
-        ...
-
-    @property
-    @abstractmethod
-    def cache(self) -> Optional[LRUCache]:
-        ...
-
-    @property
-    @abstractmethod
-    def cache_key(self) -> str:
-        ...
-
     def __aiter__(self):
         if self._cursor is None:
-            self._cursor = self.motor_cursor
+            self._cursor = self._motor_cursor
         return self
 
     async def __anext__(self) -> Union[BaseModel, Dict[str, Any]]:
@@ -58,15 +43,15 @@ class BaseCursorQuery(ABC):
         :param length: Optional[int] - length of the list
         :return: Union[List[BaseModel], List[Dict[str, Any]]]
         """
-        cursor = self.motor_cursor
+        cursor = self._motor_cursor
         if cursor is None:
-            raise RuntimeError("self.motor_cursor was not set")
+            raise RuntimeError("self._motor_cursor was not set")
 
-        cache = self.cache
+        cache = self._cache
         if cache is None:
             motor_list = await cursor.to_list(length)
         else:
-            cache_key = self.cache_key
+            cache_key = self._cache_key
             motor_list = cache.get(cache_key)
             if motor_list is None:
                 motor_list = await cursor.to_list(length)
@@ -78,3 +63,18 @@ class BaseCursorQuery(ABC):
                 for i in motor_list
             ]
         return motor_list
+
+    @property
+    @abstractmethod
+    def _motor_cursor(self) -> AgnosticBaseCursor:
+        ...
+
+    @property
+    @abstractmethod
+    def _cache(self) -> Optional[LRUCache]:
+        ...
+
+    @property
+    @abstractmethod
+    def _cache_key(self) -> str:
+        ...

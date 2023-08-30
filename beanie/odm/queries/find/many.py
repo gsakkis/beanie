@@ -58,19 +58,19 @@ class AggregationQuery(FindQuery, BaseCursorQuery):
         return d
 
     @property
-    def motor_cursor(self) -> AgnosticBaseCursor:
+    def _motor_cursor(self) -> AgnosticBaseCursor:
         return self.document_model.get_motor_collection().aggregate(
-            self.get_aggregation_pipeline(),
+            self._get_aggregation_pipeline(),
             session=self.session,
             **self.pymongo_kwargs,
         )
 
-    def get_aggregation_pipeline(self) -> List[Mapping[str, Any]]:
+    def _get_aggregation_pipeline(self) -> List[Mapping[str, Any]]:
         pipeline: List[Mapping[str, Any]] = []
         if self.find_query:
             pipeline.append({"$match": self.find_query})
         pipeline.extend(self.aggregation_pipeline)
-        if (projection := self.get_projection()) is not None:
+        if (projection := self._get_projection()) is not None:
             pipeline.append({"$project": projection})
         return pipeline
 
@@ -85,34 +85,6 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods):
         self.sort_expressions: List[Tuple[str, SortDirection]] = []
         self.skip_number = 0
         self.limit_number = 0
-
-    def _cache_key_dict(self) -> Dict[str, Any]:
-        d = super()._cache_key_dict()
-        d.update(
-            sort=self.sort_expressions,
-            skip=self.skip_number,
-            limit=self.limit_number,
-        )
-        return d
-
-    @property
-    def motor_cursor(self) -> AgnosticBaseCursor:
-        if self.fetch_links:
-            return self.document_model.get_motor_collection().aggregate(
-                self.build_aggregation_pipeline(project=True),
-                session=self.session,
-                **self.pymongo_kwargs,
-            )
-
-        return self.document_model.get_motor_collection().find(
-            filter=self.get_filter_query(),
-            sort=self.sort_expressions,
-            projection=self.get_projection(),
-            skip=self.skip_number,
-            limit=self.limit_number,
-            session=self.session,
-            **self.pymongo_kwargs,
-        )
 
     def find_many(
         self,
@@ -374,7 +346,7 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods):
         if self.limit_number != 0:
             aggregation_pipeline.append({"$limit": self.limit_number})
         aggregation_pipeline.extend(extra_stages)
-        if project and (projection := self.get_projection()) is not None:
+        if project and (projection := self._get_projection()) is not None:
             aggregation_pipeline.append({"$project": projection})
         return aggregation_pipeline
 
@@ -581,3 +553,31 @@ class FindMany(FindQuery, BaseCursorQuery, UpdateMethods):
             ).to_list(length=1),
         )
         return result[0]["value"] if result else None
+
+    def _cache_key_dict(self) -> Dict[str, Any]:
+        d = super()._cache_key_dict()
+        d.update(
+            sort=self.sort_expressions,
+            skip=self.skip_number,
+            limit=self.limit_number,
+        )
+        return d
+
+    @property
+    def _motor_cursor(self) -> AgnosticBaseCursor:
+        if self.fetch_links:
+            return self.document_model.get_motor_collection().aggregate(
+                self.build_aggregation_pipeline(project=True),
+                session=self.session,
+                **self.pymongo_kwargs,
+            )
+
+        return self.document_model.get_motor_collection().find(
+            filter=self.get_filter_query(),
+            sort=self.sort_expressions,
+            projection=self._get_projection(),
+            skip=self.skip_number,
+            limit=self.limit_number,
+            session=self.session,
+            **self.pymongo_kwargs,
+        )

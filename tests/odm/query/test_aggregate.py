@@ -11,7 +11,7 @@ async def test_aggregate(preset_documents):
     q = Sample.aggregate(
         [{"$group": {"_id": "$string", "total": {"$sum": "$integer"}}}]
     )
-    assert q.get_aggregation_pipeline() == [
+    assert q._get_aggregation_pipeline() == [
         {"$group": {"_id": "$string", "total": {"$sum": "$integer"}}}
     ]
     result = await q.to_list()
@@ -26,7 +26,7 @@ async def test_aggregate_with_filter(preset_documents):
     q = Sample.find(Sample.increment >= 4).aggregate(
         [{"$group": {"_id": "$string", "total": {"$sum": "$integer"}}}]
     )
-    assert q.get_aggregation_pipeline() == [
+    assert q._get_aggregation_pipeline() == [
         {"$match": {"increment": {"$gte": 4}}},
         {"$group": {"_id": "$string", "total": {"$sum": "$integer"}}},
     ]
@@ -47,7 +47,7 @@ async def test_aggregate_with_projection_model(preset_documents):
         [{"$group": {"_id": "$string", "total": {"$sum": "$integer"}}}],
         projection_model=OutputItem,
     )
-    assert q.get_aggregation_pipeline() == [
+    assert q._get_aggregation_pipeline() == [
         {"$match": {"increment": {"$gte": 4}}},
         {"$group": {"_id": "$string", "total": {"$sum": "$integer"}}},
         {"$project": {"_id": 1, "total": 1}},
@@ -105,11 +105,11 @@ async def test_clone(preset_documents):
     )
     new_q = copy.deepcopy(q)
     new_q.aggregation_pipeline.append({"a": "b"})
-    assert q.get_aggregation_pipeline() == [
+    assert q._get_aggregation_pipeline() == [
         {"$match": {"increment": {"$gte": 4}}},
         {"$group": {"_id": "$string", "total": {"$sum": "$integer"}}},
     ]
-    assert new_q.get_aggregation_pipeline() == [
+    assert new_q._get_aggregation_pipeline() == [
         {"$match": {"increment": {"$gte": 4}}},
         {"$group": {"_id": "$string", "total": {"$sum": "$integer"}}},
         {"a": "b"},
