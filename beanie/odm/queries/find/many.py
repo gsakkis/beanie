@@ -23,7 +23,6 @@ from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.queries.cursor import BaseCursorQuery, ProjectionT
 from beanie.odm.queries.delete import DeleteMany
 from beanie.odm.queries.update import UpdateMany
-from beanie.odm.utils.find import construct_lookup_queries
 from beanie.odm.utils.parsing import ParseableModel
 
 from .base import FindQuery
@@ -63,19 +62,10 @@ class AggregationQuery(FindQuery, BaseCursorQuery[ProjectionT]):
     @property
     def _motor_cursor(self) -> AgnosticBaseCursor:
         return self.document_model.get_motor_collection().aggregate(
-            self._get_aggregation_pipeline(),
+            self._build_aggregation_pipeline(*self.aggregation_pipeline),
             session=self.session,
             **self.pymongo_kwargs,
         )
-
-    def _get_aggregation_pipeline(self) -> List[Mapping[str, Any]]:
-        pipeline: List[Mapping[str, Any]] = []
-        if find_query := self.get_filter_query():
-            pipeline.append({"$match": find_query})
-        pipeline.extend(self.aggregation_pipeline)
-        if (projection := self._get_projection()) is not None:
-            pipeline.append({"$project": projection})
-        return pipeline
 
 
 class FindMany(FindQuery, UpdateMethods, BaseCursorQuery[ProjectionT]):
@@ -330,23 +320,23 @@ class FindMany(FindQuery, UpdateMethods, BaseCursorQuery[ProjectionT]):
             session=session, bulk_writer=bulk_writer, **pymongo_kwargs
         )
 
-    def build_aggregation_pipeline(
+    def _build_aggregation_pipeline(
         self,
-        *extra_stages: Dict[str, Any],
-        project: bool = False,
-    ) -> List[Dict[str, Any]]:
-        aggregation_pipeline = construct_lookup_queries(self.document_model)
-        aggregation_pipeline.append({"$match": self.get_filter_query()})
+        *extra_stages: Mapping[str, Any],
+        project: bool = True,
+    ) -> List[Mapping[str, Any]]:
+        aggregation_pipeline: List[Mapping[str, Any]] = []
         if self.sort_expressions:
             aggregation_pipeline.append({"$sort": dict(self.sort_expressions)})
         if self.skip_number != 0:
             aggregation_pipeline.append({"$skip": self.skip_number})
         if self.limit_number != 0:
             aggregation_pipeline.append({"$limit": self.limit_number})
-        aggregation_pipeline.extend(extra_stages)
-        if project and (projection := self._get_projection()) is not None:
-            aggregation_pipeline.append({"$project": projection})
-        return aggregation_pipeline
+        if extra_stages:
+            aggregation_pipeline += extra_stages
+        return super()._build_aggregation_pipeline(
+            *aggregation_pipeline, project=project
+        )
 
     async def first_or_none(self) -> Optional[ProjectionT]:
         """
@@ -400,8 +390,8 @@ class FindMany(FindQuery, UpdateMethods, BaseCursorQuery[ProjectionT]):
             args = self.find_expressions
         else:
             args = []
-            aggregation_pipeline = self.build_aggregation_pipeline(
-                *aggregation_pipeline
+            aggregation_pipeline = self._build_aggregation_pipeline(
+                *aggregation_pipeline, project=False
             )
         return AggregationQuery[Any](
             *args,
@@ -581,7 +571,7 @@ class FindMany(FindQuery, UpdateMethods, BaseCursorQuery[ProjectionT]):
     def _motor_cursor(self) -> AgnosticBaseCursor:
         if self.fetch_links:
             return self.document_model.get_motor_collection().aggregate(
-                self.build_aggregation_pipeline(project=True),
+                self._build_aggregation_pipeline(),
                 session=self.session,
                 **self.pymongo_kwargs,
             )

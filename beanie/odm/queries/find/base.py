@@ -10,6 +10,7 @@ from beanie.odm.fields import ExpressionField
 from beanie.odm.operators.find.logical import And
 from beanie.odm.queries import BaseQuery
 from beanie.odm.utils.encoder import Encoder
+from beanie.odm.utils.find import construct_lookup_queries
 from beanie.odm.utils.parsing import ParseableModel
 
 if TYPE_CHECKING:
@@ -32,7 +33,7 @@ class FindQuery(BaseQuery):
         self.projection_model = projection_model
         self.ignore_cache = ignore_cache
         self.fetch_links = False
-        self.find_expressions: List[Dict[str, Any]] = []
+        self.find_expressions: List[Mapping[str, Any]] = []
 
     def get_filter_query(self) -> Mapping[str, Any]:
         """Returns: MongoDB filter query"""
@@ -93,15 +94,29 @@ class FindQuery(BaseQuery):
             fetch_links=self.fetch_links,
         )
 
-    def _get_projection(self) -> Optional[Dict[str, Any]]:
+    def _get_projection(self) -> Optional[Mapping[str, Any]]:
         if self.projection_model is None or not issubclass(
             self.projection_model, BaseModel
         ):
             return None
         return get_projection(self.projection_model)
 
+    def _build_aggregation_pipeline(
+        self, *extra_stages: Mapping[str, Any], project: bool = True
+    ) -> List[Mapping[str, Any]]:
+        pipeline: List[Mapping[str, Any]] = []
+        if self.fetch_links:
+            pipeline += construct_lookup_queries(self.document_model)
+        if find_query := self.get_filter_query():
+            pipeline.append({"$match": find_query})
+        if extra_stages:
+            pipeline += extra_stages
+        if project and (projection := self._get_projection()) is not None:
+            pipeline.append({"$project": projection})
+        return pipeline
 
-def get_projection(model: Type[BaseModel]) -> Optional[Dict[str, Any]]:
+
+def get_projection(model: Type[BaseModel]) -> Optional[Mapping[str, Any]]:
     if issubclass(model, beanie.Document) and model._inheritance_inited:
         return None
 
@@ -119,8 +134,10 @@ def get_projection(model: Type[BaseModel]) -> Optional[Dict[str, Any]]:
 
 
 def convert_ids(
-    query: Dict[str, Any], model_type: Type["FindInterface"], fetch_links: bool
-) -> Dict[str, Any]:
+    query: Mapping[str, Any],
+    model_type: Type["FindInterface"],
+    fetch_links: bool,
+) -> Mapping[str, Any]:
     # TODO add all the cases
     new_query = {}
     for k, v in query.items():
