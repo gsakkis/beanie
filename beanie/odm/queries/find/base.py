@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Type
 
 from pydantic import BaseModel
+from pymongo.client_session import ClientSession
 from typing_extensions import Self
 
 import beanie
@@ -23,15 +24,15 @@ class FindQuery(BaseQuery):
         document_model: Type["FindInterface"],
         projection_model: Optional[Type[ParseableModel]] = None,
         ignore_cache: bool = False,
+        session: Optional[ClientSession] = None,
         **pymongo_kwargs: Any,
     ):
-        super().__init__()
+        super().__init__(session, **pymongo_kwargs)
         self.document_model = document_model
         self.projection_model = projection_model
-        self.find_expressions: List[Dict[str, Any]] = []
-        self.pymongo_kwargs = pymongo_kwargs
         self.ignore_cache = ignore_cache
         self.fetch_links = False
+        self.find_expressions: List[Dict[str, Any]] = []
 
     def get_filter_query(self) -> Mapping[str, Any]:
         """Returns: MongoDB filter query"""

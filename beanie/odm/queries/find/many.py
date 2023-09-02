@@ -37,24 +37,27 @@ class AggregationQuery(FindQuery, BaseCursorQuery[ProjectionT]):
 
     def __init__(
         self,
+        *args: Union[Mapping[str, Any], bool],
         aggregation_pipeline: List[Mapping[str, Any]],
-        find_query: Mapping[str, Any],
         document_model: Type["FindInterface"],
         projection_model: Optional[Type[ParseableModel]] = None,
-        session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
+        session: Optional[ClientSession] = None,
         **pymongo_kwargs: Any,
     ):
         super().__init__(
-            document_model, projection_model, ignore_cache, **pymongo_kwargs
+            document_model=document_model,
+            projection_model=projection_model,
+            ignore_cache=ignore_cache,
+            session=session,
+            **pymongo_kwargs,
         )
-        self.set_session(session)
+        self.find_expressions += args  # type: ignore # bool workaround
         self.aggregation_pipeline = aggregation_pipeline
-        self.find_query = find_query
 
     def _cache_key_dict(self) -> Dict[str, Any]:
         d = super()._cache_key_dict()
-        d.update(filter=self.find_query, pipeline=self.aggregation_pipeline)
+        d.update(pipeline=self.aggregation_pipeline)
         return d
 
     @property
@@ -67,15 +70,15 @@ class AggregationQuery(FindQuery, BaseCursorQuery[ProjectionT]):
 
     def _get_aggregation_pipeline(self) -> List[Mapping[str, Any]]:
         pipeline: List[Mapping[str, Any]] = []
-        if self.find_query:
-            pipeline.append({"$match": self.find_query})
+        if find_query := self.get_filter_query():
+            pipeline.append({"$match": find_query})
         pipeline.extend(self.aggregation_pipeline)
         if (projection := self._get_projection()) is not None:
             pipeline.append({"$project": projection})
         return pipeline
 
 
-class FindMany(FindQuery, BaseCursorQuery[ProjectionT], UpdateMethods):
+class FindMany(FindQuery, UpdateMethods, BaseCursorQuery[ProjectionT]):
     """Find Many query class"""
 
     def __init__(self, document_model: Type["FindInterface"]):
@@ -394,19 +397,19 @@ class FindMany(FindQuery, BaseCursorQuery[ProjectionT], UpdateMethods):
         """
         self.set_session(session)
         if not self.fetch_links:
-            find_query = self.get_filter_query()
+            args = self.find_expressions
         else:
+            args = []
             aggregation_pipeline = self.build_aggregation_pipeline(
                 *aggregation_pipeline
             )
-            find_query = {}
         return AggregationQuery[Any](
+            *args,
             aggregation_pipeline=aggregation_pipeline,
             document_model=self.document_model,
             projection_model=projection_model,
-            find_query=find_query,
-            session=self.session,
             ignore_cache=ignore_cache,
+            session=self.session,
             **pymongo_kwargs,
         )
 

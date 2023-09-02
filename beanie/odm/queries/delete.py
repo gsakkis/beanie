@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Dict, Generator, Mapping, Optional, Type
+from typing import TYPE_CHECKING, Any, Generator, Mapping, Optional, Type
 
 from pymongo import DeleteMany as DeleteManyPyMongo
 from pymongo import DeleteOne as DeleteOnePyMongo
@@ -19,16 +19,14 @@ class DeleteQuery(BaseQuery):
         self,
         document_model: Type["FindInterface"],
         find_query: Mapping[str, Any],
-        session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
+        session: Optional[ClientSession] = None,
         **pymongo_kwargs: Any,
     ):
-        super().__init__()
-        self.set_session(session)
+        super().__init__(session, **pymongo_kwargs)
         self.document_model = document_model
         self.find_query = find_query
         self.bulk_writer = bulk_writer
-        self.pymongo_kwargs: Dict[str, Any] = pymongo_kwargs
 
     async def _delete(self, many: bool) -> Optional[DeleteResult]:
         if self.bulk_writer is not None:
