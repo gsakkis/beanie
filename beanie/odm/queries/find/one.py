@@ -158,7 +158,7 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
             **pymongo_kwargs,
         )
 
-    async def replace_one(
+    async def replace(
         self,
         document: "beanie.Document",
         session: Optional[ClientSession] = None,
@@ -216,20 +216,18 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
         return await super().count()
 
     def __await__(self) -> Generator[None, None, Optional[ModelT]]:
-        return self._find_one(use_cache=True, parse=True).__await__()
+        return self._find(use_cache=True, parse=True).__await__()
 
-    async def _find_one(
-        self, use_cache: bool, parse: bool
-    ) -> Optional[ModelT]:
+    async def _find(self, use_cache: bool, parse: bool) -> Optional[ModelT]:
         if use_cache:
             cache = self._cache
             if cache is None:
-                return await self._find_one(use_cache=False, parse=parse)
+                return await self._find(use_cache=False, parse=parse)
 
             cache_key = self._cache_key
             doc = cache.get(cache_key)
             if doc is None:
-                doc = await self._find_one(use_cache=False, parse=False)
+                doc = await self._find(use_cache=False, parse=False)
                 cache.set(cache_key, doc)
         elif self.fetch_links:
             doc = await self.document_model.find_many(

@@ -88,7 +88,7 @@ async def test_replace(documents, document_not_inserted):
 
         await DocumentTestModel.find_one(
             DocumentTestModel.test_int == 1
-        ).replace_one(document_not_inserted, bulk_writer=bulk_writer)
+        ).replace(document_not_inserted, bulk_writer=bulk_writer)
 
     assert len(await DocumentTestModel.find_all().to_list()) == 5
     assert (

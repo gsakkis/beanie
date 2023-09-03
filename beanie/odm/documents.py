@@ -404,7 +404,7 @@ class Document(LazyModel, FindInterface):
         if use_revision_id and not ignore_revision:
             find_query["revision_id"] = self._previous_revision_id
         try:
-            await self.find_one(find_query).replace_one(
+            await self.find_one(find_query).replace(
                 self,
                 session=session,
                 bulk_writer=bulk_writer,

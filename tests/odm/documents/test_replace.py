@@ -6,7 +6,7 @@ async def test_replace_one(preset_documents):
     count_2_before = await Sample.find_many(Sample.integer == 2).count()
 
     a_2 = await Sample.find_one(Sample.integer == 2)
-    await Sample.find_one(Sample.integer == 1).replace_one(a_2)
+    await Sample.find_one(Sample.integer == 1).replace(a_2)
 
     count_1_after = await Sample.find_many(Sample.integer == 1).count()
     count_2_after = await Sample.find_many(Sample.integer == 2).count()
