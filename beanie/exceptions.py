@@ -6,10 +6,6 @@ class DocumentWasNotSaved(Exception):
     pass
 
 
-class CollectionWasNotInitialized(Exception):
-    pass
-
-
 class ReplaceError(Exception):
     pass
 
@@ -34,15 +30,11 @@ class MongoDBVersionError(Exception):
     pass
 
 
-class ViewWasNotInitialized(Exception):
+class SettingsNotInitialized(Exception):
     pass
 
 
 class UnionHasNoRegisteredDocs(Exception):
-    pass
-
-
-class UnionDocNotInited(Exception):
     pass
 
 

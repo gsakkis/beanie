@@ -7,9 +7,8 @@ import pytest
 from pydantic import BaseModel, ValidationError
 
 from beanie import Document
-from beanie.exceptions import CollectionWasNotInitialized
+from beanie.exceptions import SettingsNotInitialized
 from beanie.odm.fields import PydanticObjectId
-from beanie.odm.utils.dump import get_dict
 from beanie.odm.utils.encoder import Encoder
 from tests.odm.models import (
     DocumentTestModel,
@@ -40,7 +39,7 @@ async def test_bson_encoders_filed_types():
     custom = DocumentWithBsonEncodersFiledsTypes(
         color="7fffd4", timestamp=datetime.datetime.utcnow()
     )
-    encoded = get_dict(custom)
+    encoded = custom.get_dict()
     assert isinstance(encoded["timestamp"], str)
     c = await custom.insert()
     c_fromdb = await DocumentWithBsonEncodersFiledsTypes.get(c.id)
@@ -124,7 +123,7 @@ def test_revision_id_not_in_schema():
 
     # check that the document has not been initialized,
     # as otherwise the `revision_id` is normally gone from the schema.
-    with pytest.raises(CollectionWasNotInitialized):
+    with pytest.raises(SettingsNotInitialized):
         Foo.get_settings()
 
 

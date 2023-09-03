@@ -33,7 +33,6 @@ from pymongo.results import DeleteResult, InsertManyResult
 from typing_extensions import Self
 
 from beanie.exceptions import (
-    CollectionWasNotInitialized,
     DocumentNotFound,
     DocumentWasNotSaved,
     NotSupported,
@@ -48,7 +47,6 @@ from beanie.odm.fields import (
     DeleteRules,
     ExpressionField,
     Link,
-    LinkInfo,
     LinkTypes,
     PydanticObjectId,
     WriteRules,
@@ -69,7 +67,7 @@ from beanie.odm.operators.update.general import (
 from beanie.odm.operators.update.general import Set as SetOperator
 from beanie.odm.queries.update import UpdateMany, UpdateResponse
 from beanie.odm.settings.document import DocumentSettings
-from beanie.odm.utils.dump import get_dict, get_top_level_nones
+from beanie.odm.utils.encoder import Encoder
 from beanie.odm.utils.parsing import merge_models
 from beanie.odm.utils.state import (
     previous_saved_state_needed,
@@ -124,24 +122,19 @@ class Document(LazyModel, FindInterface):
     _saved_state: Optional[Dict[str, Any]] = PrivateAttr(default=None)
     _previous_saved_state: Optional[Dict[str, Any]] = PrivateAttr(default=None)
 
-    # Relations
-    _link_fields: ClassVar[Optional[Dict[str, LinkInfo]]] = None
-
     # Cache
     _cache: ClassVar[Optional[LRUCache]] = None
-
-    # Settings
-    _document_settings: ClassVar[Optional[DocumentSettings]] = None
 
     # Database
     _database_major_version: ClassVar[int] = 4
 
     # Other
+    _settings: ClassVar[DocumentSettings]
     _hidden_fields: ClassVar[Set[str]] = set()
     _sort_order: ClassVar[int] = 1
 
     def _swap_revision(self):
-        if self.get_settings().use_revision:
+        if self._settings.use_revision:
             self._previous_revision_id = self.revision_id
             self.revision_id = uuid4()
 
@@ -227,7 +220,7 @@ class Document(LazyModel, FindInterface):
         :return: Document
         """
         await self.validate_self(skip_actions=skip_actions)
-        if self.get_settings().use_revision:
+        if self._settings.use_revision:
             self.revision_id = uuid4()
         if link_rule == WriteRules.WRITE:
             link_fields = self.get_link_fields()
@@ -249,10 +242,7 @@ class Document(LazyModel, FindInterface):
                                 if isinstance(obj, Document):
                                     await obj.save(link_rule=WriteRules.WRITE)
         result = await self.get_motor_collection().insert_one(
-            get_dict(
-                self, to_db=True, keep_nulls=self.get_settings().keep_nulls
-            ),
-            session=session,
+            self.get_dict(), session=session
         )
         self.id = self.parse_document_id(result.inserted_id)
         return self
@@ -294,11 +284,7 @@ class Document(LazyModel, FindInterface):
             bulk_writer.add_operation(
                 Operation(
                     operation=InsertOne,
-                    first_query=get_dict(
-                        document,
-                        to_db=True,
-                        keep_nulls=document.get_settings().keep_nulls,
-                    ),
+                    first_query=document.get_dict(),
                     object_class=type(document),
                 )
             )
@@ -324,14 +310,7 @@ class Document(LazyModel, FindInterface):
             raise NotSupported(
                 "Cascade insert not supported for insert many method"
             )
-        documents_list = [
-            get_dict(
-                document,
-                to_db=True,
-                keep_nulls=document.get_settings().keep_nulls,
-            )
-            for document in documents
-        ]
+        documents_list = [doc.get_dict() for doc in documents]
         return await cls.get_motor_collection().insert_many(
             documents_list, session=session, **pymongo_kwargs
         )
@@ -398,7 +377,7 @@ class Document(LazyModel, FindInterface):
                                         session=session,
                                     )
 
-        use_revision_id = self.get_settings().use_revision
+        use_revision_id = self._settings.use_revision
         find_query: Dict[str, Any] = {"_id": self.id}
 
         if use_revision_id and not ignore_revision:
@@ -462,16 +441,10 @@ class Document(LazyModel, FindInterface):
                                         link_rule=link_rule, session=session
                                     )
 
-        if self.get_settings().keep_nulls is False:
+        if self._settings.keep_nulls is False:
             return await self.update(
-                SetOperator(
-                    get_dict(
-                        self,
-                        to_db=True,
-                        keep_nulls=self.get_settings().keep_nulls,
-                    )
-                ),
-                Unset(get_top_level_nones(self)),
+                SetOperator(self.get_dict()),
+                Unset(self._get_top_level_nones()),
                 session=session,
                 ignore_revision=ignore_revision,
                 upsert=True,
@@ -479,13 +452,7 @@ class Document(LazyModel, FindInterface):
             )
         else:
             return await self.update(
-                SetOperator(
-                    get_dict(
-                        self,
-                        to_db=True,
-                        keep_nulls=self.get_settings().keep_nulls,
-                    )
-                ),
+                SetOperator(self.get_dict()),
                 session=session,
                 ignore_revision=ignore_revision,
                 upsert=True,
@@ -514,10 +481,10 @@ class Document(LazyModel, FindInterface):
         if not self.is_changed:
             return None
         changes = self.get_changes()
-        if self.get_settings().keep_nulls is False:
+        if self._settings.keep_nulls is False:
             return await self.update(
                 SetOperator(changes),
-                Unset(get_top_level_nones(self)),
+                Unset(self._get_top_level_nones()),
                 ignore_revision=ignore_revision,
                 session=session,
                 bulk_writer=bulk_writer,
@@ -574,7 +541,7 @@ class Document(LazyModel, FindInterface):
         :return: None
         """
         arguments = list(args)
-        use_revision_id = self.get_settings().use_revision
+        use_revision_id = self._settings.use_revision
 
         if self.id is not None:
             find_query: Dict[str, Any] = {"_id": self.id}
@@ -800,7 +767,7 @@ class Document(LazyModel, FindInterface):
         Is state management turned on
         :return: bool
         """
-        return cls.get_settings().use_state_management
+        return cls._settings.use_state_management
 
     @classmethod
     def state_management_save_previous(cls) -> bool:
@@ -808,7 +775,7 @@ class Document(LazyModel, FindInterface):
         Should we save the previous state after a commit to database
         :return: bool
         """
-        return cls.get_settings().state_management_save_previous
+        return cls._settings.state_management_save_previous
 
     @classmethod
     def state_management_replace_objects(cls) -> bool:
@@ -816,7 +783,7 @@ class Document(LazyModel, FindInterface):
         Should objects be replaced when using state management
         :return: bool
         """
-        return cls.get_settings().state_management_replace_objects
+        return cls._settings.state_management_replace_objects
 
     def _save_state(self) -> None:
         """
@@ -827,9 +794,7 @@ class Document(LazyModel, FindInterface):
             if self.state_management_save_previous():
                 self._previous_saved_state = self._saved_state
 
-            self._saved_state = get_dict(
-                self, to_db=True, keep_nulls=self.get_settings().keep_nulls
-            )
+            self._saved_state = self.get_dict()
 
     def get_saved_state(self) -> Optional[Dict[str, Any]]:
         """
@@ -848,11 +813,7 @@ class Document(LazyModel, FindInterface):
     @property  # type: ignore
     @saved_state_needed
     def is_changed(self) -> bool:
-        if self._saved_state == get_dict(
-            self, to_db=True, keep_nulls=self.get_settings().keep_nulls
-        ):
-            return False
-        return True
+        return self._saved_state != self.get_dict()
 
     @property  # type: ignore
     @saved_state_needed
@@ -906,9 +867,7 @@ class Document(LazyModel, FindInterface):
 
     @saved_state_needed
     def get_changes(self) -> Dict[str, Any]:
-        return self._collect_updates(
-            self._saved_state, get_dict(self, to_db=True, keep_nulls=self.get_settings().keep_nulls)  # type: ignore
-        )
+        return self._collect_updates(self._saved_state, self.get_dict())  # type: ignore
 
     @saved_state_needed
     @previous_saved_state_needed
@@ -930,18 +889,6 @@ class Document(LazyModel, FindInterface):
                     setattr(self, key, value)
 
     # Other
-
-    @classmethod
-    def get_settings(cls) -> DocumentSettings:
-        """
-        Get document settings, which was created on
-        the initialization step
-
-        :return: DocumentSettings class
-        """
-        if cls._document_settings is None:
-            raise CollectionWasNotInitialized
-        return cls._document_settings
 
     @classmethod
     async def inspect_collection(
@@ -1019,6 +966,29 @@ class Document(LazyModel, FindInterface):
 
         return self.model_dump(**kwargs)
 
+    def get_dict(
+        self,
+        to_db: bool = True,
+        exclude: Optional[Set[str]] = None,
+        keep_nulls: Optional[bool] = None,
+    ):
+        if exclude is None:
+            exclude = set()
+        if self.id is None:
+            exclude.add("_id")
+        if not self._settings.use_revision:
+            exclude.add("revision_id")
+        if keep_nulls is None:
+            keep_nulls = self._settings.keep_nulls
+        encoder = Encoder(exclude=exclude, to_db=to_db, keep_nulls=keep_nulls)
+        return encoder.encode(self)
+
+    def _get_top_level_nones(self, exclude: Optional[Set[str]] = None):
+        dictionary = self.get_dict(
+            exclude=exclude, to_db=False, keep_nulls=True
+        )
+        return {k: v for k, v in dictionary.items() if v is None}
+
     @wrap_with_actions(event_type=EventTypes.VALIDATE_ON_SAVE)
     async def validate_self(
         self,
@@ -1026,7 +996,7 @@ class Document(LazyModel, FindInterface):
         skip_actions: Optional[List[Union[ActionDirections, str]]] = None,
     ):
         # TODO: it can be sync, but needs some actions controller improvements
-        if self.get_settings().validate_on_save:
+        if self._settings.validate_on_save:
             data = self.model_dump()
             self.__class__.model_validate(data)
 
@@ -1051,10 +1021,6 @@ class Document(LazyModel, FindInterface):
             for ref in link_fields.values():
                 coros.append(self.fetch_link(ref.field_name))  # TODO lists
         await asyncio.gather(*coros)
-
-    @classmethod
-    def get_link_fields(cls) -> Optional[Dict[str, LinkInfo]]:
-        return cls._link_fields
 
     @classmethod
     async def distinct(

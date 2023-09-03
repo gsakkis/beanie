@@ -1,4 +1,3 @@
-from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from typing import (
     Any,
@@ -18,6 +17,7 @@ from pydantic import BaseModel
 from pymongo.client_session import ClientSession
 
 import beanie
+from beanie.exceptions import SettingsNotInitialized
 from beanie.odm.fields import LinkInfo, SortDirection
 from beanie.odm.queries.find import AggregationQuery, FindMany, FindOne
 from beanie.odm.settings.base import ItemSettings
@@ -25,20 +25,22 @@ from beanie.odm.settings.base import ItemSettings
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
-class FindInterface(ABC):
+class FindInterface:
     _inheritance_inited: ClassVar[bool]
     _class_id: ClassVar[Optional[str]]
     _children: ClassVar[Dict[str, Type]]
+    _settings: ClassVar[ItemSettings]
+    _link_fields: ClassVar[Optional[Dict[str, LinkInfo]]] = None
 
     @classmethod
-    @abstractmethod
     def get_link_fields(cls) -> Optional[Dict[str, LinkInfo]]:
-        pass
+        return cls._link_fields
 
     @classmethod
-    @abstractmethod
     def get_settings(cls) -> ItemSettings:
-        pass
+        if not hasattr(cls, "_settings"):
+            raise SettingsNotInitialized
+        return cls._settings
 
     @classmethod
     def get_motor_collection(cls) -> AsyncIOMotorCollection:

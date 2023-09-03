@@ -23,7 +23,6 @@ from beanie.odm.bulk import BulkWriter, Operation
 from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.queries.delete import DeleteOne
 from beanie.odm.queries.update import UpdateOne, UpdateResponse
-from beanie.odm.utils.dump import get_dict
 from beanie.odm.utils.encoder import Encoder
 from beanie.odm.utils.parsing import ParseableModel, parse_obj
 
@@ -176,12 +175,7 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
             result: UpdateResult = (
                 await self.document_model.get_motor_collection().replace_one(
                     self.get_filter_query(),
-                    get_dict(
-                        document,
-                        to_db=True,
-                        exclude={"_id"},
-                        keep_nulls=document.get_settings().keep_nulls,
-                    ),
+                    document.get_dict(exclude={"_id"}),
                     session=self.session,
                 )
             )

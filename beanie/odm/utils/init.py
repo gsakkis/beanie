@@ -184,7 +184,7 @@ class Initializer:
             settings = DocumentSettings.model_validate(
                 cls.Settings.__dict__ if hasattr(cls, "Settings") else {}
             )
-            cls._document_settings = settings
+            cls._settings = settings
             cls._children = dict()
             cls._parent = None
             cls._inheritance_inited = False
@@ -292,7 +292,6 @@ class Initializer:
             settings.name = cls.__name__
         settings.motor_collection = self.database[settings.name]
         cls._settings = settings
-        cls._is_inited = True
 
     # Final
 

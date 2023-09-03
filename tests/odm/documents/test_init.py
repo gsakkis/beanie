@@ -3,7 +3,7 @@ from motor.motor_asyncio import AsyncIOMotorCollection
 from pymongo import IndexModel
 
 from beanie import Document, Indexed, init_beanie
-from beanie.exceptions import CollectionWasNotInitialized
+from beanie.exceptions import SettingsNotInitialized
 from beanie.odm.queries.find import get_projection
 from tests.odm.models import (
     DocumentTestModel,
@@ -19,11 +19,11 @@ from tests.odm.models import (
 )
 
 
-async def test_init_collection_was_not_initialized():
+async def test_init_settings_not_initialized():
     class NewDocument(Document):
         test_str: str
 
-    with pytest.raises(CollectionWasNotInitialized):
+    with pytest.raises(SettingsNotInitialized):
         NewDocument(test_str="test")
 
 

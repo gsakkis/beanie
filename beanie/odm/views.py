@@ -1,38 +1,14 @@
 import asyncio
-from typing import Any, ClassVar, Dict, Optional, Union
+from typing import Any, ClassVar, Union
 
 from pydantic import BaseModel
 
-from beanie.exceptions import ViewWasNotInitialized
-from beanie.odm.fields import Link, LinkInfo
+from beanie.odm.fields import Link
 from beanie.odm.interfaces.find import FindInterface
-from beanie.odm.settings.view import ViewSettings
 
 
 class View(BaseModel, FindInterface):
-    """
-    What is needed: Source collection or view pipeline
-    """
-
     _sort_order: ClassVar[int] = 2
-
-    # Relations
-    _link_fields: ClassVar[Optional[Dict[str, LinkInfo]]] = None
-
-    # Settings
-    _settings: ClassVar[ViewSettings]
-
-    @classmethod
-    def get_settings(cls) -> ViewSettings:
-        """
-        Get view settings, which was created on
-        the initialization step
-
-        :return: ViewSettings class
-        """
-        if cls._settings is None:
-            raise ViewWasNotInitialized
-        return cls._settings
 
     async def fetch_link(self, field: Union[str, Any]):
         ref_obj = getattr(self, field, None)
@@ -50,7 +26,3 @@ class View(BaseModel, FindInterface):
             for ref in link_fields.values():
                 coros.append(self.fetch_link(ref.field_name))  # TODO lists
         await asyncio.gather(*coros)
-
-    @classmethod
-    def get_link_fields(cls) -> Optional[Dict[str, LinkInfo]]:
-        return cls._link_fields
