@@ -115,7 +115,7 @@ async def test_native_upsert_found(documents, document_not_inserted):
     async with BulkWriter() as bulk_writer:
         await DocumentTestModel.find_one(
             DocumentTestModel.test_int == 1
-        ).update_one(
+        ).update(
             {
                 "$addToSet": {
                     "test_list": {
@@ -142,7 +142,7 @@ async def test_native_upsert_not_found(documents, document_not_inserted):
     async with BulkWriter() as bulk_writer:
         await DocumentTestModel.find_one(
             DocumentTestModel.test_int == -1000
-        ).update_one(
+        ).update(
             {
                 "$addToSet": {
                     "test_list": {

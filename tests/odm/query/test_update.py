@@ -93,7 +93,7 @@ async def test_update_one(preset_documents):
     assert len(result) == 1
     assert result[0].integer == 100
 
-    await Sample.find_one(Sample.integer == 1).update_one(
+    await Sample.find_one(Sample.integer == 1).update(
         Set({Sample.integer: 101})
     )
     result = await Sample.find_many(Sample.integer == 101).to_list()

@@ -232,7 +232,7 @@ async def test_save_changes_keep_nulls_false():
 #
 #
 # async def test_update_one_with_session(document, session):
-#     await DocumentTestModel.update_one(
+#     await DocumentTestModel.update(
 #         update_query={"$set": {"test_list.$.test_str": "foo_foo"}},
 #         filter_query={"_id": document.id, "test_list.test_str": "foo"},
 #         session=session,

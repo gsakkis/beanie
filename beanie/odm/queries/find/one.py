@@ -137,30 +137,6 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
             **pymongo_kwargs,
         )
 
-    def update_one(
-        self,
-        *args: Mapping[str, Any],
-        session: Optional[ClientSession] = None,
-        bulk_writer: Optional[BulkWriter] = None,
-        response_type: Optional[UpdateResponse] = None,
-        **pymongo_kwargs: Any,
-    ) -> UpdateOne:
-        """
-        Create [UpdateOne](https://roman-right.github.io/beanie/api/queries/#updateone) query using modifications and
-        provide search criteria there
-        :param args: *Mapping[str,Any] - the modifications to apply
-        :param session: Optional[ClientSession] - PyMongo sessions
-        :param response_type: Optional[UpdateResponse]
-        :return: [UpdateOne](https://roman-right.github.io/beanie/api/queries/#updateone) query
-        """
-        return self.update(
-            *args,
-            session=session,
-            bulk_writer=bulk_writer,
-            response_type=response_type,
-            **pymongo_kwargs,
-        )
-
     def delete(
         self,
         session: Optional[ClientSession] = None,

@@ -216,32 +216,6 @@ class UpdateOne(UpdateQuery):
         )
         return self
 
-    def update_one(
-        self,
-        *args: Mapping[str, Any],
-        session: Optional[ClientSession] = None,
-        bulk_writer: Optional[BulkWriter] = None,
-        response_type: Optional[UpdateResponse] = None,
-        **pymongo_kwargs: Any,
-    ) -> Self:
-        """
-        Provide modifications to the update query. The same as `update()`
-
-        :param args: *Union[dict, Mapping] - the modifications to apply.
-        :param session: Optional[ClientSession]
-        :param bulk_writer: "BulkWriter" - Beanie bulk writer
-        :param response_type: Optional[UpdateResponse]
-        :param pymongo_kwargs: pymongo native parameters for update operation
-        :return: self
-        """
-        return self.update(
-            *args,
-            session=session,
-            bulk_writer=bulk_writer,
-            response_type=response_type,
-            **pymongo_kwargs,
-        )
-
     async def _update(
         self,
     ) -> Union[InsertOneResult, UpdateResult, "DocType", None]:
