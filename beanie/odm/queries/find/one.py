@@ -158,21 +158,6 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
             **pymongo_kwargs,
         )
 
-    def delete_one(
-        self,
-        session: Optional[ClientSession] = None,
-        bulk_writer: Optional[BulkWriter] = None,
-        **pymongo_kwargs: Any,
-    ) -> DeleteOne:
-        """
-        Provide search criteria to the [DeleteOne](https://roman-right.github.io/beanie/api/queries/#deleteone) query
-        :param session: Optional[ClientSession] - PyMongo sessions
-        :return: [DeleteOne](https://roman-right.github.io/beanie/api/queries/#deleteone) query
-        """
-        return self.delete(
-            session=session, bulk_writer=bulk_writer, **pymongo_kwargs
-        )
-
     async def replace_one(
         self,
         document: "beanie.Document",
