@@ -22,7 +22,7 @@ def test_nesting():
     assert q.get_filter_query() == {"nested.optional": None}
     assert Sample.nested.optional == "nested.optional"
 
-    q = Sample.find_many(Sample.nested.integer == 1).find_many(
+    q = Sample.find_many(Sample.nested.integer == 1).find(
         Sample.nested.union.s == "test"
     )
     assert q.get_filter_query() == {

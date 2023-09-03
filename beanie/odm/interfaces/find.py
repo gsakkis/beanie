@@ -115,7 +115,7 @@ class FindInterface(ABC):
         :return: [FindMany](https://roman-right.github.io/beanie/api/queries/#findmany) - query instance
         """
         args = cls._add_class_id_filter(args, with_children)
-        return FindMany[Any](document_model=cls).find_many(
+        return FindMany[Any](document_model=cls).find(
             *args,
             sort=sort,
             skip=skip,

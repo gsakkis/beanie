@@ -20,7 +20,7 @@ async def test_find_query():
 
     q = (
         Sample.find_many(Sample.integer == 1)
-        .find_many(Sample.nested.integer >= 2)
+        .find(Sample.nested.integer >= 2)
         .get_filter_query()
     )
     assert q == {"$and": [{"integer": 1}, {"nested.integer": {"$gte": 2}}]}
@@ -32,7 +32,7 @@ async def test_find_query():
 async def test_find_many(preset_documents):
     result = (
         await Sample.find_many(Sample.integer > 1)
-        .find_many(Sample.nested.optional == None)
+        .find(Sample.nested.optional == None)
         .to_list()
     )  # noqa
     assert len(result) == 2
@@ -41,7 +41,7 @@ async def test_find_many(preset_documents):
         assert a.nested.optional is None
 
     len_result = 0
-    async for a in Sample.find_many(Sample.integer > 1).find_many(
+    async for a in Sample.find_many(Sample.integer > 1).find(
         Sample.nested.optional == None
     ):  # noqa
         assert a in result
@@ -59,7 +59,7 @@ async def test_find_many_skip(preset_documents):
 
     result = (
         await Sample.find_many(Sample.increment > 2)
-        .find_many(Sample.nested.optional == None)
+        .find(Sample.nested.optional == None)
         .skip(1)
         .to_list()
     )
@@ -69,7 +69,7 @@ async def test_find_many_skip(preset_documents):
         assert sample.nested.optional is None
 
     len_result = 0
-    async for sample in Sample.find_many(Sample.increment > 2).find_many(
+    async for sample in Sample.find_many(Sample.increment > 2).find(
         Sample.nested.optional == None
     ).skip(
         1
@@ -89,7 +89,7 @@ async def test_find_many_limit(preset_documents):
 
     result = (
         await Sample.find_many(Sample.increment > 2)
-        .find_many(Sample.nested.optional == None)
+        .find(Sample.nested.optional == None)
         .sort(Sample.increment)
         .limit(2)
         .to_list()
@@ -163,7 +163,7 @@ async def test_sort(preset_documents):
 
     q = (
         Sample.find_many(Sample.integer > 1)
-        .find_many(Sample.integer < 100)
+        .find(Sample.integer < 100)
         .sort("-integer")
     )
     assert q.sort_expressions == [("integer", SortDirection.DESCENDING)]
@@ -231,7 +231,7 @@ async def test_find_many_with_projection(preset_documents):
 
     result = (
         await Sample.find_many(Sample.integer > 1)
-        .find_many(Sample.nested.optional == None)
+        .find(Sample.nested.optional == None)
         .project(projection_model=SampleProjection)
         .to_list()
     )
@@ -242,7 +242,7 @@ async def test_find_many_with_projection(preset_documents):
 
     result = (
         await Sample.find_many(Sample.integer > 1)
-        .find_many(
+        .find(
             Sample.nested.optional == None, projection_model=SampleProjection
         )
         .to_list()
@@ -263,7 +263,7 @@ async def test_find_many_with_custom_projection(preset_documents):
 
     result = (
         await Sample.find_many(Sample.integer > 1)
-        .find_many(Sample.nested.optional == None)
+        .find(Sample.nested.optional == None)
         .project(projection_model=SampleProjection)
         .sort(Sample.nested.integer)
         .to_list()
@@ -277,12 +277,12 @@ async def test_find_many_with_custom_projection(preset_documents):
 async def test_find_many_with_session(preset_documents, session):
     q_1 = (
         Sample.find_many(Sample.integer > 1)
-        .find_many(Sample.nested.optional == None)
+        .find(Sample.nested.optional == None)
         .set_session(session)
     )
     assert q_1.session == session
 
-    q_2 = Sample.find_many(Sample.integer > 1).find_many(
+    q_2 = Sample.find_many(Sample.integer > 1).find(
         Sample.nested.optional == None, session=session
     )
     assert q_2.session == session
@@ -295,7 +295,7 @@ async def test_find_many_with_session(preset_documents, session):
         assert a.nested.optional is None
 
     len_result = 0
-    async for a in Sample.find_many(Sample.integer > 1).find_many(
+    async for a in Sample.find_many(Sample.integer > 1).find(
         Sample.nested.optional == None
     ):  # noqa
         assert a in result
@@ -371,7 +371,7 @@ async def test_find_pymongo_kwargs(preset_documents):
 def test_find_clone():
     q = (
         Sample.find_many(Sample.integer == 1)
-        .find_many(Sample.nested.integer >= 2)
+        .find(Sample.nested.integer >= 2)
         .sort(Sample.integer)
         .limit(100)
     )

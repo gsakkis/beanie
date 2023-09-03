@@ -78,7 +78,7 @@ class FindMany(FindQuery, UpdateMethods, BaseCursorQuery[ProjectionT]):
         self.skip_number = 0
         self.limit_number = 0
 
-    def find_many(
+    def find(
         self,
         *args: Union[Mapping[str, Any], bool],
         projection_model: Optional[Type[ParseableModel]] = None,
@@ -117,35 +117,6 @@ class FindMany(FindQuery, UpdateMethods, BaseCursorQuery[ProjectionT]):
         self.pymongo_kwargs.update(pymongo_kwargs)
         self.lazy_parse = lazy_parse
         return self
-
-    def find(
-        self,
-        *args: Union[Mapping[str, Any], bool],
-        projection_model: Optional[Type[ParseableModel]] = None,
-        skip: Optional[int] = None,
-        limit: Optional[int] = None,
-        sort: Union[None, str, List[Tuple[str, SortDirection]]] = None,
-        session: Optional[ClientSession] = None,
-        ignore_cache: bool = False,
-        fetch_links: bool = False,
-        lazy_parse: bool = False,
-        **pymongo_kwargs: Any,
-    ) -> Self:
-        """
-        The same as `find_many(...)`
-        """
-        return self.find_many(
-            *args,
-            skip=skip,
-            limit=limit,
-            sort=sort,
-            projection_model=projection_model,
-            session=session,
-            ignore_cache=ignore_cache,
-            fetch_links=fetch_links,
-            lazy_parse=lazy_parse,
-            **pymongo_kwargs,
-        )
 
     def sort(
         self,
