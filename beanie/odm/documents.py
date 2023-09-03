@@ -620,7 +620,7 @@ class Document(LazyModel, FindInterface):
         :param **pymongo_kwargs: pymongo native parameters for find operation
         :return: UpdateMany query
         """
-        return cls.find_all().update_many(
+        return cls.find_all().update(
             *args, session=session, bulk_writer=bulk_writer, **pymongo_kwargs
         )
 

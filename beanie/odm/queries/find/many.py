@@ -235,25 +235,6 @@ class FindMany(FindQuery, UpdateMethods, BaseCursorQuery[ProjectionT]):
             *args, on_insert=on_insert, session=self.session, **pymongo_kwargs
         )
 
-    def update_many(
-        self,
-        *args: Mapping[str, Any],
-        session: Optional[ClientSession] = None,
-        bulk_writer: Optional[BulkWriter] = None,
-        **pymongo_kwargs: Any,
-    ) -> UpdateMany:
-        """
-        Provide search criteria to the
-        [UpdateMany](https://roman-right.github.io/beanie/api/queries/#updatemany) query
-
-        :param args: *Mapping[str,Any] - the modifications to apply.
-        :param session: Optional[ClientSession]
-        :return: [UpdateMany](https://roman-right.github.io/beanie/api/queries/#updatemany) query
-        """
-        return self.update(
-            *args, session=session, bulk_writer=bulk_writer, **pymongo_kwargs
-        )
-
     def delete(
         self,
         session: Optional[ClientSession] = None,

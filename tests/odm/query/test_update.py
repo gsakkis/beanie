@@ -64,7 +64,7 @@ async def test_update_many(preset_documents):
 async def test_update_many_linked_method(preset_documents):
     await Sample.find_many(Sample.increment > 4).find(
         Sample.nested.optional == None
-    ).update_many(
+    ).update(
         Set({Sample.increment: 100})
     )  # noqa
     result = await Sample.find_many(Sample.increment == 100).to_list()

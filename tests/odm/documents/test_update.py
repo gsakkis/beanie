@@ -244,7 +244,7 @@ async def test_save_changes_keep_nulls_false():
 # async def test_update_many_with_session(documents, session):
 #     await documents(10, "foo")
 #     await documents(7, "bar")
-#     await DocumentTestModel.update_many(
+#     await DocumentTestModel.update(
 #         update_query={"$set": {"test_str": "bar"}},
 #         filter_query={"test_str": "foo"},
 #         session=session,

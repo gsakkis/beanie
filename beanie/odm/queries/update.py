@@ -117,26 +117,6 @@ class UpdateMany(UpdateQuery):
         self.update(*args, session=session, **pymongo_kwargs)
         return self
 
-    def update_many(
-        self,
-        *args: Mapping[str, Any],
-        session: Optional[ClientSession] = None,
-        bulk_writer: Optional[BulkWriter] = None,
-        **pymongo_kwargs: Any,
-    ) -> Self:
-        """
-        Provide modifications to the update query
-
-        :param args: *Union[dict, Mapping] - the modifications to apply.
-        :param session: Optional[ClientSession]
-        :param bulk_writer: "BulkWriter" - Beanie bulk writer
-        :param pymongo_kwargs: pymongo native parameters for update operation
-        :return: self
-        """
-        return self.update(
-            *args, session=session, bulk_writer=bulk_writer, **pymongo_kwargs
-        )
-
     async def _update(self) -> Optional[UpdateResult]:
         if self.bulk_writer is not None:
             return self.bulk_writer.add_operation(
