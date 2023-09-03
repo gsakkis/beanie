@@ -18,7 +18,7 @@ from pydantic import BaseModel
 from pymongo.client_session import ClientSession
 
 import beanie
-from beanie.odm.fields import SortDirection
+from beanie.odm.fields import LinkInfo, SortDirection
 from beanie.odm.queries.find import AggregationQuery, FindMany, FindOne
 from beanie.odm.settings.base import ItemSettings
 
@@ -32,6 +32,11 @@ class FindInterface(ABC):
 
     @classmethod
     @abstractmethod
+    def get_link_fields(cls) -> Optional[Dict[str, LinkInfo]]:
+        pass
+
+    @classmethod
+    @abstractmethod
     def get_settings(cls) -> ItemSettings:
         pass
 
@@ -40,16 +45,8 @@ class FindInterface(ABC):
         return cls.get_settings().motor_collection
 
     @classmethod
-    def get_collection_name(cls):
+    def get_collection_name(cls) -> Optional[str]:
         return cls.get_settings().name
-
-    @classmethod
-    def get_bson_encoders(cls):
-        return cls.get_settings().bson_encoders
-
-    @classmethod
-    def get_link_fields(cls):
-        return None
 
     @classmethod
     def find_one(
@@ -266,35 +263,19 @@ class FindInterface(ABC):
 
     @classmethod
     def _add_class_id_filter(cls, args: Tuple, with_children: bool = False):
+        class_id = cls.get_settings().class_id
         # skip if _class_id is already added
-        if any(
-            (
-                True
-                for a in args
-                if isinstance(a, Iterable) and cls.get_settings().class_id in a
-            )
-        ):
+        if any(isinstance(a, Iterable) and class_id in a for a in args):
             return args
 
         if issubclass(cls, beanie.Document) and cls._inheritance_inited:
-            if not with_children:
-                args += ({cls.get_settings().class_id: cls._class_id},)
-            else:
-                args += (
-                    {
-                        cls.get_settings().class_id: {
-                            "$in": [cls._class_id]
-                            + [cname for cname in cls._children.keys()]
-                        }
-                    },
-                )
+            class_id_filter = (
+                {"$in": [cls._class_id, *cls._children.keys()]}
+                if with_children
+                else cls._class_id
+            )
+            args += ({class_id: class_id_filter},)
 
         if cls.get_settings().union_doc:
-            args += (
-                {
-                    cls.get_settings()
-                    .class_id: cls.get_settings()
-                    .union_doc_alias
-                },
-            )
+            args += ({class_id: cls.get_settings().union_doc_alias},)
         return args

@@ -44,7 +44,7 @@ class FindQuery(BaseQuery):
                 )
         if self.find_expressions:
             return Encoder(
-                custom_encoders=self.document_model.get_bson_encoders()
+                custom_encoders=self.document_model.get_settings().bson_encoders
             ).encode(And(*self.find_expressions).query)
         return {}
 
@@ -142,11 +142,12 @@ def convert_ids(
     new_query = {}
     for k, v in query.items():
         k_splitted = k.split(".")
+        link_fields = model_type.get_link_fields()
         if (
             isinstance(k, ExpressionField)
-            and model_type.get_link_fields() is not None
+            and link_fields is not None
             and len(k_splitted) == 2
-            and k_splitted[0] in model_type.get_link_fields()
+            and k_splitted[0] in link_fields
             and k_splitted[1] == "id"
         ):
             if fetch_links:

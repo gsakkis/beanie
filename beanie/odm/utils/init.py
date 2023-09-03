@@ -7,6 +7,7 @@ from typing import (  # type: ignore
     Type,
     Union,
     _GenericAlias,
+    cast,
     get_args,
     get_origin,
 )
@@ -504,7 +505,7 @@ class Initializer:
                     cls.set_collection_name(cls.__name__)
                 output = Output(
                     class_name=cls.__name__,
-                    collection_name=cls.get_collection_name(),
+                    collection_name=cast(str, cls.get_collection_name()),
                 )
                 cls._class_id = cls.__name__
                 cls._inheritance_inited = True
@@ -533,7 +534,7 @@ class Initializer:
             assert cls._class_id is not None
             return Output(
                 class_name=cls._class_id,
-                collection_name=cls.get_collection_name(),
+                collection_name=cast(str, cls.get_collection_name()),
             )
         else:
             return None
