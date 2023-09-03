@@ -23,7 +23,7 @@ async def test_delete_many(preset_documents):
     assert isinstance(
         Sample.find_many(Sample.integer > 1)
         .find(Sample.nested.optional == None)
-        .delete_many(),
+        .delete(),
         DeleteMany,
     )  # noqa
 

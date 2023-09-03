@@ -256,22 +256,6 @@ class FindMany(FindQuery, UpdateMethods, BaseCursorQuery[ProjectionT]):
             **pymongo_kwargs,
         )
 
-    def delete_many(
-        self,
-        session: Optional[ClientSession] = None,
-        bulk_writer: Optional[BulkWriter] = None,
-        **pymongo_kwargs: Any,
-    ) -> DeleteMany:
-        """
-        Provide search criteria to the [DeleteMany](https://roman-right.github.io/beanie/api/queries/#deletemany) query
-
-        :param session:
-        :return: [DeleteMany](https://roman-right.github.io/beanie/api/queries/#deletemany) query
-        """
-        return self.delete(
-            session=session, bulk_writer=bulk_writer, **pymongo_kwargs
-        )
-
     def _build_aggregation_pipeline(
         self,
         *extra_stages: Mapping[str, Any],
