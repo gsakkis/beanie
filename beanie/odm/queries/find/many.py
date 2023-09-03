@@ -231,7 +231,7 @@ class FindMany(FindQuery, UpdateMethods, BaseCursorQuery[ProjectionT]):
         return UpdateMany(
             document_model=self.document_model,
             find_query=self.get_filter_query(),
-        ).upsert(
+        ).update(
             *args, on_insert=on_insert, session=self.session, **pymongo_kwargs
         )
 

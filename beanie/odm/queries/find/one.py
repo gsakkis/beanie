@@ -129,7 +129,7 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
         return UpdateOne(
             document_model=self.document_model,
             find_query=self.get_filter_query(),
-        ).upsert(
+        ).update(
             *args,
             on_insert=on_insert,
             session=self.session,
