@@ -65,22 +65,6 @@ class Initializer:
                 expiration_time=settings.cache_expiration_time,
             )
 
-    @staticmethod
-    def init_actions(cls):
-        """
-        Init event-based actions
-        """
-        ActionRegistry.clean_actions(cls)
-        for attr in dir(cls):
-            f = getattr(cls, attr)
-            if inspect.isfunction(f) and hasattr(f, "has_action"):
-                ActionRegistry.add_action(
-                    document_class=cls,
-                    event_types=f.event_types,
-                    action_direction=f.action_direction,
-                    funct=f,
-                )
-
     async def init_document_collection(self, cls):
         """
         Init collection for the Document-based class
@@ -237,7 +221,7 @@ class Initializer:
             self.init_fields(cls)
             cls.set_hidden_fields()
             self.init_cache(cls)
-            self.init_actions(cls)
+            ActionRegistry.init_actions(cls)
 
             self.inited_classes.append(cls)
 

@@ -53,37 +53,21 @@ class ActionRegistry:
     ] = {}
 
     @classmethod
-    def clean_actions(cls, document_class: Type["Document"]):
-        if cls._actions.get(document_class) is not None:
-            del cls._actions[document_class]
-
-    @classmethod
-    def add_action(
-        cls,
-        document_class: Type["Document"],
-        event_types: List[EventTypes],
-        action_direction: ActionDirections,
-        funct: Callable,
-    ):
-        """
-        Add action to the action registry
-        :param document_class: document class
-        :param event_types: List[EventTypes]
-        :param action_direction: ActionDirections - before or after
-        :param funct: Callable - function
-        """
-        if cls._actions.get(document_class) is None:
-            cls._actions[document_class] = {
-                action_type: {
-                    action_direction: []
-                    for action_direction in ActionDirections
-                }
-                for action_type in EventTypes
-            }
-        for event_type in event_types:
-            cls._actions[document_class][event_type][action_direction].append(
-                funct
-            )
+    def init_actions(cls, document_class: Type["Document"]) -> None:
+        cls._actions[document_class] = {
+            event_type: {direction: [] for direction in ActionDirections}
+            for event_type in EventTypes
+        }
+        actions = cls._actions[document_class]
+        for attr in dir(document_class):
+            f = getattr(document_class, attr)
+            if (
+                inspect.isfunction(f)
+                and hasattr(f, "event_types")
+                and hasattr(f, "action_direction")
+            ):
+                for event_type in f.event_types:
+                    actions[event_type][f.action_direction].append(f)
 
     @classmethod
     def get_action_list(
@@ -155,7 +139,6 @@ def register_action(
             final_event_types.append(event_type)
 
     def decorator(f):
-        f.has_action = True
         f.event_types = final_event_types
         f.action_direction = action_direction
         return f
