@@ -56,7 +56,7 @@ async def test_delete_one(preset_documents):
     count_before = await Sample.count()
     delete_result = (
         await Sample.find_one(Sample.integer > 1)
-        .find_one(Sample.nested.optional == None)
+        .find(Sample.nested.optional == None)
         .delete()
     )  # noqa
     count_after = await Sample.count()
@@ -67,7 +67,7 @@ async def test_delete_one(preset_documents):
     count_before = await Sample.count()
     delete_result = (
         await Sample.find_one(Sample.integer > 1)
-        .find_one(Sample.nested.optional == None)
+        .find(Sample.nested.optional == None)
         .delete_one()
     )  # noqa
     count_deleted = delete_result.deleted_count

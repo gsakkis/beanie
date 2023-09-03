@@ -75,7 +75,7 @@ class FindInterface(ABC):
         :return: [FindOne](https://roman-right.github.io/beanie/api/queries/#findone) - find query instance
         """
         args = cls._add_class_id_filter(args, with_children)
-        return FindOne[ModelT](document_model=cls).find_one(
+        return FindOne[ModelT](document_model=cls).find(
             *args,
             projection_model=projection_model,
             session=session,

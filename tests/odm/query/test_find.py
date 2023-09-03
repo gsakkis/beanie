@@ -124,20 +124,20 @@ async def test_find_all(preset_documents):
 
 
 async def test_find_one(preset_documents):
-    a = await Sample.find_one(Sample.integer > 1).find_one(
+    a = await Sample.find_one(Sample.integer > 1).find(
         Sample.nested.optional == None
     )  # noqa
     assert a.integer > 1
     assert a.nested.optional is None
 
-    a = await Sample.find_one(Sample.integer > 100).find_one(
+    a = await Sample.find_one(Sample.integer > 100).find(
         Sample.nested.optional == None
     )  # noqa
     assert a is None
 
 
 async def test_get(preset_documents):
-    a = await Sample.find_one(Sample.integer > 1).find_one(
+    a = await Sample.find_one(Sample.integer > 1).find(
         Sample.nested.optional == None
     )  # noqa
     assert a.integer > 1

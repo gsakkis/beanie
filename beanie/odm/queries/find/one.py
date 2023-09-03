@@ -45,7 +45,7 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
         projection_model = cast(Type[ParseableModel], document_model)
         super().__init__(document_model, projection_model)
 
-    def find_one(
+    def find(
         self,
         *args: Union[Mapping[str, Any], bool],
         projection_model: Optional[Type[ParseableModel]] = None,
