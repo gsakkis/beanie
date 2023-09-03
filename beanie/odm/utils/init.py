@@ -2,17 +2,7 @@ import importlib
 import inspect
 from dataclasses import dataclass, field
 from operator import attrgetter
-from typing import (  # type: ignore
-    List,
-    Optional,
-    Set,
-    Type,
-    Union,
-    _GenericAlias,
-    cast,
-    get_args,
-    get_origin,
-)
+from typing import List, Optional, Set, Type, Union, get_args, get_origin
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pydantic import BaseModel
@@ -40,9 +30,17 @@ from beanie.odm.views import View
 DocumentLike = Union[Document, View, UnionDoc]
 
 
-class Output(BaseModel):
+@dataclass
+class Output:
     class_name: str
     collection_name: str
+
+    @classmethod
+    def from_doctype(cls, doc_type: Type[Document]) -> "Output":
+        class_name = doc_type._class_id
+        collection_name = doc_type.get_collection_name()
+        assert class_name is not None and collection_name is not None
+        return cls(class_name, collection_name)
 
 
 @dataclass(frozen=True)
@@ -51,131 +49,6 @@ class Initializer:
     allow_index_dropping: bool
     recreate_views: bool
     inited_classes: List[Type[Document]] = field(default_factory=list)
-
-    # General. Relations
-
-    def detect_link(
-        self, field: FieldInfo, field_name: str
-    ) -> Optional[LinkInfo]:
-        """
-        It detects link and returns LinkInfo if any found.
-
-        :param field: ModelField
-        :return: Optional[LinkInfo]
-        """
-
-        origin = get_origin(field.annotation)
-        args = get_args(field.annotation)
-        classes = [Link, BackLink]
-
-        for cls in classes:
-            # Check if annotation is one of the custom classes
-            if (
-                isinstance(field.annotation, _GenericAlias)
-                and field.annotation.__origin__ is cls
-            ):
-                if cls is Link:
-                    return LinkInfo(
-                        field_name=field_name,
-                        lookup_field_name=field_name,
-                        document_class=DOCS_REGISTRY.evaluate_fr(args[0]),
-                        link_type=LinkTypes.DIRECT,
-                    )
-                if cls is BackLink:
-                    return LinkInfo(
-                        field_name=field_name,
-                        lookup_field_name=field.json_schema_extra[  # type: ignore
-                            "original_field"
-                        ],
-                        document_class=DOCS_REGISTRY.evaluate_fr(args[0]),
-                        link_type=LinkTypes.BACK_DIRECT,
-                    )
-
-            # Check if annotation is List[custom class]
-            elif (
-                (origin is List or origin is list)
-                and len(args) == 1
-                and isinstance(args[0], _GenericAlias)
-                and args[0].__origin__ is cls
-            ):
-                if cls is Link:
-                    return LinkInfo(
-                        field_name=field_name,
-                        lookup_field_name=field_name,
-                        document_class=DOCS_REGISTRY.evaluate_fr(
-                            get_args(args[0])[0]
-                        ),
-                        link_type=LinkTypes.LIST,
-                    )
-                if cls is BackLink:
-                    return LinkInfo(
-                        field_name=field_name,
-                        lookup_field_name=field.json_schema_extra[  # type: ignore
-                            "original_field"
-                        ],
-                        document_class=DOCS_REGISTRY.evaluate_fr(
-                            get_args(args[0])[0]
-                        ),
-                        link_type=LinkTypes.BACK_LIST,
-                    )
-
-            # Check if annotation is Optional[custom class] or Optional[List[custom class]]
-            elif origin is Union and len(args) == 2 and args[1] is type(None):
-                optional_origin = get_origin(args[0])
-                optional_args = get_args(args[0])
-
-                if (
-                    isinstance(args[0], _GenericAlias)
-                    and args[0].__origin__ is cls
-                ):
-                    if cls is Link:
-                        return LinkInfo(
-                            field_name=field_name,
-                            lookup_field_name=field_name,
-                            document_class=DOCS_REGISTRY.evaluate_fr(
-                                optional_args[0]
-                            ),
-                            link_type=LinkTypes.OPTIONAL_DIRECT,
-                        )
-                    if cls is BackLink:
-                        return LinkInfo(
-                            field_name=field_name,
-                            lookup_field_name=field.json_schema_extra[  # type: ignore
-                                "original_field"
-                            ],
-                            document_class=DOCS_REGISTRY.evaluate_fr(
-                                optional_args[0]
-                            ),
-                            link_type=LinkTypes.OPTIONAL_BACK_DIRECT,
-                        )
-
-                elif (
-                    (optional_origin is List or optional_origin is list)
-                    and len(optional_args) == 1
-                    and isinstance(optional_args[0], _GenericAlias)
-                    and optional_args[0].__origin__ is cls
-                ):
-                    if cls is Link:
-                        return LinkInfo(
-                            field_name=field_name,
-                            lookup_field_name=field_name,
-                            document_class=DOCS_REGISTRY.evaluate_fr(
-                                get_args(optional_args[0])[0]
-                            ),
-                            link_type=LinkTypes.OPTIONAL_LIST,
-                        )
-                    if cls is BackLink:
-                        return LinkInfo(
-                            field_name=field_name,
-                            lookup_field_name=field.json_schema_extra[  # type: ignore
-                                "original_field"
-                            ],
-                            document_class=DOCS_REGISTRY.evaluate_fr(
-                                get_args(optional_args[0])[0]
-                            ),
-                            link_type=LinkTypes.OPTIONAL_BACK_LIST,
-                        )
-        return None
 
     # Document
 
@@ -345,11 +218,8 @@ class Initializer:
             ):
                 if settings.name is None:
                     settings.name = cls.__name__
-                output = Output(
-                    class_name=cls.__name__,
-                    collection_name=cast(str, cls.get_collection_name()),
-                )
                 cls._class_id = cls.__name__
+                output = Output.from_doctype(cls)
                 cls._inheritance_inited = True
             elif output is not None:
                 class_id = f"{output.class_name}.{cls.__name__}"
@@ -360,7 +230,6 @@ class Initializer:
                 while parent is not None:
                     parent._children[class_id] = cls
                     parent = parent._parent
-
                 cls._inheritance_inited = True
 
             await self.init_document_collection(cls)
@@ -375,45 +244,21 @@ class Initializer:
             return output
 
         elif cls._inheritance_inited:
-            assert cls._class_id is not None
-            return Output(
-                class_name=cls._class_id,
-                collection_name=cast(str, cls.get_collection_name()),
-            )
+            return Output.from_doctype(cls)
         else:
             return None
 
     # Views
-
-    def check_nested_links(
-        self,
-        link_info: LinkInfo,
-        checked: Optional[Set[Type[BaseModel]]] = None,
-    ):
-        if checked is None:
-            checked = set()
-        document_class = link_info.document_class
-        if document_class in checked:
-            return
-        checked.add(document_class)
-        for k, v in document_class.model_fields.items():
-            nested_link_info = self.detect_link(v, k)
-            if nested_link_info is None:
-                continue
-            if link_info.nested_links is None:
-                link_info.nested_links = {}
-            link_info.nested_links[k] = nested_link_info
-            self.check_nested_links(nested_link_info, checked)
 
     def init_fields(self, cls) -> None:
         if cls._link_fields is None:
             cls._link_fields = {}
         for k, v in cls.model_fields.items():
             setattr(cls, k, ExpressionField(v.alias or k))
-            link_info = self.detect_link(v, k)
+            link_info = detect_link(v, k)
             if link_info is not None:
                 cls._link_fields[k] = link_info
-                self.check_nested_links(link_info)
+                check_nested_links(link_info)
 
     async def init_view(self, cls: Type[View]):
         """
@@ -482,6 +327,97 @@ class Initializer:
             await self.init_union_doc(cls)
         if hasattr(cls, "custom_init"):
             await cls.custom_init()
+
+
+def detect_link(field_info: FieldInfo, field_name: str) -> Optional[LinkInfo]:
+    """It detects link and returns LinkInfo if any found"""
+    annotation = field_info.annotation
+    origin = get_origin(annotation)
+    args = get_args(annotation)
+    for cls in Link, BackLink:
+        if cls is Link:
+            lookup_field_name = field_name
+        elif field_info.json_schema_extra is not None:
+            lookup_field_name = field_info.json_schema_extra.get(  # type: ignore
+                "original_field"
+            )
+
+        # Check if annotation is one of the custom classes
+        if origin is cls:
+            link_type = LinkTypes["DIRECT" if cls is Link else "BACK_DIRECT"]
+            return LinkInfo(
+                field_name=field_name,
+                lookup_field_name=lookup_field_name,
+                document_class=DOCS_REGISTRY.evaluate_fr(args[0]),
+                link_type=link_type,
+            )
+
+        # Check if annotation is List[custom class]
+        if (
+            origin in (List, list)
+            and getattr(args[0], "__origin__", None) is cls
+        ):
+            link_type = LinkTypes["LIST" if cls is Link else "BACK_LIST"]
+            return LinkInfo(
+                field_name=field_name,
+                lookup_field_name=lookup_field_name,
+                document_class=DOCS_REGISTRY.evaluate_fr(get_args(args[0])[0]),
+                link_type=link_type,
+            )
+
+        # Check if annotation is Optional[custom class] or Optional[List[custom class]]
+        if not (origin is Union and len(args) == 2 and args[1] is type(None)):
+            continue
+
+        optional_origin = get_origin(args[0])
+        optional_args = get_args(args[0])
+        if optional_origin is cls:
+            link_type = LinkTypes[
+                "OPTIONAL_DIRECT" if cls is Link else "OPTIONAL_BACK_DIRECT"
+            ]
+            return LinkInfo(
+                field_name=field_name,
+                lookup_field_name=lookup_field_name,
+                document_class=DOCS_REGISTRY.evaluate_fr(optional_args[0]),
+                link_type=link_type,
+            )
+
+        if (
+            optional_origin in (List, list)
+            and getattr(optional_args[0], "__origin__", None) is cls
+        ):
+            link_type = LinkTypes[
+                "OPTIONAL_LIST" if cls is Link else "OPTIONAL_BACK_LIST"
+            ]
+            return LinkInfo(
+                field_name=field_name,
+                lookup_field_name=lookup_field_name,
+                document_class=DOCS_REGISTRY.evaluate_fr(
+                    get_args(optional_args[0])[0]
+                ),
+                link_type=link_type,
+            )
+
+    return None
+
+
+def check_nested_links(
+    link_info: LinkInfo, checked: Optional[Set[Type[BaseModel]]] = None
+):
+    if checked is None:
+        checked = set()
+    document_class = link_info.document_class
+    if document_class in checked:
+        return
+    checked.add(document_class)
+    for k, v in document_class.model_fields.items():
+        nested_link_info = detect_link(v, k)
+        if nested_link_info is None:
+            continue
+        if link_info.nested_links is None:
+            link_info.nested_links = {}
+        link_info.nested_links[k] = nested_link_info
+        check_nested_links(nested_link_info, checked)
 
 
 def register_document_model(
