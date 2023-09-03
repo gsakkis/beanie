@@ -1,9 +1,11 @@
 import importlib
 import inspect
-from copy import copy
+from dataclasses import dataclass, field
+from operator import attrgetter
 from typing import (  # type: ignore
     List,
     Optional,
+    Set,
     Type,
     Union,
     _GenericAlias,
@@ -20,7 +22,7 @@ from pymongo import IndexModel
 from beanie.exceptions import MongoDBVersionError
 from beanie.odm.actions import ActionRegistry
 from beanie.odm.cache import LRUCache
-from beanie.odm.documents import DocType, Document
+from beanie.odm.documents import Document
 from beanie.odm.fields import (
     DOCS_REGISTRY,
     BackLink,
@@ -35,115 +37,20 @@ from beanie.odm.settings.view import ViewSettings
 from beanie.odm.union_doc import UnionDoc
 from beanie.odm.views import View
 
+DocumentLike = Union[Document, View, UnionDoc]
+
 
 class Output(BaseModel):
     class_name: str
     collection_name: str
 
 
+@dataclass(frozen=True)
 class Initializer:
-    def __init__(
-        self,
-        database: AsyncIOMotorDatabase = None,
-        connection_string: Optional[str] = None,
-        document_models: Optional[
-            List[Union[Type["DocType"], Type["View"], str]]
-        ] = None,
-        allow_index_dropping: bool = False,
-        recreate_views: bool = False,
-    ):
-        """
-        Beanie initializer
-
-        :param database: AsyncIOMotorDatabase - motor database instance
-        :param connection_string: str - MongoDB connection string
-        :param document_models: List[Union[Type[DocType], str]] - model classes
-        or strings with dot separated paths
-        :param allow_index_dropping: bool - if index dropping is allowed.
-        Default False
-        :return: None
-        """
-        self.inited_classes: List[Type] = []
-        self.allow_index_dropping = allow_index_dropping
-        self.recreate_views = recreate_views
-
-        self.models_with_updated_forward_refs: List[Type[BaseModel]] = []
-
-        if (connection_string is None and database is None) or (
-            connection_string is not None and database is not None
-        ):
-            raise ValueError(
-                "connection_string parameter or database parameter must be set"
-            )
-
-        if document_models is None:
-            raise ValueError("document_models parameter must be set")
-        if connection_string is not None:
-            database = AsyncIOMotorClient(
-                connection_string
-            ).get_default_database()
-
-        self.database: AsyncIOMotorDatabase = database
-
-        self.document_models: List[Union[Type[DocType], Type[View]]] = [
-            self.get_model(model) if isinstance(model, str) else model
-            for model in document_models
-        ]
-
-        self.fill_docs_registry()
-
-        self.document_models.sort(key=lambda val: val._sort_order)
-
-    # General
-    def fill_docs_registry(self):
-        for model in self.document_models:
-            module = inspect.getmodule(model)
-            members = inspect.getmembers(module)
-            for name, obj in members:
-                if inspect.isclass(obj) and issubclass(obj, BaseModel):
-                    DOCS_REGISTRY.register(name, obj)
-
-    @staticmethod
-    def get_model(dot_path: str) -> Type["DocType"]:
-        """
-        Get the model by the path in format bar.foo.Model
-
-        :param dot_path: str - dot seprated path to the model
-        :return: Type[DocType] - class of the model
-        """
-        module_name, class_name = None, None
-        try:
-            module_name, class_name = dot_path.rsplit(".", 1)
-            return getattr(importlib.import_module(module_name), class_name)
-
-        except ValueError:
-            raise ValueError(
-                f"'{dot_path}' doesn't have '.' path, eg. path.to.your.model.class"
-            )
-
-        except AttributeError:
-            raise AttributeError(
-                f"module '{module_name}' has no class called '{class_name}'"
-            )
-
-    def init_settings(
-        self, cls: Union[Type[Document], Type[View], Type[UnionDoc]]
-    ):
-        """
-        Init Settings
-
-        :param cls: Union[Type[Document], Type[View], Type[UnionDoc]] - Class
-        to init settings
-        :return: None
-        """
-        settings_class = getattr(cls, "Settings", None)
-        settings = {} if settings_class is None else dict(vars(settings_class))
-        if issubclass(cls, Document):
-            cls._document_settings = DocumentSettings.model_validate(settings)
-        if issubclass(cls, View):
-            cls._settings = ViewSettings.model_validate(settings)
-        if issubclass(cls, UnionDoc):
-            cls._settings = UnionDocSettings.model_validate(settings)
+    database: AsyncIOMotorDatabase
+    allow_index_dropping: bool
+    recreate_views: bool
+    inited_classes: List[Type[Document]] = field(default_factory=list)
 
     # General. Relations
 
@@ -159,10 +66,7 @@ class Initializer:
 
         origin = get_origin(field.annotation)
         args = get_args(field.annotation)
-        classes = [
-            Link,
-            BackLink,
-        ]
+        classes = [Link, BackLink]
 
         for cls in classes:
             # Check if annotation is one of the custom classes
@@ -276,69 +180,17 @@ class Initializer:
     # Document
 
     @staticmethod
-    def set_default_class_vars(cls: Type[Document]):
-        """
-        Set default class variables.
-
-        :param cls: Union[Type[Document], Type[View], Type[UnionDoc]] - Class
-        to init settings
-        :return:
-        """
-        cls._children = dict()
-        cls._parent = None
-        cls._inheritance_inited = False
-        cls._class_id = None
-        cls._link_fields = None
-
-    @staticmethod
     def init_cache(cls) -> None:
         """
         Init model's cache
         :return: None
         """
-        if cls.get_settings().use_cache:
+        settings = cls.get_settings()
+        if settings.use_cache:
             cls._cache = LRUCache(
-                capacity=cls.get_settings().cache_capacity,
-                expiration_time=cls.get_settings().cache_expiration_time,
+                capacity=settings.cache_capacity,
+                expiration_time=settings.cache_expiration_time,
             )
-
-    def init_document_fields(self, cls) -> None:
-        """
-        Init class fields
-        :return: None
-        """
-
-        def check_nested_links(
-            link_info: LinkInfo, prev_models: List[Type[BaseModel]]
-        ):
-            if link_info.document_class in prev_models:
-                return
-            for k, v in link_info.document_class.model_fields.items():
-                nested_link_info = self.detect_link(v, k)
-                if nested_link_info is None:
-                    continue
-
-                if link_info.nested_links is None:
-                    link_info.nested_links = {}
-                link_info.nested_links[k] = nested_link_info
-                new_prev_models = copy(prev_models)
-                new_prev_models.append(link_info.document_class)
-                check_nested_links(
-                    nested_link_info, prev_models=new_prev_models
-                )
-
-        if cls._link_fields is None:
-            cls._link_fields = {}
-        for k, v in cls.model_fields.items():
-            path = v.alias or k
-            setattr(cls, k, ExpressionField(path))
-
-            link_info = self.detect_link(v, k)
-            if link_info is not None:
-                cls._link_fields[k] = link_info
-                check_nested_links(link_info, prev_models=[])
-
-        cls._hidden_fields = cls.get_hidden_fields()
 
     @staticmethod
     def init_actions(cls):
@@ -348,14 +200,13 @@ class Initializer:
         ActionRegistry.clean_actions(cls)
         for attr in dir(cls):
             f = getattr(cls, attr)
-            if inspect.isfunction(f):
-                if hasattr(f, "has_action"):
-                    ActionRegistry.add_action(
-                        document_class=cls,
-                        event_types=f.event_types,
-                        action_direction=f.action_direction,
-                        funct=f,
-                    )
+            if inspect.isfunction(f) and hasattr(f, "has_action"):
+                ActionRegistry.add_action(
+                    document_class=cls,
+                    event_types=f.event_types,
+                    action_direction=f.action_direction,
+                    funct=f,
+                )
 
     async def init_document_collection(self, cls):
         """
@@ -363,53 +214,39 @@ class Initializer:
         :param cls:
         :return:
         """
-        document_settings = cls.get_settings()
+        settings = cls.get_settings()
 
         # register in the Union Doc
-
-        if document_settings.union_doc is not None:
-            name = cls.get_settings().name or cls.__name__
-            document_settings.name = document_settings.union_doc.register_doc(
-                name, cls
-            )
-            document_settings.union_doc_alias = name
+        union_doc = settings.union_doc
+        if union_doc is not None:
+            name = settings.name or cls.__name__
+            settings.name = union_doc.register_doc(name, cls)
+            settings.union_doc_alias = name
 
         # set a name
+        if not settings.name:
+            settings.name = cls.__name__
 
-        if not document_settings.name:
-            document_settings.name = cls.__name__
-
-        # check mongodb version fits
-        if (
-            document_settings.timeseries is not None
-            and cls._database_major_version < 5
-        ):
-            raise MongoDBVersionError(
-                "Timeseries are supported by MongoDB version 5 and higher"
-            )
-
-        # create motor collection
-        if (
-            document_settings.timeseries is not None
-            and document_settings.name
-            not in await self.database.list_collection_names()
-        ):
-            collection = await self.database.create_collection(
-                **document_settings.timeseries.build_query(
-                    document_settings.name
+        collection = self.database[settings.name]
+        timeseries = settings.timeseries
+        if timeseries is not None:
+            if cls._database_major_version < 5:
+                raise MongoDBVersionError(
+                    "Timeseries are supported by MongoDB version 5 and higher"
                 )
-            )
-        else:
-            collection = self.database[document_settings.name]
-
-        cls.set_collection(collection)
+            collections = await self.database.list_collection_names()
+            if settings.name not in collections:
+                collection = await self.database.create_collection(
+                    **timeseries.build_query(settings.name)
+                )
+        settings.motor_collection = collection
 
     async def init_indexes(self, cls, allow_index_dropping: bool = False):
         """
         Async indexes initializer
         """
         collection = cls.get_motor_collection()
-        document_settings = cls.get_settings()
+        settings = cls.get_settings()
 
         index_information = await collection.index_information()
 
@@ -435,7 +272,7 @@ class Initializer:
             if getattr(fvalue.annotation, "_indexed", False)
         ]
 
-        if document_settings.merge_indexes:
+        if settings.merge_indexes:
             result: List[IndexModelField] = []
             for subclass in reversed(cls.mro()):
                 if issubclass(subclass, Document) and not subclass == Document:
@@ -444,18 +281,16 @@ class Initializer:
                         and not subclass == cls
                     ):
                         await self.init_class(subclass)
-                    if subclass.get_settings().indexes:
-                        result = IndexModelField.merge_indexes(
-                            result, subclass.get_settings().indexes
-                        )
+                    if indexes := subclass.get_settings().indexes:
+                        result = IndexModelField.merge_indexes(result, indexes)
             found_indexes = IndexModelField.merge_indexes(
                 found_indexes, result
             )
 
         else:
-            if document_settings.indexes:
+            if settings.indexes:
                 found_indexes = IndexModelField.merge_indexes(
-                    found_indexes, document_settings.indexes
+                    found_indexes, settings.indexes
                 )
 
         new_indexes += found_indexes
@@ -489,8 +324,15 @@ class Initializer:
         mongo_version = build_info["version"]
         cls._database_major_version = int(mongo_version.split(".")[0])
         if cls not in self.inited_classes:
-            self.set_default_class_vars(cls)
-            self.init_settings(cls)
+            settings = DocumentSettings.model_validate(
+                cls.Settings.__dict__ if hasattr(cls, "Settings") else {}
+            )
+            cls._document_settings = settings
+            cls._children = dict()
+            cls._parent = None
+            cls._inheritance_inited = False
+            cls._class_id = None
+            cls._link_fields = None
 
             bases = [b for b in cls.__bases__ if issubclass(b, Document)]
             if len(bases) > 1:
@@ -498,11 +340,11 @@ class Initializer:
 
             parent = bases[0]
             output = await self.init_document(parent)
-            if cls.get_settings().is_root and (
+            if settings.is_root and (
                 parent is Document or not parent.get_settings().is_root
             ):
-                if cls.get_collection_name() is None:
-                    cls.set_collection_name(cls.__name__)
+                if settings.name is None:
+                    settings.name = cls.__name__
                 output = Output(
                     class_name=cls.__name__,
                     collection_name=cast(str, cls.get_collection_name()),
@@ -510,9 +352,10 @@ class Initializer:
                 cls._class_id = cls.__name__
                 cls._inheritance_inited = True
             elif output is not None:
-                output.class_name = f"{output.class_name}.{cls.__name__}"
-                class_id = cls._class_id = output.class_name
-                cls.set_collection_name(output.collection_name)
+                class_id = f"{output.class_name}.{cls.__name__}"
+                cls._class_id = class_id
+                output.class_name = class_id
+                settings.name = output.collection_name
                 cls._parent = parent
                 while parent is not None:
                     parent._children[class_id] = cls
@@ -522,7 +365,8 @@ class Initializer:
 
             await self.init_document_collection(cls)
             await self.init_indexes(cls, self.allow_index_dropping)
-            self.init_document_fields(cls)
+            self.init_fields(cls)
+            cls.set_hidden_fields()
             self.init_cache(cls)
             self.init_actions(cls)
 
@@ -541,58 +385,35 @@ class Initializer:
 
     # Views
 
-    def init_view_fields(self, cls) -> None:
-        """
-        Init class fields
-        :return: None
-        """
+    def check_nested_links(
+        self,
+        link_info: LinkInfo,
+        checked: Optional[Set[Type[BaseModel]]] = None,
+    ):
+        if checked is None:
+            checked = set()
+        document_class = link_info.document_class
+        if document_class in checked:
+            return
+        checked.add(document_class)
+        for k, v in document_class.model_fields.items():
+            nested_link_info = self.detect_link(v, k)
+            if nested_link_info is None:
+                continue
+            if link_info.nested_links is None:
+                link_info.nested_links = {}
+            link_info.nested_links[k] = nested_link_info
+            self.check_nested_links(nested_link_info, checked)
 
-        def check_nested_links(
-            link_info: LinkInfo, prev_models: List[Type[BaseModel]]
-        ):
-            if link_info.document_class in prev_models:
-                return
-            for k, v in link_info.document_class.model_fields.items():
-                nested_link_info = self.detect_link(v, k)
-                if nested_link_info is None:
-                    continue
-
-                if link_info.nested_links is None:
-                    link_info.nested_links = {}
-                link_info.nested_links[k] = nested_link_info
-                new_prev_models = copy(prev_models)
-                new_prev_models.append(link_info.document_class)
-                check_nested_links(
-                    nested_link_info, prev_models=new_prev_models
-                )
-
+    def init_fields(self, cls) -> None:
         if cls._link_fields is None:
             cls._link_fields = {}
         for k, v in cls.model_fields.items():
-            path = v.alias or k
-            setattr(cls, k, ExpressionField(path))
-
+            setattr(cls, k, ExpressionField(v.alias or k))
             link_info = self.detect_link(v, k)
             if link_info is not None:
                 cls._link_fields[k] = link_info
-                check_nested_links(link_info, prev_models=[])
-
-    def init_view_collection(self, cls):
-        """
-        Init collection for View
-
-        :param cls:
-        :return:
-        """
-        view_settings = cls.get_settings()
-
-        if view_settings.name is None:
-            view_settings.name = cls.__name__
-
-        if inspect.isclass(view_settings.source):
-            view_settings.source = view_settings.source.get_collection_name()
-
-        view_settings.motor_collection = self.database[view_settings.name]
+                self.check_nested_links(link_info)
 
     async def init_view(self, cls: Type[View]):
         """
@@ -601,21 +422,28 @@ class Initializer:
         :param cls:
         :return:
         """
-        self.init_settings(cls)
-        self.init_view_collection(cls)
-        self.init_view_fields(cls)
+        settings = ViewSettings.model_validate(
+            cls.Settings.__dict__ if hasattr(cls, "Settings") else {}
+        )
+        if settings.name is None:
+            settings.name = cls.__name__
+        if inspect.isclass(settings.source):
+            settings.source = settings.source.get_collection_name()
+        settings.motor_collection = self.database[settings.name]
+        cls._settings = settings
+
+        self.init_fields(cls)
         self.init_cache(cls)
 
         collection_names = await self.database.list_collection_names()
-        if self.recreate_views or cls._settings.name not in collection_names:
-            if cls._settings.name in collection_names:
+        if self.recreate_views or settings.name not in collection_names:
+            if settings.name in collection_names:
                 await cls.get_motor_collection().drop()
-
             await self.database.command(
                 {
-                    "create": cls.get_settings().name,
-                    "viewOn": cls.get_settings().source,
-                    "pipeline": cls.get_settings().pipeline,
+                    "create": settings.name,
+                    "viewOn": settings.source,
+                    "pipeline": settings.pipeline,
                 }
             )
 
@@ -628,18 +456,18 @@ class Initializer:
         :param cls:
         :return:
         """
-        self.init_settings(cls)
-        if cls._settings.name is None:
-            cls._settings.name = cls.__name__
-
-        cls._settings.motor_collection = self.database[cls._settings.name]
+        settings = UnionDocSettings.model_validate(
+            cls.Settings.__dict__ if hasattr(cls, "Settings") else {}
+        )
+        if settings.name is None:
+            settings.name = cls.__name__
+        settings.motor_collection = self.database[settings.name]
+        cls._settings = settings
         cls._is_inited = True
 
     # Final
 
-    async def init_class(
-        self, cls: Union[Type[Document], Type[View], Type[UnionDoc]]
-    ):
+    async def init_class(self, cls: Type[DocumentLike]):
         """
         Init Document, View or UnionDoc based class.
 
@@ -648,23 +476,41 @@ class Initializer:
         """
         if issubclass(cls, Document):
             await self.init_document(cls)
-
         if issubclass(cls, View):
             await self.init_view(cls)
-
         if issubclass(cls, UnionDoc):
             await self.init_union_doc(cls)
-
         if hasattr(cls, "custom_init"):
             await cls.custom_init()
+
+
+def register_document_model(
+    type_or_str: Union[Type[DocumentLike], str]
+) -> Type[DocumentLike]:
+    if isinstance(type_or_str, type):
+        model = type_or_str
+        module = inspect.getmodule(model)
+    else:
+        try:
+            module_name, class_name = type_or_str.rsplit(".", 1)
+        except ValueError:
+            raise ValueError(
+                f"'{type_or_str}' doesn't have '.' path, eg. path.to.model.class"
+            )
+        module = importlib.import_module(module_name)
+        model = getattr(module, class_name)
+
+    for name, obj in inspect.getmembers(module):
+        if inspect.isclass(obj) and issubclass(obj, BaseModel):
+            DOCS_REGISTRY.register(name, obj)
+
+    return model
 
 
 async def init_beanie(
     database: AsyncIOMotorDatabase = None,
     connection_string: Optional[str] = None,
-    document_models: Optional[
-        List[Union[Type["DocType"], Type["View"], str]]
-    ] = None,
+    document_models: Optional[List[Union[Type[DocumentLike], str]]] = None,
     allow_index_dropping: bool = False,
     recreate_views: bool = False,
 ):
@@ -673,18 +519,31 @@ async def init_beanie(
 
     :param database: AsyncIOMotorDatabase - motor database instance
     :param connection_string: str - MongoDB connection string
-    :param document_models: List[Union[Type[DocType], str]] - model classes
+    :param document_models: List[Union[Type[DocumentLike], str]] - model classes
     or strings with dot separated paths
     :param allow_index_dropping: bool - if index dropping is allowed.
     Default False
     :return: None
     """
+    if document_models is None:
+        raise ValueError("document_models parameter must be set")
+
+    if connection_string is database is None:
+        raise ValueError("Either connection_string or database must be set")
+
+    if connection_string is not None and database is not None:
+        raise ValueError("Either connection_string or database must be set")
+
+    if connection_string is not None:
+        client = AsyncIOMotorClient(connection_string)
+        database = client.get_default_database()
+
     initializer = Initializer(
         database=database,
-        connection_string=connection_string,
-        document_models=document_models,
         allow_index_dropping=allow_index_dropping,
         recreate_views=recreate_views,
     )
-    for model in initializer.document_models:
+    models = list(map(register_document_model, document_models))
+    models.sort(key=attrgetter("_sort_order"))
+    for model in models:
         await initializer.init_class(model)

@@ -944,20 +944,6 @@ class Document(LazyModel, FindInterface):
         return cls._document_settings
 
     @classmethod
-    def set_collection(cls, collection):
-        """
-        Collection setter
-        """
-        cls.get_settings().motor_collection = collection
-
-    @classmethod
-    def set_collection_name(cls, name: str):
-        """
-        Collection name setter
-        """
-        cls.get_settings().name = name
-
-    @classmethod
     async def inspect_collection(
         cls, session: Optional[ClientSession] = None
     ) -> InspectionResult:
@@ -984,8 +970,8 @@ class Document(LazyModel, FindInterface):
         return inspection_result
 
     @classmethod
-    def get_hidden_fields(cls):
-        return set(
+    def set_hidden_fields(cls):
+        cls._hidden_fields = set(
             attribute_name
             for attribute_name, model_field in cls.model_fields.items()
             if model_field.json_schema_extra
