@@ -52,19 +52,6 @@ class Initializer:
 
     # Document
 
-    @staticmethod
-    def init_cache(cls) -> None:
-        """
-        Init model's cache
-        :return: None
-        """
-        settings = cls.get_settings()
-        if settings.use_cache:
-            cls._cache = LRUCache(
-                capacity=settings.cache_capacity,
-                expiration_time=settings.cache_expiration_time,
-            )
-
     async def init_document_collection(self, cls):
         """
         Init collection for the Document-based class
@@ -178,8 +165,7 @@ class Initializer:
 
         # get db version
         build_info = await self.database.command({"buildInfo": 1})
-        mongo_version = build_info["version"]
-        cls._database_major_version = int(mongo_version.split(".")[0])
+        cls._database_major_version = int(build_info["version"].split(".")[0])
         if cls not in self.inited_classes:
             settings = DocumentSettings.model_validate(
                 cls.Settings.__dict__ if hasattr(cls, "Settings") else {}
@@ -218,9 +204,9 @@ class Initializer:
 
             await self.init_document_collection(cls)
             await self.init_indexes(cls, self.allow_index_dropping)
-            self.init_fields(cls)
+            init_fields(cls)
+            init_cache(cls)
             cls.set_hidden_fields()
-            self.init_cache(cls)
             ActionRegistry.init_actions(cls)
 
             self.inited_classes.append(cls)
@@ -233,17 +219,6 @@ class Initializer:
             return None
 
     # Views
-
-    def init_fields(self, cls) -> None:
-        if cls._link_fields is None:
-            cls._link_fields = {}
-        for k, v in cls.model_fields.items():
-            setattr(cls, k, ExpressionField(v.alias or k))
-            link_info = detect_link(v, k)
-            if link_info is not None:
-                cls._link_fields[k] = link_info
-                check_nested_links(link_info)
-
     async def init_view(self, cls: Type[View]):
         """
         Init View-based class
@@ -261,8 +236,8 @@ class Initializer:
         settings.motor_collection = self.database[settings.name]
         cls._settings = settings
 
-        self.init_fields(cls)
-        self.init_cache(cls)
+        init_fields(cls)
+        init_cache(cls)
 
         collection_names = await self.database.list_collection_names()
         if self.recreate_views or settings.name not in collection_names:
@@ -310,6 +285,30 @@ class Initializer:
             await self.init_union_doc(cls)
         if hasattr(cls, "custom_init"):
             await cls.custom_init()
+
+
+def init_cache(cls) -> None:
+    """
+    Init model's cache
+    :return: None
+    """
+    settings = cls.get_settings()
+    if settings.use_cache:
+        cls._cache = LRUCache(
+            capacity=settings.cache_capacity,
+            expiration_time=settings.cache_expiration_time,
+        )
+
+
+def init_fields(cls) -> None:
+    if cls._link_fields is None:
+        cls._link_fields = {}
+    for k, v in cls.model_fields.items():
+        setattr(cls, k, ExpressionField(v.alias or k))
+        link_info = detect_link(v, k)
+        if link_info is not None:
+            cls._link_fields[k] = link_info
+            check_nested_links(link_info)
 
 
 def detect_link(field_info: FieldInfo, field_name: str) -> Optional[LinkInfo]:
