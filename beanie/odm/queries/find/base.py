@@ -21,6 +21,8 @@ if TYPE_CHECKING:
 class FindQuery(BaseQuery):
     """Find Query base class"""
 
+    _caches: Dict[type, LRUCache] = {}
+
     def __init__(
         self,
         document_model: Type["FindInterface"],
@@ -75,13 +77,19 @@ class FindQuery(BaseQuery):
 
     @property
     def _cache(self) -> Optional[LRUCache]:
-        if (
-            not self.ignore_cache
-            and self.document_model.get_settings().use_cache
-            and issubclass(self.document_model, beanie.Document)
-        ):
-            return self.document_model._cache
-        return None
+        if self.ignore_cache:
+            return None
+        settings = self.document_model.get_settings()
+        if not settings.use_cache:
+            return None
+        try:
+            return self._caches[self.document_model]
+        except KeyError:
+            cache = LRUCache(
+                capacity=settings.cache_capacity,
+                expiration_time=settings.cache_expiration_time,
+            )
+            return self._caches.setdefault(self.document_model, cache)
 
     @property
     def _cache_key(self) -> str:

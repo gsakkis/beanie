@@ -10,7 +10,6 @@ from pymongo import IndexModel
 
 from beanie.exceptions import MongoDBVersionError
 from beanie.odm.actions import ActionRegistry
-from beanie.odm.cache import LRUCache
 from beanie.odm.documents import Document
 from beanie.odm.fields import ExpressionField
 from beanie.odm.links import DOCS_REGISTRY, LinkedModel
@@ -197,7 +196,6 @@ class Initializer:
             await self.init_document_collection(cls)
             await self.init_indexes(cls, self.allow_index_dropping)
             init_fields(cls)
-            init_cache(cls)
             cls.set_hidden_fields()
             ActionRegistry.init_actions(cls)
 
@@ -220,10 +218,7 @@ class Initializer:
         """
         settings = ViewSettings.from_model_type(cls, self.database)
         cls._settings = settings
-
         init_fields(cls)
-        init_cache(cls)
-
         collection_names = await self.database.list_collection_names()
         if self.recreate_views or settings.name not in collection_names:
             if settings.name in collection_names:
@@ -258,19 +253,6 @@ class Initializer:
             await self.init_union_doc(cls)
         if hasattr(cls, "custom_init"):
             await cls.custom_init()
-
-
-def init_cache(cls) -> None:
-    """
-    Init model's cache
-    :return: None
-    """
-    settings = cls.get_settings()
-    if settings.use_cache:
-        cls._cache = LRUCache(
-            capacity=settings.cache_capacity,
-            expiration_time=settings.cache_expiration_time,
-        )
 
 
 def init_fields(cls) -> None:

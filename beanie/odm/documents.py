@@ -40,7 +40,6 @@ from beanie.exceptions import (
 )
 from beanie.odm.actions import ActionDirections, EventTypes, wrap_with_actions
 from beanie.odm.bulk import BulkWriter, Operation
-from beanie.odm.cache import LRUCache
 from beanie.odm.fields import (
     DeleteRules,
     ExpressionField,
@@ -118,9 +117,6 @@ class Document(LazyModel, LinkedModel, FindInterface):
     _previous_revision_id: Optional[UUID] = PrivateAttr(default=None)
     _saved_state: Optional[Dict[str, Any]] = PrivateAttr(default=None)
     _previous_saved_state: Optional[Dict[str, Any]] = PrivateAttr(default=None)
-
-    # Cache
-    _cache: ClassVar[Optional[LRUCache]] = None
 
     # Database
     _database_major_version: ClassVar[int] = 4
