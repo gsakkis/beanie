@@ -7,7 +7,6 @@ from typing import (
     Generic,
     List,
     Optional,
-    Type,
     TypeVar,
     Union,
     cast,
@@ -16,13 +15,13 @@ from typing import (
 from motor.core import AgnosticBaseCursor
 from pydantic import BaseModel
 
-from beanie.odm.cache import LRUCache
-from beanie.odm.utils.parsing import ParseableModel, parse_obj
+from beanie.odm.queries.find.base import FindQuery
+from beanie.odm.utils.parsing import parse_obj
 
 ProjectionT = TypeVar("ProjectionT", bound=Union[BaseModel, Dict[str, Any]])
 
 
-class BaseCursorQuery(ABC, Generic[ProjectionT]):
+class BaseCursorQuery(FindQuery, ABC, Generic[ProjectionT]):
     """
     BaseCursorQuery class. Wrapper over AsyncIOMotorCursor,
     which parse result with model
@@ -30,7 +29,6 @@ class BaseCursorQuery(ABC, Generic[ProjectionT]):
 
     _cursor: Optional[AgnosticBaseCursor] = None
 
-    projection_model: Optional[Type[ParseableModel]] = None
     lazy_parse: bool = False
 
     def __aiter__(self):
@@ -56,18 +54,14 @@ class BaseCursorQuery(ABC, Generic[ProjectionT]):
         :param length: Optional[int] - length of the list
         :return: Union[List[BaseModel], List[Dict[str, Any]]]
         """
-        cursor = self._motor_cursor
-        if cursor is None:
-            raise RuntimeError("self._motor_cursor was not set")
-
         cache = self._cache
         if cache is None:
-            motor_list = await cursor.to_list(length)
+            motor_list = await self._motor_cursor.to_list(length)
         else:
             cache_key = self._cache_key
             motor_list = cache.get(cache_key)
             if motor_list is None:
-                motor_list = await cursor.to_list(length)
+                motor_list = await self._motor_cursor.to_list(length)
             cache.set(cache_key, motor_list)
 
         projection_model = self.projection_model
@@ -84,14 +78,4 @@ class BaseCursorQuery(ABC, Generic[ProjectionT]):
     @property
     @abstractmethod
     def _motor_cursor(self) -> AgnosticBaseCursor:
-        ...
-
-    @property
-    @abstractmethod
-    def _cache(self) -> Optional[LRUCache]:
-        ...
-
-    @property
-    @abstractmethod
-    def _cache_key(self) -> str:
         ...

@@ -25,13 +25,11 @@ from beanie.odm.queries.delete import DeleteMany
 from beanie.odm.queries.update import UpdateMany
 from beanie.odm.utils.parsing import ParseableModel
 
-from .base import FindQuery
-
 if TYPE_CHECKING:
     from beanie.odm.interfaces.find import FindInterface, ModelT
 
 
-class AggregationQuery(FindQuery, BaseCursorQuery[ProjectionT]):
+class AggregationQuery(BaseCursorQuery[ProjectionT]):
     """Aggregation Query"""
 
     def __init__(
@@ -68,7 +66,7 @@ class AggregationQuery(FindQuery, BaseCursorQuery[ProjectionT]):
         )
 
 
-class FindMany(FindQuery, UpdateMethods, BaseCursorQuery[ProjectionT]):
+class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
     """Find Many query class"""
 
     def __init__(self, document_model: Type["FindInterface"]):
