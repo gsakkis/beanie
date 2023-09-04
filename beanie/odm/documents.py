@@ -43,15 +43,13 @@ from beanie.odm.actions import ActionDirections, EventTypes, wrap_with_actions
 from beanie.odm.bulk import BulkWriter, Operation
 from beanie.odm.cache import LRUCache
 from beanie.odm.fields import (
-    BackLink,
     DeleteRules,
     ExpressionField,
-    Link,
-    LinkTypes,
     PydanticObjectId,
     WriteRules,
 )
 from beanie.odm.interfaces.find import FindInterface
+from beanie.odm.links import BackLink, Link, LinkTypes
 from beanie.odm.models import (
     InspectionError,
     InspectionResult,

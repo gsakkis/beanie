@@ -2,7 +2,7 @@ from typing import Any, Dict, List
 
 import beanie
 from beanie.exceptions import NotSupported
-from beanie.odm.fields import LinkInfo, LinkTypes
+from beanie.odm.links import LinkInfo, LinkTypes
 
 # TODO: check if this is the most efficient way for
 #  appending subqueries to the queries var

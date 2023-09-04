@@ -23,7 +23,7 @@ import bson
 import pydantic
 
 import beanie
-from beanie.odm.fields import Link, LinkTypes
+from beanie.odm.links import Link, LinkTypes
 
 if TYPE_CHECKING:
     from pydantic.typing import TupleGenerator

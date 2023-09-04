@@ -18,7 +18,8 @@ from pymongo.client_session import ClientSession
 
 import beanie
 from beanie.exceptions import SettingsNotInitialized
-from beanie.odm.fields import LinkInfo, SortDirection
+from beanie.odm.fields import SortDirection
+from beanie.odm.links import LinkInfo
 from beanie.odm.queries.find import AggregationQuery, FindMany, FindOne
 from beanie.odm.settings.base import ItemSettings
 

@@ -1,4 +1,4 @@
-from beanie.odm.fields import Link
+from beanie.odm.links import Link
 from beanie.odm.views import View
 from tests.odm.models import DocumentTestModel, DocumentTestModelWithLink
 

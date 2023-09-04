@@ -17,13 +17,12 @@ from beanie.odm.bulk import BulkWriter
 from beanie.odm.custom_types import DecimalAnnotation
 from beanie.odm.documents import Document
 from beanie.odm.fields import (
-    BackLink,
     DeleteRules,
     Indexed,
-    Link,
     PydanticObjectId,
     WriteRules,
 )
+from beanie.odm.links import BackLink, Link
 from beanie.odm.settings.timeseries import Granularity, TimeSeriesConfig
 from beanie.odm.union_doc import UnionDoc
 from beanie.odm.utils.init import init_beanie

@@ -5,7 +5,8 @@ from pydantic.fields import Field
 
 from beanie import Document, init_beanie
 from beanie.exceptions import DocumentWasNotSaved
-from beanie.odm.fields import BackLink, DeleteRules, Link, WriteRules
+from beanie.odm.fields import DeleteRules, WriteRules
+from beanie.odm.links import BackLink, Link
 from tests.odm.models import (
     AddressView,
     ADocument,

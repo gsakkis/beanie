@@ -3,8 +3,8 @@ from typing import Any, ClassVar, Union
 
 from pydantic import BaseModel
 
-from beanie.odm.fields import Link
 from beanie.odm.interfaces.find import FindInterface
+from beanie.odm.links import Link
 
 
 class View(BaseModel, FindInterface):
