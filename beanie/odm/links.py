@@ -3,6 +3,7 @@ from enum import Enum
 from typing import (
     TYPE_CHECKING,
     Any,
+    ClassVar,
     Dict,
     Generic,
     List,
@@ -17,10 +18,16 @@ from typing import (
 from typing import OrderedDict as OrderedDictType
 
 from bson import DBRef
-from pydantic import BaseModel, GetCoreSchemaHandler, TypeAdapter
+from pydantic import (
+    BaseModel,
+    GetCoreSchemaHandler,
+    TypeAdapter,
+    model_validator,
+)
 from pydantic.fields import FieldInfo
 from pydantic_core import core_schema
 
+from beanie.exceptions import SettingsNotInitialized
 from beanie.odm.operators.find.comparison import In
 from beanie.odm.registry import DocsRegistry
 from beanie.odm.utils.parsing import parse_obj
@@ -200,6 +207,50 @@ class BackLink(Generic[T]):
 
     def to_dict(self):
         return {"collection": self.document_class.get_collection_name()}
+
+
+class LinkedModel(BaseModel):
+    _link_fields: ClassVar[Dict[str, LinkInfo]]
+
+    @classmethod
+    def get_link_fields(cls) -> Dict[str, LinkInfo]:
+        try:
+            return cls._link_fields
+        except AttributeError:
+            raise SettingsNotInitialized
+
+    @classmethod
+    def init_link_fields(cls) -> None:
+        cls._link_fields = {}
+        for k, v in cls.model_fields.items():
+            link_info = detect_link(v, k)
+            if link_info is not None:
+                cls._link_fields[k] = link_info
+                check_nested_links(link_info)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _fill_back_refs(cls, values):
+        for field_name, link_info in cls.get_link_fields().items():
+            if (
+                link_info.link_type
+                in [LinkTypes.BACK_DIRECT, LinkTypes.OPTIONAL_BACK_DIRECT]
+                and field_name not in values
+            ):
+                values[field_name] = BackLink[link_info.document_class](
+                    link_info.document_class
+                )
+            if (
+                link_info.link_type
+                in [LinkTypes.BACK_LIST, LinkTypes.OPTIONAL_BACK_LIST]
+                and field_name not in values
+            ):
+                values[field_name] = [
+                    BackLink[link_info.document_class](
+                        link_info.document_class
+                    )
+                ]
+        return values
 
 
 def detect_link(field_info: FieldInfo, field_name: str) -> Optional[LinkInfo]:

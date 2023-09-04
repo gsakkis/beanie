@@ -1,13 +1,11 @@
 import asyncio
 from typing import Any, ClassVar, Union
 
-from pydantic import BaseModel
-
 from beanie.odm.interfaces.find import FindInterface
-from beanie.odm.links import Link
+from beanie.odm.links import Link, LinkedModel
 
 
-class View(BaseModel, FindInterface):
+class View(LinkedModel, FindInterface):
     _sort_order: ClassVar[int] = 2
 
     async def fetch_link(self, field: Union[str, Any]):

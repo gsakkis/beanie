@@ -24,7 +24,6 @@ from pydantic import (
     PrivateAttr,
     TypeAdapter,
     ValidationError,
-    model_validator,
 )
 from pymongo import InsertOne
 from pymongo.client_session import ClientSession
@@ -49,7 +48,7 @@ from beanie.odm.fields import (
     WriteRules,
 )
 from beanie.odm.interfaces.find import FindInterface
-from beanie.odm.links import BackLink, Link, LinkTypes
+from beanie.odm.links import Link, LinkedModel, LinkTypes
 from beanie.odm.models import (
     InspectionError,
     InspectionResult,
@@ -89,7 +88,7 @@ def json_schema_extra(schema: Dict[str, Any], model: Type["Document"]) -> None:
     schema["properties"] = props
 
 
-class Document(LazyModel, FindInterface):
+class Document(LazyModel, LinkedModel, FindInterface):
     """
     Document Mapping class.
 
@@ -135,35 +134,6 @@ class Document(LazyModel, FindInterface):
         if self._settings.use_revision:
             self._previous_revision_id = self.revision_id
             self.revision_id = uuid4()
-
-    def __init__(self, *args, **kwargs):
-        super(Document, self).__init__(*args, **kwargs)
-        self.get_motor_collection()
-
-    @model_validator(mode="before")
-    @classmethod
-    def fill_back_refs(cls, values):
-        if cls._link_fields:
-            for field_name, link_info in cls._link_fields.items():
-                if (
-                    link_info.link_type
-                    in [LinkTypes.BACK_DIRECT, LinkTypes.OPTIONAL_BACK_DIRECT]
-                    and field_name not in values
-                ):
-                    values[field_name] = BackLink[link_info.document_class](
-                        link_info.document_class
-                    )
-                if (
-                    link_info.link_type
-                    in [LinkTypes.BACK_LIST, LinkTypes.OPTIONAL_BACK_LIST]
-                    and field_name not in values
-                ):
-                    values[field_name] = [
-                        BackLink[link_info.document_class](
-                            link_info.document_class
-                        )
-                    ]
-        return values
 
     @classmethod
     def parse_document_id(cls, document_id: Any) -> Any:

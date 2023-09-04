@@ -7,6 +7,7 @@ from typing_extensions import Self
 import beanie
 from beanie.odm.cache import LRUCache
 from beanie.odm.fields import ExpressionField
+from beanie.odm.links import LinkedModel
 from beanie.odm.operators.find.logical import And
 from beanie.odm.queries import BaseQuery
 from beanie.odm.utils.encoder import Encoder
@@ -37,7 +38,7 @@ class FindQuery(BaseQuery):
 
     def get_filter_query(self) -> Mapping[str, Any]:
         """Returns: MongoDB filter query"""
-        if self.document_model.get_link_fields() is not None:
+        if issubclass(self.document_model, LinkedModel):
             for i, query in enumerate(self.find_expressions):
                 self.find_expressions[i] = convert_ids(
                     query, self.document_model, self.fetch_links
@@ -135,32 +136,21 @@ def get_projection(model: Type[BaseModel]) -> Optional[Mapping[str, Any]]:
 
 def convert_ids(
     query: Mapping[str, Any],
-    model_type: Type["FindInterface"],
+    model_type: Type[LinkedModel],
     fetch_links: bool,
 ) -> Mapping[str, Any]:
     # TODO add all the cases
     new_query = {}
     for k, v in query.items():
         k_splitted = k.split(".")
-        link_fields = model_type.get_link_fields()
         if (
             isinstance(k, ExpressionField)
-            and link_fields is not None
             and len(k_splitted) == 2
-            and k_splitted[0] in link_fields
+            and k_splitted[0] in model_type.get_link_fields()
             and k_splitted[1] == "id"
         ):
-            if fetch_links:
-                new_k = f"{k_splitted[0]}._id"
-            else:
-                new_k = f"{k_splitted[0]}.$id"
-        else:
-            new_k = k
-
+            k = ".".join((k_splitted[0], "_id" if fetch_links else "$id"))
         if isinstance(v, dict):
-            new_v = convert_ids(v, model_type, fetch_links)
-        else:
-            new_v = v
-
-        new_query[new_k] = new_v
+            v = convert_ids(v, model_type, fetch_links)
+        new_query[k] = v
     return new_query

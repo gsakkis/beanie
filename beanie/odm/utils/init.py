@@ -13,7 +13,7 @@ from beanie.odm.actions import ActionRegistry
 from beanie.odm.cache import LRUCache
 from beanie.odm.documents import Document
 from beanie.odm.fields import ExpressionField
-from beanie.odm.links import DOCS_REGISTRY, check_nested_links, detect_link
+from beanie.odm.links import DOCS_REGISTRY, LinkedModel
 from beanie.odm.settings.document import DocumentSettings, IndexModelField
 from beanie.odm.settings.union_doc import UnionDocSettings
 from beanie.odm.settings.view import ViewSettings
@@ -168,7 +168,6 @@ class Initializer:
             cls._parent = None
             cls._inheritance_inited = False
             cls._class_id = None
-            cls._link_fields = None
 
             bases = [b for b in cls.__bases__ if issubclass(b, Document)]
             if len(bases) > 1:
@@ -275,14 +274,10 @@ def init_cache(cls) -> None:
 
 
 def init_fields(cls) -> None:
-    if cls._link_fields is None:
-        cls._link_fields = {}
     for k, v in cls.model_fields.items():
         setattr(cls, k, ExpressionField(v.alias or k))
-        link_info = detect_link(v, k)
-        if link_info is not None:
-            cls._link_fields[k] = link_info
-            check_nested_links(link_info)
+    if issubclass(cls, LinkedModel):
+        cls.init_link_fields()
 
 
 def register_document_model(

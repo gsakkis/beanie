@@ -19,7 +19,6 @@ from pymongo.client_session import ClientSession
 import beanie
 from beanie.exceptions import SettingsNotInitialized
 from beanie.odm.fields import SortDirection
-from beanie.odm.links import LinkInfo
 from beanie.odm.queries.find import AggregationQuery, FindMany, FindOne
 from beanie.odm.settings.base import ItemSettings
 
@@ -31,17 +30,13 @@ class FindInterface:
     _class_id: ClassVar[Optional[str]]
     _children: ClassVar[Dict[str, Type]]
     _settings: ClassVar[ItemSettings]
-    _link_fields: ClassVar[Optional[Dict[str, LinkInfo]]] = None
-
-    @classmethod
-    def get_link_fields(cls) -> Optional[Dict[str, LinkInfo]]:
-        return cls._link_fields
 
     @classmethod
     def get_settings(cls) -> ItemSettings:
-        if not hasattr(cls, "_settings"):
+        try:
+            return cls._settings
+        except AttributeError:
             raise SettingsNotInitialized
-        return cls._settings
 
     @classmethod
     def get_motor_collection(cls) -> AsyncIOMotorCollection:
