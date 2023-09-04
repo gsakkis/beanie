@@ -60,7 +60,7 @@ def parse_obj(
     result = model.model_validate(data)
 
     if isinstance(result, beanie.Document):
-        result._save_state()
-        result._swap_revision()
+        result.save_state()
+        result.swap_revision()
 
     return result

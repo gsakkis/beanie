@@ -13,10 +13,10 @@ async def docs():
 class TestLazyParsing:
     async def test_find_all(self, docs):
         found_docs = await SampleLazyParsing.all(lazy_parse=True).to_list()
-        saved_state = found_docs[0].get_saved_state()
+        saved_state = found_docs[0]._saved_state
         assert "_id" in saved_state
         del saved_state["_id"]
-        assert found_docs[0].get_saved_state() == {}
+        assert found_docs[0]._saved_state == {}
         assert found_docs[0].i == 0
         assert found_docs[0].s == "0"
         assert found_docs[1]._store["i"] == 1
@@ -28,10 +28,10 @@ class TestLazyParsing:
         found_docs = await SampleLazyParsing.find(
             SampleLazyParsing.i <= 5, lazy_parse=True
         ).to_list()
-        saved_state = found_docs[0].get_saved_state()
+        saved_state = found_docs[0]._saved_state
         assert "_id" in saved_state
         del saved_state["_id"]
-        assert found_docs[0].get_saved_state() == {}
+        assert found_docs[0]._saved_state == {}
         assert found_docs[0].i == 0
         assert found_docs[0].s == "0"
         assert found_docs[1]._store["i"] == 1

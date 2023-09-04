@@ -126,13 +126,13 @@ class Document(LazyModel, LinkedModel, FindInterface):
     _hidden_fields: ClassVar[Set[str]] = set()
     _sort_order: ClassVar[int] = 1
 
-    def _swap_revision(self):
+    def swap_revision(self):
         if self._settings.use_revision:
             self._previous_revision_id = self.revision_id
             self.revision_id = uuid4()
 
     @classmethod
-    def parse_document_id(cls, document_id: Any) -> Any:
+    def _parse_document_id(cls, document_id: Any) -> Any:
         id_annotation = cls.model_fields["id"].annotation
         if isinstance(document_id, extract_id_class(id_annotation)):
             return document_id
@@ -160,7 +160,7 @@ class Document(LazyModel, LinkedModel, FindInterface):
         return cast(
             Optional[Self],
             await cls.find_one(
-                {"_id": cls.parse_document_id(document_id)},
+                {"_id": cls._parse_document_id(document_id)},
                 session=session,
                 ignore_cache=ignore_cache,
                 fetch_links=fetch_links,
@@ -183,7 +183,7 @@ class Document(LazyModel, LinkedModel, FindInterface):
         Insert the document (self) to the collection
         :return: Document
         """
-        await self.validate_self(skip_actions=skip_actions)
+        await self._validate_self(skip_actions=skip_actions)
         if self._settings.use_revision:
             self.revision_id = uuid4()
         if link_rule == WriteRules.WRITE:
@@ -208,7 +208,7 @@ class Document(LazyModel, LinkedModel, FindInterface):
         result = await self.get_motor_collection().insert_one(
             self.get_dict(), session=session
         )
-        self.id = self.parse_document_id(result.inserted_id)
+        self.id = self._parse_document_id(result.inserted_id)
         return self
 
     async def create(self, session: Optional[ClientSession] = None) -> Self:
@@ -300,7 +300,7 @@ class Document(LazyModel, LinkedModel, FindInterface):
         :param bulk_writer: "BulkWriter" - Beanie bulk writer
         :return: self
         """
-        await self.validate_self(skip_actions=skip_actions)
+        await self._validate_self(skip_actions=skip_actions)
         if self.id is None:
             raise ValueError("Document must have an id")
 
@@ -441,7 +441,7 @@ class Document(LazyModel, LinkedModel, FindInterface):
         :param bulk_writer: "BulkWriter" - Beanie bulk writer
         :return: None
         """
-        await self.validate_self(skip_actions=skip_actions)
+        await self._validate_self(skip_actions=skip_actions)
         if not self.is_changed:
             return None
         changes = self.get_changes()
@@ -725,54 +725,16 @@ class Document(LazyModel, LinkedModel, FindInterface):
 
     # State management
 
-    @classmethod
-    def use_state_management(cls) -> bool:
-        """
-        Is state management turned on
-        :return: bool
-        """
-        return cls._settings.use_state_management
-
-    @classmethod
-    def state_management_save_previous(cls) -> bool:
-        """
-        Should we save the previous state after a commit to database
-        :return: bool
-        """
-        return cls._settings.state_management_save_previous
-
-    @classmethod
-    def state_management_replace_objects(cls) -> bool:
-        """
-        Should objects be replaced when using state management
-        :return: bool
-        """
-        return cls._settings.state_management_replace_objects
-
-    def _save_state(self) -> None:
+    def save_state(self) -> None:
         """
         Save current document state. Internal method
         :return: None
         """
-        if self.use_state_management() and self.id is not None:
-            if self.state_management_save_previous():
+        settings = self._settings
+        if settings.use_state_management and self.id is not None:
+            if settings.state_management_save_previous:
                 self._previous_saved_state = self._saved_state
-
             self._saved_state = self.get_dict()
-
-    def get_saved_state(self) -> Optional[Dict[str, Any]]:
-        """
-        Saved state getter. It is protected property.
-        :return: Optional[Dict[str, Any]] - saved state
-        """
-        return self._saved_state
-
-    def get_previous_saved_state(self) -> Optional[Dict[str, Any]]:
-        """
-        Previous state getter. It is a protected property.
-        :return: Optional[Dict[str, Any]] - previous state
-        """
-        return self._previous_saved_state
 
     @property  # type: ignore
     @saved_state_needed
@@ -783,12 +745,10 @@ class Document(LazyModel, LinkedModel, FindInterface):
     @saved_state_needed
     @previous_saved_state_needed
     def has_changed(self) -> bool:
-        if (
-            self._previous_saved_state is None
-            or self._previous_saved_state == self._saved_state
-        ):
-            return False
-        return True
+        return (
+            self._previous_saved_state is not None
+            and self._previous_saved_state != self._saved_state
+        )
 
     def _collect_updates(
         self, old_dict: Dict[str, Any], new_dict: Dict[str, Any]
@@ -800,33 +760,25 @@ class Document(LazyModel, LinkedModel, FindInterface):
             new_dict: dict2
 
         Returns: dictionary with updates
-
         """
-        updates = {}
         if old_dict.keys() - new_dict.keys():
-            updates = new_dict
-        else:
-            for field_name, field_value in new_dict.items():
-                if field_value != old_dict.get(field_name):
-                    if not self.state_management_replace_objects() and (
-                        isinstance(field_value, dict)
-                        and isinstance(old_dict.get(field_name), dict)
-                    ):
-                        if old_dict.get(field_name) is None:
-                            updates[field_name] = field_value
-                        elif isinstance(field_value, dict) and isinstance(
-                            old_dict.get(field_name), dict
-                        ):
-                            field_data = self._collect_updates(
-                                old_dict.get(field_name),  # type: ignore
-                                field_value,
-                            )
-
-                            for k, v in field_data.items():
-                                updates[f"{field_name}.{k}"] = v
-                    else:
-                        updates[field_name] = field_value
-
+            return new_dict
+        updates = {}
+        replace_objects = self._settings.state_management_replace_objects
+        for name, new_value in new_dict.items():
+            old_value = old_dict.get(name)
+            if new_value == old_value:
+                continue
+            if (
+                not replace_objects
+                and isinstance(new_value, dict)
+                and isinstance(old_value, dict)
+            ):
+                value_updates = self._collect_updates(old_value, new_value)
+                for k, v in value_updates.items():
+                    updates[f"{name}.{k}"] = v
+            else:
+                updates[name] = new_value
         return updates
 
     @saved_state_needed
@@ -954,7 +906,7 @@ class Document(LazyModel, LinkedModel, FindInterface):
         return {k: v for k, v in dictionary.items() if v is None}
 
     @wrap_with_actions(event_type=EventTypes.VALIDATE_ON_SAVE)
-    async def validate_self(
+    async def _validate_self(
         self,
         *,
         skip_actions: Optional[List[Union[ActionDirections, str]]] = None,
@@ -969,7 +921,7 @@ class Document(LazyModel, LinkedModel, FindInterface):
             raise DocumentWasNotSaved("Can not create dbref without id")
         return DBRef(self.get_motor_collection().name, self.id)
 
-    async def fetch_link(self, field: Union[str, Any]):
+    async def fetch_link(self, field: str):
         ref_obj = getattr(self, field, None)
         if isinstance(ref_obj, Link):
             value = await ref_obj.fetch(fetch_links=True)
@@ -979,11 +931,10 @@ class Document(LazyModel, LinkedModel, FindInterface):
             setattr(self, field, values)
 
     async def fetch_all_links(self):
-        coros = []
-        link_fields = self.get_link_fields()
-        if link_fields is not None:
-            for ref in link_fields.values():
-                coros.append(self.fetch_link(ref.field_name))  # TODO lists
+        coros = [  # TODO lists
+            self.fetch_link(ref.field_name)
+            for ref in self.get_link_fields().values()
+        ]
         await asyncio.gather(*coros)
 
     @classmethod

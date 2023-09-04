@@ -86,17 +86,12 @@ async def house(house_not_inserted):
 
 class TestStateManagement:
     async def test_use_state_management_property(self):
-        assert (
-            DocumentWithTurnedOnStateManagement.use_state_management() is True
-        )
-        assert (
-            DocumentWithTurnedOffStateManagement.use_state_management()
-            is False
-        )
+        settings = DocumentWithTurnedOnStateManagement.get_settings()
+        assert settings.use_state_management is True
+        settings = DocumentWithTurnedOffStateManagement.get_settings()
+        assert settings.use_state_management is False
 
-    async def test_state_with_decimal_field(
-        self,
-    ):
+    async def test_state_with_decimal_field(self):
         await StateAndDecimalFieldModel(amt=10.01).insert()
         await StateAndDecimalFieldModel.all().to_list()
 
@@ -109,37 +104,37 @@ class TestStateManagement:
             "internal": internal,
         }
         doc = parse_obj(DocumentWithTurnedOnStateManagement, obj)
-        assert doc.get_saved_state() == obj
-        assert doc.get_previous_saved_state() is None
+        assert doc._saved_state == obj
+        assert doc._previous_saved_state is None
 
     class TestSaveState:
         async def test_save_state(self):
             doc = DocumentWithTurnedOnStateManagement(
                 num_1=1, num_2=2, internal=InternalDoc(num=1, string="s")
             )
-            assert doc.get_saved_state() is None
-            assert doc.get_previous_saved_state() is None
+            assert doc._saved_state is None
+            assert doc._previous_saved_state is None
 
             doc.id = PydanticObjectId()
-            doc._save_state()
-            assert doc.get_saved_state() == {
+            doc.save_state()
+            assert doc._saved_state == {
                 "num_1": 1,
                 "num_2": 2,
                 "internal": {"num": 1, "string": "s", "lst": [1, 2, 3, 4, 5]},
                 "_id": doc.id,
             }
-            assert doc.get_previous_saved_state() is None
+            assert doc._previous_saved_state is None
 
             doc.num_1 = 2
             doc.num_2 = 3
-            doc._save_state()
-            assert doc.get_saved_state() == {
+            doc.save_state()
+            assert doc._saved_state == {
                 "num_1": 2,
                 "num_2": 3,
                 "internal": {"num": 1, "string": "s", "lst": [1, 2, 3, 4, 5]},
                 "_id": doc.id,
             }
-            assert doc.get_previous_saved_state() is None
+            assert doc._previous_saved_state is None
 
         async def test_save_state_with_custom_id_type(self):
             doc = DocumentWithTurnedOnStateManagementWithCustomId(
@@ -157,29 +152,29 @@ class TestStateManagement:
             doc = DocumentWithTurnedOnSavePrevious(
                 num_1=1, num_2=2, internal=InternalDoc(num=1, string="s")
             )
-            assert doc.get_saved_state() is None
-            assert doc.get_previous_saved_state() is None
+            assert doc._saved_state is None
+            assert doc._previous_saved_state is None
 
             doc.id = PydanticObjectId()
-            doc._save_state()
-            assert doc.get_saved_state() == {
+            doc.save_state()
+            assert doc._saved_state == {
                 "num_1": 1,
                 "num_2": 2,
                 "internal": {"num": 1, "string": "s", "lst": [1, 2, 3, 4, 5]},
                 "_id": doc.id,
             }
-            assert doc.get_previous_saved_state() is None
+            assert doc._previous_saved_state is None
 
             doc.num_1 = 2
             doc.num_2 = 3
-            doc._save_state()
-            assert doc.get_saved_state() == {
+            doc.save_state()
+            assert doc._saved_state == {
                 "num_1": 2,
                 "num_2": 3,
                 "internal": {"num": 1, "string": "s", "lst": [1, 2, 3, 4, 5]},
                 "_id": doc.id,
             }
-            assert doc.get_previous_saved_state() == {
+            assert doc._previous_saved_state == {
                 "num_1": 1,
                 "num_2": 2,
                 "internal": {"num": 1, "string": "s", "lst": [1, 2, 3, 4, 5]},
@@ -235,7 +230,7 @@ class TestStateManagement:
             assert doc_previous.has_changed is False
 
             doc_previous.num_1 = 10
-            doc_previous._save_state()
+            doc_previous.save_state()
 
             assert doc_previous.has_changed is True
 
@@ -251,7 +246,7 @@ class TestStateManagement:
                 "internal.lst": [1, 2, 3, 4, 5, 100],
             }
 
-            doc_default._save_state()
+            doc_default.save_state()
 
             assert doc_default.get_changes() == {}
 
@@ -293,7 +288,7 @@ class TestStateManagement:
 
             assert doc_previous.get_previous_changes() == {}
 
-            doc_previous._save_state()
+            doc_previous.save_state()
 
             assert doc_previous.get_previous_changes() == {
                 "internal.num": 1000,
@@ -310,8 +305,8 @@ class TestStateManagement:
 
     class TestQueries:
         async def test_save_changes(self, saved_doc_default):
-            assert saved_doc_default.get_saved_state()["num_1"] == 1
-            assert saved_doc_default.get_previous_saved_state() is None
+            assert saved_doc_default._saved_state["num_1"] == 1
+            assert saved_doc_default._previous_saved_state is None
 
             saved_doc_default.num_1 = 10000
 
@@ -322,8 +317,8 @@ class TestStateManagement:
 
             await saved_doc_default.save_changes()
 
-            assert saved_doc_default.get_saved_state()["num_1"] == 10000
-            assert saved_doc_default.get_previous_saved_state() is None
+            assert saved_doc_default._saved_state["num_1"] == 10000
+            assert saved_doc_default._previous_saved_state is None
             assert (
                 saved_doc_default.internal.get_private() == "PRIVATE_CHANGED"
             )
@@ -334,8 +329,8 @@ class TestStateManagement:
             assert new_doc.num_1 == 10000
 
         async def test_save_changes_previous(self, saved_doc_previous):
-            assert saved_doc_previous.get_saved_state()["num_1"] == 1
-            assert saved_doc_previous.get_previous_saved_state()["num_1"] == 1
+            assert saved_doc_previous._saved_state["num_1"] == 1
+            assert saved_doc_previous._previous_saved_state["num_1"] == 1
 
             saved_doc_previous.num_1 = 10000
 
@@ -345,8 +340,8 @@ class TestStateManagement:
             )
 
             await saved_doc_previous.save_changes()
-            assert saved_doc_previous.get_saved_state()["num_1"] == 10000
-            assert saved_doc_previous.get_previous_saved_state()["num_1"] == 1
+            assert saved_doc_previous._saved_state["num_1"] == 10000
+            assert saved_doc_previous._previous_saved_state["num_1"] == 1
             assert (
                 saved_doc_previous.internal.get_private() == "PRIVATE_CHANGED"
             )
@@ -368,14 +363,14 @@ class TestStateManagement:
             new_doc = await DocumentWithTurnedOnStateManagement.get(
                 saved_doc_default.id
             )
-            assert new_doc.get_saved_state() == state
-            assert new_doc.get_previous_saved_state() is None
+            assert new_doc._saved_state == state
+            assert new_doc._previous_saved_state is None
 
             new_doc = await DocumentWithTurnedOnStateManagement.find_one(
                 DocumentWithTurnedOnStateManagement.id == saved_doc_default.id
             )
-            assert new_doc.get_saved_state() == state
-            assert new_doc.get_previous_saved_state() is None
+            assert new_doc._saved_state == state
+            assert new_doc._previous_saved_state is None
 
         async def test_find_many(self):
             docs = []
@@ -392,15 +387,15 @@ class TestStateManagement:
             ).to_list()
 
             for doc in found_docs:
-                assert doc.get_saved_state() is not None
-                assert doc.get_previous_saved_state() is None
+                assert doc._saved_state is not None
+                assert doc._previous_saved_state is None
 
         async def test_insert(self, state_without_id):
             model_validate = DocumentWithTurnedOnStateManagement.model_validate
             doc = model_validate(state_without_id)
-            assert doc.get_saved_state() is None
+            assert doc._saved_state is None
             await doc.insert()
-            new_state = doc.get_saved_state()
+            new_state = doc._saved_state
             assert new_state["_id"] is not None
             del new_state["_id"]
             assert new_state == state_without_id
@@ -409,12 +404,12 @@ class TestStateManagement:
             saved_doc_default.num_1 = 100
             await saved_doc_default.replace()
 
-            assert saved_doc_default.get_saved_state()["num_1"] == 100
-            assert saved_doc_default.get_previous_saved_state() is None
+            assert saved_doc_default._saved_state["num_1"] == 100
+            assert saved_doc_default._previous_saved_state is None
 
         async def test_replace_save_previous(self, saved_doc_previous):
             saved_doc_previous.num_1 = 100
             await saved_doc_previous.replace()
 
-            assert saved_doc_previous.get_saved_state()["num_1"] == 100
-            assert saved_doc_previous.get_previous_saved_state()["num_1"] == 1
+            assert saved_doc_previous._saved_state["num_1"] == 100
+            assert saved_doc_previous._previous_saved_state["num_1"] == 1

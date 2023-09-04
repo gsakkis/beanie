@@ -1,70 +1,43 @@
 import inspect
 from functools import wraps
-from typing import TYPE_CHECKING, Callable
+from typing import Callable
 
 from beanie.exceptions import StateManagementIsTurnedOff, StateNotSaved
-
-if TYPE_CHECKING:
-    from beanie.odm.documents import DocType
-
-
-def check_if_state_saved(self: "DocType"):
-    if not self.use_state_management():
-        raise StateManagementIsTurnedOff(
-            "State management is turned off for this document"
-        )
-    if self._saved_state is None:
-        raise StateNotSaved("No state was saved")
 
 
 def saved_state_needed(f: Callable):
     @wraps(f)
-    def sync_wrapper(self: "DocType", *args, **kwargs):
-        check_if_state_saved(self)
+    def sync_wrapper(self, *args, **kwargs):
+        _check_state(self, previous=False)
         return f(self, *args, **kwargs)
 
     @wraps(f)
-    async def async_wrapper(self: "DocType", *args, **kwargs):
-        check_if_state_saved(self)
+    async def async_wrapper(self, *args, **kwargs):
+        _check_state(self, previous=False)
         return await f(self, *args, **kwargs)
 
-    if inspect.iscoroutinefunction(f):
-        return async_wrapper
-    return sync_wrapper
-
-
-def check_if_previous_state_saved(self: "DocType"):
-    if not self.use_state_management():
-        raise StateManagementIsTurnedOff(
-            "State management is turned off for this document"
-        )
-    if not self.state_management_save_previous():
-        raise StateManagementIsTurnedOff(
-            "State management's option to save previous state is turned off for this document"
-        )
+    return async_wrapper if inspect.iscoroutinefunction(f) else sync_wrapper
 
 
 def previous_saved_state_needed(f: Callable):
     @wraps(f)
-    def sync_wrapper(self: "DocType", *args, **kwargs):
-        check_if_previous_state_saved(self)
+    def sync_wrapper(self, *args, **kwargs):
+        _check_state(self, previous=True)
         return f(self, *args, **kwargs)
 
     @wraps(f)
-    async def async_wrapper(self: "DocType", *args, **kwargs):
-        check_if_previous_state_saved(self)
+    async def async_wrapper(self, *args, **kwargs):
+        _check_state(self, previous=True)
         return await f(self, *args, **kwargs)
 
-    if inspect.iscoroutinefunction(f):
-        return async_wrapper
-    return sync_wrapper
+    return async_wrapper if inspect.iscoroutinefunction(f) else sync_wrapper
 
 
 def save_state_after(f: Callable):
     @wraps(f)
-    async def wrapper(self: "DocType", *args, **kwargs):
+    async def wrapper(self, *args, **kwargs):
         result = await f(self, *args, **kwargs)
-        self._save_state()
+        self.save_state()
         return result
 
     return wrapper
@@ -72,9 +45,25 @@ def save_state_after(f: Callable):
 
 def swap_revision_after(f: Callable):
     @wraps(f)
-    async def wrapper(self: "DocType", *args, **kwargs):
+    async def wrapper(self, *args, **kwargs):
         result = await f(self, *args, **kwargs)
-        self._swap_revision()
+        self.swap_revision()
         return result
 
     return wrapper
+
+
+def _check_state(self, previous=False):
+    settings = self._settings
+    if not settings.use_state_management:
+        raise StateManagementIsTurnedOff(
+            "State management is turned off for this document"
+        )
+    if previous:
+        if not settings.state_management_save_previous:
+            raise StateManagementIsTurnedOff(
+                "State management's option to save previous state is turned off for this document"
+            )
+    else:
+        if self._saved_state is None:
+            raise StateNotSaved("No state was saved")
