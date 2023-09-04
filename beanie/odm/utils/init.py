@@ -70,8 +70,8 @@ class Initializer:
         # set a name
         if not settings.name:
             settings.name = cls.__name__
+        settings.motor_collection = self.database[settings.name]
 
-        collection = self.database[settings.name]
         timeseries = settings.timeseries
         if timeseries is not None:
             if cls._database_major_version < 5:
@@ -80,10 +80,10 @@ class Initializer:
                 )
             collections = await self.database.list_collection_names()
             if settings.name not in collections:
-                collection = await self.database.create_collection(
-                    **timeseries.build_query(settings.name)
+                query = timeseries.build_query(settings.name)
+                settings.motor_collection = (
+                    await self.database.create_collection(**query)
                 )
-        settings.motor_collection = collection
 
     async def init_indexes(self, cls, allow_index_dropping: bool = False):
         """
@@ -226,14 +226,7 @@ class Initializer:
         :param cls:
         :return:
         """
-        settings = ViewSettings.model_validate(
-            cls.Settings.__dict__ if hasattr(cls, "Settings") else {}
-        )
-        if settings.name is None:
-            settings.name = cls.__name__
-        if inspect.isclass(settings.source):
-            settings.source = settings.source.get_collection_name()
-        settings.motor_collection = self.database[settings.name]
+        settings = ViewSettings.from_model_type(cls, self.database)
         cls._settings = settings
 
         init_fields(cls)
@@ -254,19 +247,7 @@ class Initializer:
     # Union Doc
 
     async def init_union_doc(self, cls: Type[UnionDoc]):
-        """
-        Init Union Doc based class
-
-        :param cls:
-        :return:
-        """
-        settings = UnionDocSettings.model_validate(
-            cls.Settings.__dict__ if hasattr(cls, "Settings") else {}
-        )
-        if settings.name is None:
-            settings.name = cls.__name__
-        settings.motor_collection = self.database[settings.name]
-        cls._settings = settings
+        cls._settings = UnionDocSettings.from_model_type(cls, self.database)
 
     # Final
 

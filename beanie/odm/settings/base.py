@@ -1,8 +1,9 @@
 from datetime import timedelta
 from typing import Any, Dict, Optional, Type
 
-from motor.motor_asyncio import AsyncIOMotorCollection
+from motor.motor_asyncio import AsyncIOMotorCollection, AsyncIOMotorDatabase
 from pydantic import BaseModel, ConfigDict, Field
+from typing_extensions import Self
 
 
 class ItemSettings(BaseModel):
@@ -23,3 +24,17 @@ class ItemSettings(BaseModel):
     class_id: str = "_class_id"
 
     is_root: bool = False
+
+    @classmethod
+    def from_model_type(
+        cls, model_type: type, database: AsyncIOMotorDatabase
+    ) -> Self:
+        settings = cls.model_validate(
+            model_type.Settings.__dict__
+            if hasattr(model_type, "Settings")
+            else {}
+        )
+        if settings.name is None:
+            settings.name = model_type.__name__
+        settings.motor_collection = database[settings.name]
+        return settings
