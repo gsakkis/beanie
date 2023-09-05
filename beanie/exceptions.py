@@ -32,11 +32,3 @@ class MongoDBVersionError(Exception):
 
 class SettingsNotInitialized(Exception):
     pass
-
-
-class UnionHasNoRegisteredDocs(Exception):
-    pass
-
-
-class DocWasNotRegisteredInUnionClass(Exception):
-    pass

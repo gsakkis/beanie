@@ -112,6 +112,11 @@ class Document(LazyModel, LinkedModel, FindInterface):
         default=None, description="MongoDB document ObjectID"
     )
 
+    # Inheritance
+    _class_id: ClassVar[Optional[str]]
+    _parent: ClassVar[Optional[Type["Document"]]]
+    _children: ClassVar[Dict[str, Type["Document"]]]
+
     # State
     revision_id: Optional[UUID] = Field(default=None, hidden=True)
     _previous_revision_id: Optional[UUID] = PrivateAttr(default=None)

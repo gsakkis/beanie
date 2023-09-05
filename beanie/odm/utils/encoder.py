@@ -103,7 +103,7 @@ class Encoder:
             obj_dict[settings.class_id] = (
                 settings.union_doc_alias or obj.__class__.__name__
             )
-        if obj._inheritance_inited:
+        if obj._class_id:
             obj_dict[settings.class_id] = obj._class_id
 
         link_fields = obj.get_link_fields() or {}

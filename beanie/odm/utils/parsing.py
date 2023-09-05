@@ -1,12 +1,8 @@
-from typing import Any, Type, Union
+from typing import Any, Dict, Type, Union
 
 from pydantic import BaseModel
 
 import beanie
-from beanie.exceptions import (
-    DocWasNotRegisteredInUnionClass,
-    UnionHasNoRegisteredDocs,
-)
 
 
 def merge_models(left: BaseModel, right: BaseModel) -> None:
@@ -26,30 +22,25 @@ ParseableModel = Union[BaseModel, "beanie.UnionDoc"]
 
 
 def parse_obj(
-    model: Type[ParseableModel], data: Any, lazy_parse: bool = False
+    model: Type[ParseableModel],
+    data: Union[BaseModel, Dict[str, Any]],
+    lazy_parse: bool = False,
 ) -> BaseModel:
+    if isinstance(data, BaseModel):
+        if type(data) is model:
+            return data
+        raise TypeError(
+            f"Cannot parse {data} of type {type(data)} as {model}. "
+            f"Only dict or {model} is allowed."
+        )
+
     if issubclass(model, beanie.UnionDoc):
-        if model._document_models is None:
-            raise UnionHasNoRegisteredDocs
+        class_name = data[model.get_settings().class_id]
+        return parse_obj(model._children[class_name], data, lazy_parse)
 
-        if isinstance(data, dict):
-            class_name = data[model.get_settings().class_id]
-        else:
-            class_name = data._class_id
-
-        if class_name not in model._document_models:
-            raise DocWasNotRegisteredInUnionClass
-        return parse_obj(model._document_models[class_name], data, lazy_parse)
-
-    if issubclass(model, beanie.Document) and model._inheritance_inited:
-        if isinstance(data, dict):
-            class_name = data.get(model.get_settings().class_id)
-        elif hasattr(data, model.get_settings().class_id):
-            class_name = data._class_id
-        else:
-            class_name = None
-
-        if model._children and class_name in model._children:
+    if issubclass(model, beanie.Document) and model._children:
+        class_name = data[model.get_settings().class_id]
+        if class_name in model._children:
             return parse_obj(model._children[class_name], data, lazy_parse)
 
     if issubclass(model, beanie.Document) and lazy_parse:

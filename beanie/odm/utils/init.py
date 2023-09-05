@@ -56,14 +56,15 @@ class Initializer:
         union_doc = settings.union_doc
         if union_doc is not None:
             name = settings.name or cls.__name__
-            settings.name = union_doc.register_doc(name, cls)
+            union_doc._children[name] = cls
+            settings.name = union_doc._settings.name
             settings.union_doc_alias = name
 
         # set a name
         if not settings.name:
             settings.name = cls.__name__
-        settings.motor_collection = self.database[settings.name]
 
+        settings.motor_collection = self.database[settings.name]
         timeseries = settings.timeseries
         if timeseries is not None:
             if cls._database_major_version < 5:
@@ -152,9 +153,6 @@ class Initializer:
         :param cls:
         :return:
         """
-        if cls is Document:
-            return None
-
         # get db version
         build_info = await self.database.command({"buildInfo": 1})
         cls._database_major_version = int(build_info["version"].split(".")[0])
@@ -163,9 +161,9 @@ class Initializer:
                 cls.Settings.__dict__ if hasattr(cls, "Settings") else {}
             )
             cls._settings = settings
-            cls._children = dict()
+
+            cls._children = {}
             cls._parent = None
-            cls._inheritance_inited = False
             cls._class_id = None
 
             bases = [b for b in cls.__bases__ if issubclass(b, Document)]
@@ -173,7 +171,10 @@ class Initializer:
                 return None
 
             parent = bases[0]
-            output = await self.init_document(parent)
+            if parent is Document:
+                output = None
+            else:
+                output = await self.init_document(parent)
             if settings.is_root and (
                 parent is Document or not parent.get_settings().is_root
             ):
@@ -181,17 +182,16 @@ class Initializer:
                     settings.name = cls.__name__
                 cls._class_id = cls.__name__
                 output = Output.from_doctype(cls)
-                cls._inheritance_inited = True
             elif output is not None:
                 class_id = f"{output.class_name}.{cls.__name__}"
                 cls._class_id = class_id
                 output.class_name = class_id
                 settings.name = output.collection_name
                 cls._parent = parent
-                while parent is not None:
-                    parent._children[class_id] = cls
-                    parent = parent._parent
-                cls._inheritance_inited = True
+                ancestor: Optional[Type[Document]] = parent
+                while ancestor is not None:
+                    ancestor._children[class_id] = cls
+                    ancestor = ancestor._parent
 
             await self.init_document_collection(cls)
             await self.init_indexes(cls, self.allow_index_dropping)
@@ -203,7 +203,7 @@ class Initializer:
 
             return output
 
-        elif cls._inheritance_inited:
+        elif cls._class_id:
             return Output.from_doctype(cls)
         else:
             return None
@@ -235,6 +235,7 @@ class Initializer:
 
     async def init_union_doc(self, cls: Type[UnionDoc]):
         cls._settings = UnionDocSettings.from_model_type(cls, self.database)
+        cls._children = {}
 
     # Final
 

@@ -126,7 +126,7 @@ class FindQuery(BaseQuery):
 
 
 def get_projection(model: Type[BaseModel]) -> Optional[Mapping[str, Any]]:
-    if issubclass(model, beanie.Document) and model._inheritance_inited:
+    if issubclass(model, beanie.Document) and model._class_id:
         return None
 
     if hasattr(model, "Settings"):  # MyPy checks

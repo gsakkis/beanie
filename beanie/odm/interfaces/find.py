@@ -26,9 +26,6 @@ ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
 class FindInterface:
-    _inheritance_inited: ClassVar[bool]
-    _class_id: ClassVar[Optional[str]]
-    _children: ClassVar[Dict[str, Type]]
     _settings: ClassVar[ItemSettings]
 
     @classmethod
@@ -261,12 +258,13 @@ class FindInterface:
 
     @classmethod
     def _add_class_id_filter(cls, args: Tuple, with_children: bool = False):
-        class_id = cls.get_settings().class_id
+        settings = cls.get_settings()
+        class_id = settings.class_id
         # skip if _class_id is already added
         if any(isinstance(a, Iterable) and class_id in a for a in args):
             return args
 
-        if issubclass(cls, beanie.Document) and cls._inheritance_inited:
+        if issubclass(cls, beanie.Document) and cls._class_id:
             class_id_filter = (
                 {"$in": [cls._class_id, *cls._children.keys()]}
                 if with_children
@@ -274,6 +272,6 @@ class FindInterface:
             )
             args += ({class_id: class_id_filter},)
 
-        if cls.get_settings().union_doc:
-            args += ({class_id: cls.get_settings().union_doc_alias},)
+        if settings.union_doc:
+            args += ({class_id: settings.union_doc_alias},)
         return args

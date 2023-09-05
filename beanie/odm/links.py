@@ -137,7 +137,7 @@ class Link(Generic[T]):
                 return cls(ref=v, document_class=document_class)
             if isinstance(v, Link):
                 return v
-            if isinstance(v, dict) or isinstance(v, BaseModel):
+            if isinstance(v, (dict, BaseModel)):
                 return parse_obj(document_class, v)
             new_id = TypeAdapter(
                 document_class.model_fields["id"].annotation
