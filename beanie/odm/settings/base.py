@@ -25,10 +25,13 @@ class ItemSettings(BaseModel):
 
     is_root: bool = False
 
+    async def update_from_database(
+        self, database: AsyncIOMotorDatabase, **kwargs: Any
+    ) -> None:
+        self.motor_collection = database[self.name]
+
     @classmethod
-    def from_model_type(
-        cls, model_type: type, database: AsyncIOMotorDatabase
-    ) -> Self:
+    def from_model_type(cls, model_type: type) -> Self:
         settings = cls.model_validate(
             model_type.Settings.__dict__
             if hasattr(model_type, "Settings")
@@ -36,5 +39,4 @@ class ItemSettings(BaseModel):
         )
         if settings.name is None:
             settings.name = model_type.__name__
-        settings.motor_collection = database[settings.name]
         return settings

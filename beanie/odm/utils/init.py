@@ -8,7 +8,6 @@ from pydantic import BaseModel
 from pymongo import IndexModel
 
 import beanie
-from beanie.exceptions import MongoDBVersionError
 from beanie.odm.actions import ActionRegistry
 from beanie.odm.documents import Document
 from beanie.odm.fields import ExpressionField
@@ -27,12 +26,8 @@ def get_parent_document_cls(cls: Type[Document]) -> Optional[Type[Document]]:
     return parent_cls if parent_cls is not Document else None
 
 
-async def init_document(
-    cls: Type[Document], database: AsyncIOMotorDatabase
-) -> None:
-    settings = DocumentSettings.model_validate(
-        cls.Settings.__dict__ if hasattr(cls, "Settings") else {}
-    )
+def init_document(cls: Type[Document]) -> None:
+    settings = DocumentSettings.from_model_type(cls)
 
     parent_cls = get_parent_document_cls(cls)
     if settings.is_root and not (
@@ -54,51 +49,21 @@ async def init_document(
         settings.name = union_doc._settings.name
         settings.union_doc_alias = name
 
-    if settings.name is None:
-        settings.name = cls.__name__
-
     cls._children = {}
     cls._settings = settings
     init_fields(cls)
     cls.set_hidden_fields()
     ActionRegistry.init_actions(cls)
 
-    settings.motor_collection = database[settings.name]
-    if settings.timeseries:
-        if beanie.DATABASE_MAJOR_VERSION < 5:
-            raise MongoDBVersionError(
-                "Timeseries are supported by MongoDB version 5 and higher"
-            )
-        collections = await database.list_collection_names()
-        if settings.name not in collections:
-            query = settings.timeseries.build_query(settings.name)
-            settings.motor_collection = await database.create_collection(
-                **query
-            )
 
-
-async def init_view(
-    cls: Type[View], database: AsyncIOMotorDatabase, recreate_views: bool
-):
-    settings = ViewSettings.from_model_type(cls, database)
-    cls._settings = settings
+def init_view(cls: Type[View]):
     init_fields(cls)
-    collection_names = await database.list_collection_names()
-    if recreate_views or settings.name not in collection_names:
-        if settings.name in collection_names:
-            await cls.get_motor_collection().drop()
-        await database.command(
-            {
-                "create": settings.name,
-                "viewOn": settings.source,
-                "pipeline": settings.pipeline,
-            }
-        )
+    cls._settings = ViewSettings.from_model_type(cls)
 
 
-async def init_union_doc(cls: Type[UnionDoc], database: AsyncIOMotorDatabase):
-    cls._settings = UnionDocSettings.from_model_type(cls, database)
+def init_union_doc(cls: Type[UnionDoc]):
     cls._children = {}
+    cls._settings = UnionDocSettings.from_model_type(cls)
 
 
 def init_fields(cls) -> None:
@@ -220,12 +185,17 @@ async def init_beanie(
 
     for model in models:
         if issubclass(model, UnionDoc):
-            await init_union_doc(model, database)
+            init_union_doc(model)
+            await model.get_settings().update_from_database(database)
         elif issubclass(model, Document):
-            await init_document(model, database)
+            init_document(model)
+            await model.get_settings().update_from_database(database)
             await init_indexes(model, allow_index_dropping)
         elif issubclass(model, View):
-            await init_view(model, database, recreate_views)
+            init_view(model)
+            await model.get_settings().update_from_database(
+                database, recreate=recreate_views
+            )
 
         if hasattr(model, "custom_init"):
             await model.custom_init()
