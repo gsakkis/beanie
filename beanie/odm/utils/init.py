@@ -21,6 +21,11 @@ from beanie.odm.views import View
 DocumentLike = Union[Document, View, UnionDoc]
 
 
+def get_parent_document_cls(cls: Type[Document]) -> Optional[Type[Document]]:
+    parent_cls = next(b for b in cls.__bases__ if issubclass(b, Document))
+    return parent_cls if parent_cls is not Document else None
+
+
 async def init_document(
     cls: Type[Document],
     database: AsyncIOMotorDatabase,
@@ -32,28 +37,19 @@ async def init_document(
         cls.Settings.__dict__ if hasattr(cls, "Settings") else {}
     )
     cls._settings = settings
-
     cls._children = {}
-    cls._parent = None
-    cls._class_id = None
 
-    bases = [b for b in cls.__bases__ if issubclass(b, Document)]
-    if len(bases) > 1:
-        return None
-
-    parent = bases[0]
-    if settings.is_root and (
-        parent is Document or not parent.get_settings().is_root
+    parent_cls = get_parent_document_cls(cls)
+    if settings.is_root and not (
+        parent_cls and parent_cls.get_settings().is_root
     ):
         cls._class_id = cls.__name__
-    elif parent_class_id := getattr(parent, "_class_id", None):
-        settings.name = parent.get_collection_name()
-        cls._class_id = class_id = f"{parent_class_id}.{cls.__name__}"
-        cls._parent = parent
-        ancestor: Optional[Type[Document]] = parent
-        while ancestor is not None:
-            ancestor._children[class_id] = cls
-            ancestor = ancestor._parent
+    elif parent_cls and parent_cls._class_id:
+        settings.name = parent_cls.get_collection_name()
+        cls._class_id = class_id = f"{parent_cls._class_id}.{cls.__name__}"
+        while parent_cls is not None:
+            parent_cls._children[class_id] = cls
+            parent_cls = get_parent_document_cls(parent_cls)
 
     await init_document_collection(cls, database)
     await init_indexes(cls, allow_index_dropping)

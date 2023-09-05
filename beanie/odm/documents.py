@@ -113,8 +113,7 @@ class Document(LazyModel, LinkedModel, FindInterface):
     )
 
     # Inheritance
-    _class_id: ClassVar[Optional[str]]
-    _parent: ClassVar[Optional[Type["Document"]]]
+    _class_id: ClassVar[Optional[str]] = None
     _children: ClassVar[Dict[str, Type["Document"]]]
 
     # State
