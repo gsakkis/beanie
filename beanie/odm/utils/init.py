@@ -1,8 +1,7 @@
 import importlib
 import inspect
-from dataclasses import dataclass
 from operator import attrgetter
-from typing import List, Optional, Set, Type, Union
+from typing import List, Optional, Type, Union
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pydantic import BaseModel
@@ -22,29 +21,11 @@ from beanie.odm.views import View
 DocumentLike = Union[Document, View, UnionDoc]
 
 
-@dataclass
-class Output:
-    class_name: str
-    collection_name: str
-
-    @classmethod
-    def from_doctype(cls, doc_type: Type[Document]) -> "Output":
-        class_name = doc_type._class_id
-        collection_name = doc_type.get_collection_name()
-        assert class_name is not None and collection_name is not None
-        return cls(class_name, collection_name)
-
-
 async def init_document(
     cls: Type[Document],
     database: AsyncIOMotorDatabase,
     allow_index_dropping: bool,
-    inited_classes: Set[Type[Document]],
-) -> Optional[Output]:
-    if cls in inited_classes:
-        return Output.from_doctype(cls) if cls._class_id else None
-
-    # get db version
+) -> None:
     build_info = await database.command({"buildInfo": 1})
     cls._database_major_version = int(build_info["version"].split(".")[0])
     settings = DocumentSettings.model_validate(
@@ -61,24 +42,13 @@ async def init_document(
         return None
 
     parent = bases[0]
-    if parent is Document:
-        output = None
-    else:
-        output = await init_document(
-            parent, database, allow_index_dropping, inited_classes
-        )
     if settings.is_root and (
         parent is Document or not parent.get_settings().is_root
     ):
-        if settings.name is None:
-            settings.name = cls.__name__
         cls._class_id = cls.__name__
-        output = Output.from_doctype(cls)
-    elif output is not None:
-        class_id = f"{output.class_name}.{cls.__name__}"
-        cls._class_id = class_id
-        output.class_name = class_id
-        settings.name = output.collection_name
+    elif parent_class_id := getattr(parent, "_class_id", None):
+        settings.name = parent.get_collection_name()
+        cls._class_id = class_id = f"{parent_class_id}.{cls.__name__}"
         cls._parent = parent
         ancestor: Optional[Type[Document]] = parent
         while ancestor is not None:
@@ -90,10 +60,6 @@ async def init_document(
     init_fields(cls)
     cls.set_hidden_fields()
     ActionRegistry.init_actions(cls)
-
-    inited_classes.add(cls)
-
-    return output
 
 
 async def init_document_collection(
@@ -109,8 +75,7 @@ async def init_document_collection(
         settings.name = union_doc._settings.name
         settings.union_doc_alias = name
 
-    # set a name
-    if not settings.name:
+    if settings.name is None:
         settings.name = cls.__name__
 
     settings.motor_collection = database[settings.name]
@@ -261,16 +226,26 @@ async def init_beanie(
         client = AsyncIOMotorClient(connection_string)
         database = client.get_default_database()
 
-    models = list(map(register_document_model, document_models))
+    models: List[Type[DocumentLike]] = []
+    for document_model in document_models:
+        model = register_document_model(document_model)
+        if issubclass(model, Document):
+            for superclass in reversed(model.mro()):
+                if (
+                    issubclass(superclass, Document)
+                    and superclass != Document
+                    and superclass not in models
+                ):
+                    models.append(superclass)
+        elif model not in models:
+            models.append(model)
     models.sort(key=attrgetter("_sort_order"))
-    inited_classes: Set[Type[Document]] = set()
+
     for model in models:
         if issubclass(model, UnionDoc):
             await init_union_doc(model, database)
         elif issubclass(model, Document):
-            await init_document(
-                model, database, allow_index_dropping, inited_classes
-            )
+            await init_document(model, database, allow_index_dropping)
         elif issubclass(model, View):
             await init_view(model, database, recreate_views)
 
