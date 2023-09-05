@@ -78,74 +78,6 @@ class Initializer:
                     await self.database.create_collection(**query)
                 )
 
-    async def init_indexes(self, cls, allow_index_dropping: bool = False):
-        """
-        Async indexes initializer
-        """
-        collection = cls.get_motor_collection()
-        settings = cls.get_settings()
-
-        index_information = await collection.index_information()
-
-        old_indexes = IndexModelField.from_motor_index_information(
-            index_information
-        )
-        new_indexes = []
-
-        # Indexed field wrapped with Indexed()
-        found_indexes = [
-            IndexModelField(
-                IndexModel(
-                    [
-                        (
-                            fvalue.alias or k,
-                            fvalue.annotation._indexed[0],
-                        )
-                    ],
-                    **fvalue.annotation._indexed[1],
-                )
-            )
-            for k, fvalue in cls.model_fields.items()
-            if getattr(fvalue.annotation, "_indexed", False)
-        ]
-
-        if settings.merge_indexes:
-            result: List[IndexModelField] = []
-            for subclass in reversed(cls.mro()):
-                if issubclass(subclass, Document) and not subclass == Document:
-                    if (
-                        subclass not in self.inited_classes
-                        and not subclass == cls
-                    ):
-                        await self.init_class(subclass)
-                    if indexes := subclass.get_settings().indexes:
-                        result = IndexModelField.merge_indexes(result, indexes)
-            found_indexes = IndexModelField.merge_indexes(
-                found_indexes, result
-            )
-
-        else:
-            if settings.indexes:
-                found_indexes = IndexModelField.merge_indexes(
-                    found_indexes, settings.indexes
-                )
-
-        new_indexes += found_indexes
-
-        # delete indexes
-        # Only drop indexes if the user specifically allows for it
-        if allow_index_dropping:
-            for index in IndexModelField.list_difference(
-                old_indexes, new_indexes
-            ):
-                await collection.drop_index(index.name)
-
-        # create indices
-        if found_indexes:
-            new_indexes += await collection.create_indexes(
-                IndexModelField.list_to_index_model(new_indexes)
-            )
-
     async def init_document(self, cls: Type[Document]) -> Optional[Output]:
         """
         Init Document-based class
@@ -194,7 +126,7 @@ class Initializer:
                     ancestor = ancestor._parent
 
             await self.init_document_collection(cls)
-            await self.init_indexes(cls, self.allow_index_dropping)
+            await init_indexes(cls, self.allow_index_dropping)
             init_fields(cls)
             cls.set_hidden_fields()
             ActionRegistry.init_actions(cls)
@@ -261,6 +193,46 @@ def init_fields(cls) -> None:
         setattr(cls, k, ExpressionField(v.alias or k))
     if issubclass(cls, LinkedModel):
         cls.init_link_fields()
+
+
+async def init_indexes(cls, allow_index_dropping):
+    # Indexed field wrapped with Indexed()
+    new_indexes = []
+    for k, v in cls.model_fields.items():
+        if indexed := getattr(v.annotation, "_indexed", None):
+            index_type, kwargs = indexed
+            index = IndexModel([(v.alias or k, index_type)], **kwargs)
+            new_indexes.append(IndexModelField(index))
+
+    settings = cls.get_settings()
+    merge_indexes = IndexModelField.merge_indexes
+    if settings.merge_indexes:
+        super_indexes: List[IndexModelField] = []
+        for superclass in reversed(cls.mro()):
+            if not issubclass(superclass, Document):
+                continue
+            if superclass == Document:
+                continue
+            if indexes := superclass.get_settings().indexes:
+                super_indexes = merge_indexes(super_indexes, indexes)
+        new_indexes = merge_indexes(new_indexes, super_indexes)
+    elif settings.indexes:
+        new_indexes = merge_indexes(new_indexes, settings.indexes)
+
+    # delete indexes
+    # Only drop indexes if the user specifically allows for it
+    collection = cls.get_motor_collection()
+    if allow_index_dropping:
+        old_indexes = IndexModelField.from_motor_index_information(
+            await collection.index_information()
+        )
+        for index in old_indexes:
+            if index not in new_indexes:
+                await collection.drop_index(index.name)
+
+    # create indices
+    if new_indexes:
+        await collection.create_indexes([i.index for i in new_indexes])
 
 
 def register_document_model(
