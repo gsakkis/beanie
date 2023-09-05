@@ -20,54 +20,41 @@ from beanie.odm.views import View
 DocumentLike = Union[Document, View, UnionDoc]
 
 
-def get_parent_document_cls(cls: Type[Document]) -> Optional[Type[Document]]:
-    parent_cls = next(b for b in cls.__bases__ if issubclass(b, Document))
-    return parent_cls if parent_cls is not Document else None
-
-
 def init_document(cls: Type[Document]) -> None:
-    settings = DocumentSettings.from_model_type(cls)
+    cls._settings = DocumentSettings.from_model_type(cls)
+    cls._children = {}
+    cls._hidden_fields = set()
+    for k, v in cls.model_fields.items():
+        setattr(cls, k, ExpressionField(v.alias or k))
+        if isinstance(v.json_schema_extra, dict) and v.json_schema_extra.get(
+            "hidden"
+        ):
+            cls._hidden_fields.add(k)
+    ActionRegistry.init_actions(cls)
 
-    parent_cls = get_parent_document_cls(cls)
-    if settings.is_root and not (
-        parent_cls and parent_cls.get_settings().is_root
+    # set up document inheritance
+    parent_cls = cls.parent_document_cls()
+    if cls._settings.is_root and not (
+        parent_cls and parent_cls._settings.is_root
     ):
         cls._class_id = cls.__name__
     elif parent_cls and parent_cls._class_id:
-        settings.name = parent_cls.get_collection_name()
+        cls._settings.name = parent_cls.get_collection_name()
         cls._class_id = class_id = f"{parent_cls._class_id}.{cls.__name__}"
         while parent_cls is not None:
             parent_cls._children[class_id] = cls
-            parent_cls = get_parent_document_cls(parent_cls)
-
-    # register in the Union Doc
-    union_doc = settings.union_doc
-    if union_doc is not None:
-        name = settings.name
-        union_doc._children[name] = cls
-        settings.name = union_doc._settings.name
-        settings.union_doc_alias = name
-
-    cls._children = {}
-    cls._settings = settings
-    init_fields(cls)
-    cls.set_hidden_fields()
-    ActionRegistry.init_actions(cls)
+            parent_cls = parent_cls.parent_document_cls()
 
 
 def init_view(cls: Type[View]):
-    init_fields(cls)
     cls._settings = ViewSettings.from_model_type(cls)
+    for k, v in cls.model_fields.items():
+        setattr(cls, k, ExpressionField(v.alias or k))
 
 
 def init_union_doc(cls: Type[UnionDoc]):
-    cls._children = {}
     cls._settings = UnionDocSettings.from_model_type(cls)
-
-
-def init_fields(cls) -> None:
-    for k, v in cls.model_fields.items():
-        setattr(cls, k, ExpressionField(v.alias or k))
+    cls._children = {}
 
 
 async def init_indexes(

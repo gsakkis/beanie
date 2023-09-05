@@ -1,15 +1,20 @@
-import inspect
-from typing import Any, Dict, List, Type, Union
+from typing import Any, Dict, List
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from typing_extensions import Self
+from pydantic import field_validator
 
+from beanie.odm.interfaces.find import FindInterface
 from beanie.odm.settings.base import ItemSettings
 
 
 class ViewSettings(ItemSettings):
-    source: Union[str, Type]
+    source: str
     pipeline: List[Dict[str, Any]]
+
+    @field_validator("source", mode="before")
+    @classmethod
+    def _source_name(cls, v: Any) -> Any:
+        return v.get_collection_name() if issubclass(v, FindInterface) else v
 
     async def update_from_database(
         self, database: AsyncIOMotorDatabase, recreate: bool = False, **_: Any
@@ -26,10 +31,3 @@ class ViewSettings(ItemSettings):
                     "pipeline": self.pipeline,
                 }
             )
-
-    @classmethod
-    def from_model_type(cls, model_type: type) -> Self:
-        settings = super().from_model_type(model_type)
-        if inspect.isclass(settings.source):
-            settings.source = settings.source.get_collection_name()
-        return settings

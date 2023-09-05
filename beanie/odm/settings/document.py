@@ -1,7 +1,8 @@
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Type
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import ConfigDict, Field
+from typing_extensions import Self
 
 import beanie
 from beanie.exceptions import MongoDBVersionError
@@ -24,6 +25,7 @@ class DocumentSettings(ItemSettings):
     timeseries: Optional[TimeSeriesConfig] = None
 
     keep_nulls: bool = True
+    is_root: bool = False
 
     async def update_from_database(
         self, database: AsyncIOMotorDatabase, **kwargs: Any
@@ -39,3 +41,13 @@ class DocumentSettings(ItemSettings):
                 self.motor_collection = await database.create_collection(
                     **self.timeseries.build_query(self.name)
                 )
+
+    @classmethod
+    def from_model_type(cls, model_type: Type["beanie.Document"]) -> Self:
+        self = super().from_model_type(model_type)
+        # register in the Union Doc
+        if union_doc := self.union_doc:
+            union_doc._children[self.name] = model_type
+            self.union_doc_alias = self.name
+            self.name = union_doc.get_collection_name()
+        return self

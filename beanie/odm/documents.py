@@ -132,6 +132,11 @@ class Document(LazyModel, LinkedModel, FindInterface):
             self.revision_id = uuid4()
 
     @classmethod
+    def parent_document_cls(cls) -> Optional[Type["Document"]]:
+        parent_cls = next(b for b in cls.__bases__ if issubclass(b, Document))
+        return parent_cls if parent_cls is not Document else None
+
+    @classmethod
     def _parse_document_id(cls, document_id: Any) -> Any:
         id_annotation = cls.model_fields["id"].annotation
         if isinstance(document_id, extract_id_class(id_annotation)):
@@ -831,15 +836,6 @@ class Document(LazyModel, LinkedModel, FindInterface):
                     )
                 )
         return inspection_result
-
-    @classmethod
-    def set_hidden_fields(cls):
-        cls._hidden_fields = set(
-            attribute_name
-            for attribute_name, model_field in cls.model_fields.items()
-            if model_field.json_schema_extra
-            and model_field.json_schema_extra.get("hidden")
-        )
 
     def dict(
         self,
