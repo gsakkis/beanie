@@ -15,19 +15,12 @@ def construct_lookup_queries(cls: type) -> List[Dict[str, Any]]:
     link_fields = cls.get_link_fields()
     if link_fields is not None:
         for link_info in link_fields.values():
-            construct_query(
-                link_info=link_info,
-                queries=queries,
-                database_major_version=cls._database_major_version,
-            )
+            construct_query(link_info, queries)
     return queries
 
 
-def construct_query(
-    link_info: LinkInfo,
-    queries: List,
-    database_major_version: int,
-):
+def construct_query(link_info: LinkInfo, queries: List):
+    database_major_version = beanie.DATABASE_MAJOR_VERSION
     if link_info.link_type in [
         LinkTypes.DIRECT,
         LinkTypes.OPTIONAL_DIRECT,
@@ -70,9 +63,8 @@ def construct_query(
                 lookup_steps[0]["$lookup"]["pipeline"] = []  # type: ignore
                 for nested_link in link_info.nested_links:
                     construct_query(
-                        link_info=link_info.nested_links[nested_link],
-                        queries=lookup_steps[0]["$lookup"]["pipeline"],  # type: ignore
-                        database_major_version=database_major_version,
+                        link_info.nested_links[nested_link],
+                        lookup_steps[0]["$lookup"]["pipeline"],  # type: ignore
                     )
             queries += lookup_steps
 
@@ -120,9 +112,8 @@ def construct_query(
             ]
             for nested_link in link_info.nested_links:
                 construct_query(
-                    link_info=link_info.nested_links[nested_link],
-                    queries=lookup_steps[0]["$lookup"]["pipeline"],  # type: ignore
-                    database_major_version=database_major_version,
+                    link_info.nested_links[nested_link],
+                    lookup_steps[0]["$lookup"]["pipeline"],  # type: ignore
                 )
             queries += lookup_steps
 
@@ -168,9 +159,8 @@ def construct_query(
                 lookup_steps[0]["$lookup"]["pipeline"] = []  # type: ignore
                 for nested_link in link_info.nested_links:
                     construct_query(
-                        link_info=link_info.nested_links[nested_link],
-                        queries=lookup_steps[0]["$lookup"]["pipeline"],  # type: ignore
-                        database_major_version=database_major_version,
+                        link_info.nested_links[nested_link],
+                        lookup_steps[0]["$lookup"]["pipeline"],  # type: ignore
                     )
             queries += lookup_steps
 
@@ -221,9 +211,8 @@ def construct_query(
             ]
             for nested_link in link_info.nested_links:
                 construct_query(
-                    link_info=link_info.nested_links[nested_link],
-                    queries=lookup_steps[0]["$lookup"]["pipeline"],  # type: ignore
-                    database_major_version=database_major_version,
+                    link_info.nested_links[nested_link],
+                    lookup_steps[0]["$lookup"]["pipeline"],  # type: ignore
                 )
             queries += lookup_steps
 
@@ -247,9 +236,8 @@ def construct_query(
                 queries[-1]["$lookup"]["pipeline"] = []
                 for nested_link in link_info.nested_links:
                     construct_query(
-                        link_info=link_info.nested_links[nested_link],
-                        queries=queries[-1]["$lookup"]["pipeline"],
-                        database_major_version=database_major_version,
+                        link_info.nested_links[nested_link],
+                        queries[-1]["$lookup"]["pipeline"],
                     )
         else:
             lookup_step = {
@@ -265,9 +253,8 @@ def construct_query(
 
             for nested_link in link_info.nested_links:
                 construct_query(
-                    link_info=link_info.nested_links[nested_link],
-                    queries=lookup_step["$lookup"]["pipeline"],
-                    database_major_version=database_major_version,
+                    link_info.nested_links[nested_link],
+                    lookup_step["$lookup"]["pipeline"],
                 )
             queries.append(lookup_step)
 
@@ -291,9 +278,8 @@ def construct_query(
                 queries[-1]["$lookup"]["pipeline"] = []
                 for nested_link in link_info.nested_links:
                     construct_query(
-                        link_info=link_info.nested_links[nested_link],
-                        queries=queries[-1]["$lookup"]["pipeline"],
-                        database_major_version=database_major_version,
+                        link_info.nested_links[nested_link],
+                        queries[-1]["$lookup"]["pipeline"],
                     )
         else:
             lookup_step = {
@@ -318,9 +304,8 @@ def construct_query(
 
             for nested_link in link_info.nested_links:
                 construct_query(
-                    link_info=link_info.nested_links[nested_link],
-                    queries=lookup_step["$lookup"]["pipeline"],
-                    database_major_version=database_major_version,
+                    link_info.nested_links[nested_link],
+                    lookup_step["$lookup"]["pipeline"],
                 )
             queries.append(lookup_step)
 

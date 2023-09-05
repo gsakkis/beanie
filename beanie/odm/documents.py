@@ -122,9 +122,6 @@ class Document(LazyModel, LinkedModel, FindInterface):
     _saved_state: Optional[Dict[str, Any]] = PrivateAttr(default=None)
     _previous_saved_state: Optional[Dict[str, Any]] = PrivateAttr(default=None)
 
-    # Database
-    _database_major_version: ClassVar[int] = 4
-
     # Other
     _settings: ClassVar[DocumentSettings]
     _hidden_fields: ClassVar[Set[str]] = set()

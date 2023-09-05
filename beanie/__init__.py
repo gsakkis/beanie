@@ -28,8 +28,11 @@ from beanie.odm.union_doc import UnionDoc
 from beanie.odm.utils.init import init_beanie
 from beanie.odm.views import View
 
+DATABASE_MAJOR_VERSION = 4
+
 __version__ = "1.21.0"
 __all__ = [
+    "DATABASE_MAJOR_VERSION",
     # ODM
     "Document",
     "View",

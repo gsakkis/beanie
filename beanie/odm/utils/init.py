@@ -7,6 +7,7 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pydantic import BaseModel
 from pymongo import IndexModel
 
+import beanie
 from beanie.exceptions import MongoDBVersionError
 from beanie.odm.actions import ActionRegistry
 from beanie.odm.documents import Document
@@ -63,10 +64,8 @@ async def init_document(
     ActionRegistry.init_actions(cls)
 
     settings.motor_collection = database[settings.name]
-    build_info = await database.command({"buildInfo": 1})
-    cls._database_major_version = int(build_info["version"].split(".")[0])
     if settings.timeseries:
-        if cls._database_major_version < 5:
+        if beanie.DATABASE_MAJOR_VERSION < 5:
             raise MongoDBVersionError(
                 "Timeseries are supported by MongoDB version 5 and higher"
             )
@@ -197,9 +196,12 @@ async def init_beanie(
     if connection_string is not None and database is not None:
         raise ValueError("Either connection_string or database must be set")
 
-    if connection_string is not None:
+    if database is None:
         client = AsyncIOMotorClient(connection_string)
         database = client.get_default_database()
+
+    build_info = await database.command({"buildInfo": 1})
+    beanie.DATABASE_MAJOR_VERSION = int(build_info["version"].split(".")[0])
 
     models: List[Type[DocumentLike]] = []
     for document_model in document_models:
