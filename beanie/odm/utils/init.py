@@ -1,6 +1,5 @@
 import importlib
 import inspect
-from operator import attrgetter
 from typing import List, Optional, Type, Union
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
@@ -134,6 +133,16 @@ def register_document_model(
     return model
 
 
+def type_sort_key(doctype: Type[DocumentLike]) -> int:
+    if issubclass(doctype, UnionDoc):
+        return 0
+    if issubclass(doctype, Document):
+        return 1
+    if issubclass(doctype, View):
+        return 2
+    assert False
+
+
 async def init_beanie(
     database: Optional[AsyncIOMotorDatabase] = None,
     connection_string: Optional[str] = None,
@@ -181,7 +190,7 @@ async def init_beanie(
                     models.append(superclass)
         elif model not in models:
             models.append(model)
-    models.sort(key=attrgetter("_sort_order"))
+    models.sort(key=type_sort_key)
 
     for model in models:
         if issubclass(model, UnionDoc):

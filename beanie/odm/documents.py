@@ -125,7 +125,6 @@ class Document(LazyModel, LinkedModel, FindInterface):
     # Other
     _settings: ClassVar[DocumentSettings]
     _hidden_fields: ClassVar[Set[str]] = set()
-    _sort_order: ClassVar[int] = 1
 
     def swap_revision(self):
         if self._settings.use_revision:
