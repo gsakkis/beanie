@@ -1,8 +1,8 @@
 import importlib
 import inspect
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from operator import attrgetter
-from typing import List, Optional, Type, Union
+from typing import List, Optional, Set, Type, Union
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pydantic import BaseModel
@@ -35,157 +35,127 @@ class Output:
         return cls(class_name, collection_name)
 
 
-@dataclass(frozen=True)
-class Initializer:
-    database: AsyncIOMotorDatabase
-    allow_index_dropping: bool
-    recreate_views: bool
-    inited_classes: List[Type[Document]] = field(default_factory=list)
+async def init_document(
+    cls: Type[Document],
+    database: AsyncIOMotorDatabase,
+    allow_index_dropping: bool,
+    inited_classes: Set[Type[Document]],
+) -> Optional[Output]:
+    if cls in inited_classes:
+        return Output.from_doctype(cls) if cls._class_id else None
 
-    # Document
+    # get db version
+    build_info = await database.command({"buildInfo": 1})
+    cls._database_major_version = int(build_info["version"].split(".")[0])
+    settings = DocumentSettings.model_validate(
+        cls.Settings.__dict__ if hasattr(cls, "Settings") else {}
+    )
+    cls._settings = settings
 
-    async def init_document_collection(self, cls):
-        """
-        Init collection for the Document-based class
-        :param cls:
-        :return:
-        """
-        settings = cls.get_settings()
+    cls._children = {}
+    cls._parent = None
+    cls._class_id = None
 
-        # register in the Union Doc
-        union_doc = settings.union_doc
-        if union_doc is not None:
-            name = settings.name or cls.__name__
-            union_doc._children[name] = cls
-            settings.name = union_doc._settings.name
-            settings.union_doc_alias = name
+    bases = [b for b in cls.__bases__ if issubclass(b, Document)]
+    if len(bases) > 1:
+        return None
 
-        # set a name
-        if not settings.name:
+    parent = bases[0]
+    if parent is Document:
+        output = None
+    else:
+        output = await init_document(
+            parent, database, allow_index_dropping, inited_classes
+        )
+    if settings.is_root and (
+        parent is Document or not parent.get_settings().is_root
+    ):
+        if settings.name is None:
             settings.name = cls.__name__
+        cls._class_id = cls.__name__
+        output = Output.from_doctype(cls)
+    elif output is not None:
+        class_id = f"{output.class_name}.{cls.__name__}"
+        cls._class_id = class_id
+        output.class_name = class_id
+        settings.name = output.collection_name
+        cls._parent = parent
+        ancestor: Optional[Type[Document]] = parent
+        while ancestor is not None:
+            ancestor._children[class_id] = cls
+            ancestor = ancestor._parent
 
-        settings.motor_collection = self.database[settings.name]
-        timeseries = settings.timeseries
-        if timeseries is not None:
-            if cls._database_major_version < 5:
-                raise MongoDBVersionError(
-                    "Timeseries are supported by MongoDB version 5 and higher"
-                )
-            collections = await self.database.list_collection_names()
-            if settings.name not in collections:
-                query = timeseries.build_query(settings.name)
-                settings.motor_collection = (
-                    await self.database.create_collection(**query)
-                )
+    await init_document_collection(cls, database)
+    await init_indexes(cls, allow_index_dropping)
+    init_fields(cls)
+    cls.set_hidden_fields()
+    ActionRegistry.init_actions(cls)
 
-    async def init_document(self, cls: Type[Document]) -> Optional[Output]:
-        """
-        Init Document-based class
+    inited_classes.add(cls)
 
-        :param cls:
-        :return:
-        """
-        # get db version
-        build_info = await self.database.command({"buildInfo": 1})
-        cls._database_major_version = int(build_info["version"].split(".")[0])
-        if cls not in self.inited_classes:
-            settings = DocumentSettings.model_validate(
-                cls.Settings.__dict__ if hasattr(cls, "Settings") else {}
+    return output
+
+
+async def init_document_collection(
+    cls: Type[Document], database: AsyncIOMotorDatabase
+) -> None:
+    settings = cls._settings
+
+    # register in the Union Doc
+    union_doc = settings.union_doc
+    if union_doc is not None:
+        name = settings.name or cls.__name__
+        union_doc._children[name] = cls
+        settings.name = union_doc._settings.name
+        settings.union_doc_alias = name
+
+    # set a name
+    if not settings.name:
+        settings.name = cls.__name__
+
+    settings.motor_collection = database[settings.name]
+    timeseries = settings.timeseries
+    if timeseries is not None:
+        if cls._database_major_version < 5:
+            raise MongoDBVersionError(
+                "Timeseries are supported by MongoDB version 5 and higher"
             )
-            cls._settings = settings
-
-            cls._children = {}
-            cls._parent = None
-            cls._class_id = None
-
-            bases = [b for b in cls.__bases__ if issubclass(b, Document)]
-            if len(bases) > 1:
-                return None
-
-            parent = bases[0]
-            if parent is Document:
-                output = None
-            else:
-                output = await self.init_document(parent)
-            if settings.is_root and (
-                parent is Document or not parent.get_settings().is_root
-            ):
-                if settings.name is None:
-                    settings.name = cls.__name__
-                cls._class_id = cls.__name__
-                output = Output.from_doctype(cls)
-            elif output is not None:
-                class_id = f"{output.class_name}.{cls.__name__}"
-                cls._class_id = class_id
-                output.class_name = class_id
-                settings.name = output.collection_name
-                cls._parent = parent
-                ancestor: Optional[Type[Document]] = parent
-                while ancestor is not None:
-                    ancestor._children[class_id] = cls
-                    ancestor = ancestor._parent
-
-            await self.init_document_collection(cls)
-            await init_indexes(cls, self.allow_index_dropping)
-            init_fields(cls)
-            cls.set_hidden_fields()
-            ActionRegistry.init_actions(cls)
-
-            self.inited_classes.append(cls)
-
-            return output
-
-        elif cls._class_id:
-            return Output.from_doctype(cls)
-        else:
-            return None
-
-    # Views
-    async def init_view(self, cls: Type[View]):
-        """
-        Init View-based class
-
-        :param cls:
-        :return:
-        """
-        settings = ViewSettings.from_model_type(cls, self.database)
-        cls._settings = settings
-        init_fields(cls)
-        collection_names = await self.database.list_collection_names()
-        if self.recreate_views or settings.name not in collection_names:
-            if settings.name in collection_names:
-                await cls.get_motor_collection().drop()
-            await self.database.command(
-                {
-                    "create": settings.name,
-                    "viewOn": settings.source,
-                    "pipeline": settings.pipeline,
-                }
+        collections = await database.list_collection_names()
+        if settings.name not in collections:
+            query = timeseries.build_query(settings.name)
+            settings.motor_collection = await database.create_collection(
+                **query
             )
 
-    # Union Doc
 
-    async def init_union_doc(self, cls: Type[UnionDoc]):
-        cls._settings = UnionDocSettings.from_model_type(cls, self.database)
-        cls._children = {}
+async def init_view(
+    cls: Type[View], database: AsyncIOMotorDatabase, recreate_views: bool
+):
+    """
+    Init View-based class
 
-    # Final
+    :param cls:
+    :return:
+    """
+    settings = ViewSettings.from_model_type(cls, database)
+    cls._settings = settings
+    init_fields(cls)
+    collection_names = await database.list_collection_names()
+    if recreate_views or settings.name not in collection_names:
+        if settings.name in collection_names:
+            await cls.get_motor_collection().drop()
+        await database.command(
+            {
+                "create": settings.name,
+                "viewOn": settings.source,
+                "pipeline": settings.pipeline,
+            }
+        )
 
-    async def init_class(self, cls: Type[DocumentLike]):
-        """
-        Init Document, View or UnionDoc based class.
 
-        :param cls:
-        :return:
-        """
-        if issubclass(cls, Document):
-            await self.init_document(cls)
-        if issubclass(cls, View):
-            await self.init_view(cls)
-        if issubclass(cls, UnionDoc):
-            await self.init_union_doc(cls)
-        if hasattr(cls, "custom_init"):
-            await cls.custom_init()
+async def init_union_doc(cls: Type[UnionDoc], database: AsyncIOMotorDatabase):
+    cls._settings = UnionDocSettings.from_model_type(cls, database)
+    cls._children = {}
 
 
 def init_fields(cls) -> None:
@@ -195,7 +165,9 @@ def init_fields(cls) -> None:
         cls.init_link_fields()
 
 
-async def init_indexes(cls, allow_index_dropping):
+async def init_indexes(
+    cls: Type[Document], allow_index_dropping: bool
+) -> None:
     # Indexed field wrapped with Indexed()
     new_indexes = []
     for k, v in cls.model_fields.items():
@@ -204,7 +176,7 @@ async def init_indexes(cls, allow_index_dropping):
             index = IndexModel([(v.alias or k, index_type)], **kwargs)
             new_indexes.append(IndexModelField(index))
 
-    settings = cls.get_settings()
+    settings = cls._settings
     merge_indexes = IndexModelField.merge_indexes
     if settings.merge_indexes:
         super_indexes: List[IndexModelField] = []
@@ -213,7 +185,7 @@ async def init_indexes(cls, allow_index_dropping):
                 continue
             if superclass == Document:
                 continue
-            if indexes := superclass.get_settings().indexes:
+            if indexes := superclass._settings.indexes:
                 super_indexes = merge_indexes(super_indexes, indexes)
         new_indexes = merge_indexes(new_indexes, super_indexes)
     elif settings.indexes:
@@ -259,7 +231,7 @@ def register_document_model(
 
 
 async def init_beanie(
-    database: AsyncIOMotorDatabase = None,
+    database: Optional[AsyncIOMotorDatabase] = None,
     connection_string: Optional[str] = None,
     document_models: Optional[List[Union[Type[DocumentLike], str]]] = None,
     allow_index_dropping: bool = False,
@@ -272,8 +244,8 @@ async def init_beanie(
     :param connection_string: str - MongoDB connection string
     :param document_models: List[Union[Type[DocumentLike], str]] - model classes
     or strings with dot separated paths
-    :param allow_index_dropping: bool - if index dropping is allowed.
-    Default False
+    :param allow_index_dropping: bool - if index dropping is allowed. Default False
+    :param recreate_views: bool - if views should be recreated. Default False
     :return: None
     """
     if document_models is None:
@@ -289,12 +261,18 @@ async def init_beanie(
         client = AsyncIOMotorClient(connection_string)
         database = client.get_default_database()
 
-    initializer = Initializer(
-        database=database,
-        allow_index_dropping=allow_index_dropping,
-        recreate_views=recreate_views,
-    )
     models = list(map(register_document_model, document_models))
     models.sort(key=attrgetter("_sort_order"))
+    inited_classes: Set[Type[Document]] = set()
     for model in models:
-        await initializer.init_class(model)
+        if issubclass(model, UnionDoc):
+            await init_union_doc(model, database)
+        elif issubclass(model, Document):
+            await init_document(
+                model, database, allow_index_dropping, inited_classes
+            )
+        elif issubclass(model, View):
+            await init_view(model, database, recreate_views)
+
+        if hasattr(model, "custom_init"):
+            await model.custom_init()
