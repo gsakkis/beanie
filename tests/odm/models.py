@@ -37,7 +37,7 @@ from beanie import (
 from beanie.odm.actions import Delete, after_event, before_event
 from beanie.odm.fields import PydanticObjectId
 from beanie.odm.links import BackLink, Link
-from beanie.odm.settings.timeseries import TimeSeriesConfig
+from beanie.odm.timeseries import TimeSeriesConfig
 from beanie.odm.union_doc import UnionDoc
 
 

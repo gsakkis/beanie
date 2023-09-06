@@ -67,7 +67,7 @@ from beanie.odm.operators.update.general import (
 from beanie.odm.operators.update.general import Set as SetOperator
 from beanie.odm.queries.update import UpdateMany, UpdateResponse
 from beanie.odm.settings.base import ItemSettings
-from beanie.odm.settings.timeseries import TimeSeriesConfig
+from beanie.odm.timeseries import TimeSeriesConfig
 from beanie.odm.utils.encoder import Encoder
 from beanie.odm.utils.parsing import merge_models
 from beanie.odm.utils.state import (

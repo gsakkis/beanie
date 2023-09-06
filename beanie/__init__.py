@@ -23,7 +23,7 @@ from beanie.odm.fields import (
     WriteRules,
 )
 from beanie.odm.links import BackLink, Link
-from beanie.odm.settings.timeseries import Granularity, TimeSeriesConfig
+from beanie.odm.timeseries import Granularity, TimeSeriesConfig
 from beanie.odm.union_doc import UnionDoc
 from beanie.odm.utils.init import init_beanie
 from beanie.odm.views import View
