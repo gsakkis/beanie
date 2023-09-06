@@ -412,10 +412,16 @@ class TestOther:
         }
 
         # Where Document.init_fields() has a bug that prevents proper link inheritance when parent
-        # documents are initialized. Furthermore, some-why BDocument._link_fields are not deterministic
-        assert set(RootDocument._link_fields.keys()) == {"link_root"}
-        assert set(ADocument._link_fields.keys()) == {"link_root", "link_a"}
-        assert set(BDocument._link_fields.keys()) == {"link_root", "link_b"}
+        # documents are initialized. Furthermore, some-why BDocument.get_link_fields() are not deterministic
+        assert set(RootDocument.get_link_fields().keys()) == {"link_root"}
+        assert set(ADocument.get_link_fields().keys()) == {
+            "link_root",
+            "link_a",
+        }
+        assert set(BDocument.get_link_fields().keys()) == {
+            "link_root",
+            "link_b",
+        }
 
     async def test_with_projection(self):
         await UsersAddresses(region_id=Region()).insert(

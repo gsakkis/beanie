@@ -23,8 +23,9 @@ async def test_init_settings_not_initialized():
     class NewDocument(Document):
         test_str: str
 
+    doc = NewDocument(test_str="test")
     with pytest.raises(SettingsNotInitialized):
-        NewDocument(test_str="test")
+        doc.get_settings()
 
 
 async def test_init_connection_string(settings):

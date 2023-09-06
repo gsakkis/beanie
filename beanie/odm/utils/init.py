@@ -10,7 +10,7 @@ import beanie
 from beanie.odm.actions import ActionRegistry
 from beanie.odm.documents import Document
 from beanie.odm.fields import ExpressionField
-from beanie.odm.links import DOCS_REGISTRY, LinkedModel
+from beanie.odm.links import DOCS_REGISTRY
 from beanie.odm.settings.document import DocumentSettings, IndexModelField
 from beanie.odm.settings.union_doc import UnionDocSettings
 from beanie.odm.settings.view import ViewSettings
@@ -68,8 +68,6 @@ def init_union_doc(cls: Type[UnionDoc]):
 def init_fields(cls) -> None:
     for k, v in cls.model_fields.items():
         setattr(cls, k, ExpressionField(v.alias or k))
-    if issubclass(cls, LinkedModel):
-        cls.init_link_fields()
 
 
 async def init_indexes(

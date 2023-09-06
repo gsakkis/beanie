@@ -27,7 +27,6 @@ from pydantic import (
 from pydantic.fields import FieldInfo
 from pydantic_core import core_schema
 
-from beanie.exceptions import SettingsNotInitialized
 from beanie.odm.operators.find.comparison import In
 from beanie.odm.registry import DocsRegistry
 from beanie.odm.utils.parsing import parse_obj
@@ -215,18 +214,16 @@ class LinkedModel(BaseModel):
     @classmethod
     def get_link_fields(cls) -> Dict[str, LinkInfo]:
         try:
+            # _link_fields is not inheritable
+            return cls.__dict__["_link_fields"]
+        except KeyError:
+            cls._link_fields = {}
+            for k, v in cls.model_fields.items():
+                link_info = detect_link(v, k)
+                if link_info is not None:
+                    cls._link_fields[k] = link_info
+                    check_nested_links(link_info)
             return cls._link_fields
-        except AttributeError:
-            raise SettingsNotInitialized
-
-    @classmethod
-    def init_link_fields(cls) -> None:
-        cls._link_fields = {}
-        for k, v in cls.model_fields.items():
-            link_info = detect_link(v, k)
-            if link_info is not None:
-                cls._link_fields[k] = link_info
-                check_nested_links(link_info)
 
     @model_validator(mode="before")
     @classmethod
