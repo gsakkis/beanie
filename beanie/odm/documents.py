@@ -1,4 +1,3 @@
-import asyncio
 from typing import (
     TYPE_CHECKING,
     AbstractSet,
@@ -1001,22 +1000,6 @@ class Document(LazyModel, LinkedModel, FindInterface[DocumentSettings]):
         if self.id is None:
             raise DocumentWasNotSaved("Can not create dbref without id")
         return DBRef(self.get_motor_collection().name, self.id)
-
-    async def fetch_link(self, field: str):
-        ref_obj = getattr(self, field, None)
-        if isinstance(ref_obj, Link):
-            value = await ref_obj.fetch(fetch_links=True)
-            setattr(self, field, value)
-        if isinstance(ref_obj, list) and ref_obj:
-            values = await Link.fetch_list(ref_obj, fetch_links=True)
-            setattr(self, field, values)
-
-    async def fetch_all_links(self):
-        coros = [  # TODO lists
-            self.fetch_link(ref.field_name)
-            for ref in self.get_link_fields().values()
-        ]
-        await asyncio.gather(*coros)
 
     @classmethod
     async def distinct(

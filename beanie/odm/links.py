@@ -1,3 +1,4 @@
+import asyncio
 from collections import OrderedDict
 from enum import Enum
 from typing import (
@@ -222,6 +223,23 @@ class LinkedModel(BaseModel):
                     cls._link_fields[k] = link_info
                     check_nested_links(link_info)
             return cls._link_fields
+
+    async def fetch_link(self, field: str) -> None:
+        ref_obj = getattr(self, field, None)
+        if isinstance(ref_obj, Link):
+            value = await ref_obj.fetch(fetch_links=True)
+            setattr(self, field, value)
+        elif isinstance(ref_obj, list) and ref_obj:
+            values = await Link.fetch_list(ref_obj, fetch_links=True)
+            setattr(self, field, values)
+
+    async def fetch_all_links(self) -> None:
+        await asyncio.gather(
+            *(
+                self.fetch_link(ref.field_name)
+                for ref in self.get_link_fields().values()
+            )
+        )
 
     @model_validator(mode="before")
     @classmethod
