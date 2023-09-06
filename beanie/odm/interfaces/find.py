@@ -20,16 +20,16 @@ import beanie
 from beanie.exceptions import SettingsNotInitialized
 from beanie.odm.fields import SortDirection
 from beanie.odm.queries.find import AggregationQuery, FindMany, FindOne
-from beanie.odm.settings.base import ItemSettings
+from beanie.odm.settings import BaseSettings
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
 class FindInterface:
-    _settings: ClassVar[ItemSettings]
+    _settings: ClassVar[BaseSettings]
 
     @classmethod
-    def get_settings(cls) -> ItemSettings:
+    def get_settings(cls) -> BaseSettings:
         try:
             return cls._settings
         except AttributeError:

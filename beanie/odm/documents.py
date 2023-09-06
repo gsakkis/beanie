@@ -66,7 +66,7 @@ from beanie.odm.operators.update.general import (
 )
 from beanie.odm.operators.update.general import Set as SetOperator
 from beanie.odm.queries.update import UpdateMany, UpdateResponse
-from beanie.odm.settings.base import ItemSettings
+from beanie.odm.settings import BaseSettings
 from beanie.odm.timeseries import TimeSeriesConfig
 from beanie.odm.utils.encoder import Encoder
 from beanie.odm.utils.parsing import merge_models
@@ -92,7 +92,7 @@ def json_schema_extra(schema: Dict[str, Any], model: Type["Document"]) -> None:
     schema["properties"] = props
 
 
-class DocumentSettings(ItemSettings):
+class DocumentSettings(BaseSettings):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     use_state_management: bool = False

@@ -6,10 +6,10 @@ from pydantic import field_validator
 
 from beanie.odm.interfaces.find import FindInterface
 from beanie.odm.links import Link, LinkedModel
-from beanie.odm.settings.base import ItemSettings
+from beanie.odm.settings import BaseSettings
 
 
-class ViewSettings(ItemSettings):
+class ViewSettings(BaseSettings):
     source: str
     pipeline: List[Dict[str, Any]]
 
