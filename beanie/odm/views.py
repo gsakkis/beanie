@@ -39,9 +39,12 @@ class View(LinkedModel, FindInterface[ViewSettings]):
     _settings: ClassVar[ViewSettings]
 
     @classmethod
+    def __pydantic_init_subclass__(cls):
+        super().__pydantic_init_subclass__()
+        cls._settings = ViewSettings.from_model_type(cls)
+
+    @classmethod
     def get_settings(cls) -> ViewSettings:
-        if "_settings" not in cls.__dict__:
-            cls._settings = ViewSettings.from_model_type(cls)
         return cls._settings
 
     async def fetch_link(self, field: Union[str, Any]):

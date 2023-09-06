@@ -40,7 +40,12 @@ from beanie.exceptions import (
     ReplaceError,
     RevisionIdWasChanged,
 )
-from beanie.odm.actions import ActionDirections, EventTypes, wrap_with_actions
+from beanie.odm.actions import (
+    ActionDirections,
+    ActionRegistry,
+    EventTypes,
+    wrap_with_actions,
+)
 from beanie.odm.bulk import BulkWriter, Operation
 from beanie.odm.fields import (
     DeleteRules,
@@ -173,6 +178,35 @@ class Document(LazyModel, LinkedModel, FindInterface[DocumentSettings]):
     _settings: ClassVar[DocumentSettings]
     _hidden_fields: ClassVar[Set[str]] = set()
 
+    @classmethod
+    def __pydantic_init_subclass__(cls):
+        super().__pydantic_init_subclass__()
+        settings = DocumentSettings.from_model_type(cls)
+        # set up document inheritance
+        parent_cls = cls.parent_document_cls()
+        if settings.is_root and not (
+            parent_cls and parent_cls.get_settings().is_root
+        ):
+            cls._class_id = cls.__name__
+        elif parent_cls and parent_cls._class_id:
+            # set the common collection name if this document class is part of an
+            # inheritance chain with is_root = True
+            settings.name = parent_cls.get_collection_name()
+            cls._class_id = class_id = f"{parent_cls._class_id}.{cls.__name__}"
+            while parent_cls is not None:
+                parent_cls._children[class_id] = cls
+                parent_cls = parent_cls.parent_document_cls()
+
+        cls._settings = settings
+        cls._children = {}
+        cls._hidden_fields = set()
+        for k, v in cls.model_fields.items():
+            if isinstance(
+                v.json_schema_extra, dict
+            ) and v.json_schema_extra.get("hidden"):
+                cls._hidden_fields.add(k)
+        ActionRegistry.init_actions(cls)
+
     def swap_revision(self):
         if self._settings.use_revision:
             self._previous_revision_id = self.revision_id
@@ -180,14 +214,6 @@ class Document(LazyModel, LinkedModel, FindInterface[DocumentSettings]):
 
     @classmethod
     def get_settings(cls) -> DocumentSettings:
-        if "_settings" not in cls.__dict__:
-            settings = DocumentSettings.from_model_type(cls)
-            # set the common collection name if this document class is part of an
-            # inheritance chain with is_root = True
-            parent_cls = cls.parent_document_cls()
-            if parent_cls and parent_cls._class_id:
-                settings.name = parent_cls.get_collection_name()
-            cls._settings = settings
         return cls._settings
 
     @classmethod

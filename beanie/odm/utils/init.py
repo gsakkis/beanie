@@ -7,7 +7,6 @@ from pydantic import BaseModel
 from pymongo import IndexModel
 
 import beanie
-from beanie.odm.actions import ActionRegistry
 from beanie.odm.documents import Document
 from beanie.odm.fields import ExpressionField, IndexModelField
 from beanie.odm.links import DOCS_REGISTRY
@@ -15,35 +14,6 @@ from beanie.odm.union_doc import UnionDoc
 from beanie.odm.views import View, ViewSettings
 
 DocumentLike = Union[Document, View, UnionDoc]
-
-
-def init_document(cls: Type[Document]) -> None:
-    cls._children = {}
-    cls._hidden_fields = set()
-    for k, v in cls.model_fields.items():
-        setattr(cls, k, ExpressionField(v.alias or k))
-        if isinstance(v.json_schema_extra, dict) and v.json_schema_extra.get(
-            "hidden"
-        ):
-            cls._hidden_fields.add(k)
-    ActionRegistry.init_actions(cls)
-
-    # set up document inheritance
-    parent_cls = cls.parent_document_cls()
-    if cls.get_settings().is_root and not (
-        parent_cls and parent_cls.get_settings().is_root
-    ):
-        cls._class_id = cls.__name__
-    elif parent_cls and parent_cls._class_id:
-        cls._class_id = class_id = f"{parent_cls._class_id}.{cls.__name__}"
-        while parent_cls is not None:
-            parent_cls._children[class_id] = cls
-            parent_cls = parent_cls.parent_document_cls()
-
-
-def init_view(cls: Type[View]):
-    for k, v in cls.model_fields.items():
-        setattr(cls, k, ExpressionField(v.alias or k))
 
 
 async def init_indexes(
@@ -167,14 +137,19 @@ async def init_beanie(
     models.sort(key=type_sort_key)
 
     for model in models:
+        if issubclass(model, BaseModel):
+            # inject an ExpressionField for each model field
+            # this cannot live in __pydantic_init_subclass__ because in case of inheritance
+            # Pydantic raises "Field name "{k}" shadows an attribute in parent ..."
+            for k, v in model.model_fields.items():
+                setattr(model, k, ExpressionField(v.alias or k))
+
         if issubclass(model, UnionDoc):
             await model.get_settings().update_from_database(database)
         elif issubclass(model, Document):
-            init_document(model)
             await model.get_settings().update_from_database(database)
             await init_indexes(model, allow_index_dropping)
         elif issubclass(model, View):
-            init_view(model)
             settings = cast(ViewSettings, model.get_settings())
             await settings.update_from_database(database, recreate_views)
 
