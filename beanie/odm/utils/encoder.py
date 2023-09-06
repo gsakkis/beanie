@@ -28,8 +28,6 @@ from beanie.odm.links import Link, LinkTypes
 if TYPE_CHECKING:
     from pydantic.typing import TupleGenerator
 
-    from beanie.odm.documents import DocType
-
 
 DEFAULT_CUSTOM_ENCODERS: Dict[Type, Callable] = {
     ipaddress.IPv4Address: str,
@@ -95,7 +93,7 @@ class Encoder:
             self.exclude.add("id")
             self.exclude.remove("_id")
 
-    def _encode_document(self, obj: "DocType") -> Mapping[str, Any]:
+    def _encode_document(self, obj: "beanie.Document") -> Mapping[str, Any]:
         obj.parse_store()
         settings = obj.get_settings()
         obj_dict: Dict[str, Any] = {}

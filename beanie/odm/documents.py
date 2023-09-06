@@ -10,7 +10,6 @@ from typing import (
     Optional,
     Set,
     Type,
-    TypeVar,
     Union,
     cast,
 )
@@ -81,10 +80,8 @@ from beanie.odm.utils.typing import extract_id_class
 if TYPE_CHECKING:
     from pydantic.typing import AbstractSetIntStr, DictStrAny, MappingIntStrAny
 
-DocType = TypeVar("DocType", bound="Document")
 
-
-def json_schema_extra(schema: Dict[str, Any], model: Type["Document"]) -> None:
+def json_schema_extra(schema: Dict[str, Any]) -> None:
     props = {}
     for k, v in schema.get("properties", {}).items():
         if not v.get("hidden", False):
@@ -284,7 +281,7 @@ class Document(LazyModel, LinkedModel, FindInterface):
         :param session: ClientSession - pymongo session
         :param bulk_writer: "BulkWriter" - Beanie bulk writer
         :param link_rule: InsertRules - hot to manage link fields
-        :return: DocType
+        :return: Document
         """
         if not isinstance(document, cls):
             raise TypeError(

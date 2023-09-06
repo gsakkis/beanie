@@ -1,7 +1,6 @@
 from collections import OrderedDict
 from enum import Enum
 from typing import (
-    TYPE_CHECKING,
     Any,
     ClassVar,
     Dict,
@@ -27,13 +26,10 @@ from pydantic import (
 from pydantic.fields import FieldInfo
 from pydantic_core import core_schema
 
+import beanie
 from beanie.odm.operators.find.comparison import In
 from beanie.odm.registry import DocsRegistry
 from beanie.odm.utils.parsing import parse_obj
-
-if TYPE_CHECKING:
-    from beanie.odm.documents import DocType
-
 
 DOCS_REGISTRY: DocsRegistry[BaseModel] = DocsRegistry()
 
@@ -74,7 +70,9 @@ class Link(Generic[T]):
 
     @classmethod
     async def fetch_list(
-        cls, links: List[Union["Link", "DocType"]], fetch_links: bool = False
+        cls,
+        links: List[Union["Link", "beanie.Document"]],
+        fetch_links: bool = False,
     ):
         """
         Fetch list that contains links and documents
@@ -109,7 +107,7 @@ class Link(Generic[T]):
 
     @staticmethod
     def repack_links(
-        links: List[Union["Link", "DocType"]]
+        links: List[Union["Link", "beanie.Document"]]
     ) -> OrderedDictType[Any, Any]:
         result = OrderedDict()
         for link in links:

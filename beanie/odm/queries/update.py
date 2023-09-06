@@ -1,6 +1,5 @@
 from enum import Enum
 from typing import (
-    TYPE_CHECKING,
     Any,
     Callable,
     Dict,
@@ -19,6 +18,7 @@ from pymongo.client_session import ClientSession
 from pymongo.results import UpdateResult
 from typing_extensions import Self
 
+import beanie
 from beanie.odm.bulk import BulkWriter, Operation
 from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.operators.update import BaseUpdateOperator
@@ -26,9 +26,6 @@ from beanie.odm.operators.update.general import SetRevisionId
 from beanie.odm.queries import BaseQuery
 from beanie.odm.utils.encoder import Encoder
 from beanie.odm.utils.parsing import parse_obj
-
-if TYPE_CHECKING:
-    from beanie.odm.documents import DocType
 
 
 class UpdateResponse(str, Enum):
@@ -41,13 +38,15 @@ class UpdateQuery(BaseQuery, UpdateMethods):
     """Update Query base class"""
 
     def __init__(
-        self, document_model: Type["DocType"], find_query: Mapping[str, Any]
+        self,
+        document_model: Type["beanie.Document"],
+        find_query: Mapping[str, Any],
     ):
         super().__init__()
         self.document_model = document_model
         self.find_query = find_query
         self.update_expressions: List[Mapping[str, Any]] = []
-        self.upsert_insert_doc: Optional["DocType"] = None
+        self.upsert_insert_doc: Optional[beanie.Document] = None
         self.encoders: Dict[Any, Callable[[Any], Any]] = {}
         self.bulk_writer: Optional[BulkWriter] = None
         self.encoders = self.document_model.get_settings().bson_encoders
@@ -75,7 +74,7 @@ class UpdateMany(UpdateQuery):
     def update(
         self,
         *args: Mapping[str, Any],
-        on_insert: Optional["DocType"] = None,
+        on_insert: Optional["beanie.Document"] = None,
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
         **pymongo_kwargs: Any,
@@ -84,7 +83,7 @@ class UpdateMany(UpdateQuery):
         Provide modifications to the update query.
 
         :param args: *Union[dict, Mapping] - the modifications to apply.
-        :param on_insert: DocType - document to insert if there is no matched
+        :param on_insert: Document - document to insert if there is no matched
         document in the collection
         :param session: Optional[ClientSession]
         :param bulk_writer: Optional[BulkWriter]
@@ -102,10 +101,10 @@ class UpdateMany(UpdateQuery):
 
     def __await__(
         self,
-    ) -> Generator[None, None, Union[UpdateResult, "DocType", None]]:
+    ) -> Generator[None, None, Union[UpdateResult, "beanie.Document", None]]:
         return self._update().__await__()
 
-    async def _update(self) -> Union[UpdateResult, "DocType", None]:
+    async def _update(self) -> Union[UpdateResult, "beanie.Document", None]:
         if self.bulk_writer is not None:
             return self.bulk_writer.add_operation(
                 Operation(
@@ -143,7 +142,7 @@ class UpdateOne(UpdateQuery):
     def update(
         self,
         *args: Mapping[str, Any],
-        on_insert: Optional["DocType"] = None,
+        on_insert: Optional["beanie.Document"] = None,
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
         response_type: Optional[UpdateResponse] = None,
@@ -153,7 +152,7 @@ class UpdateOne(UpdateQuery):
         Provide modifications to the update query.
 
         :param args: *Union[dict, Mapping] - the modifications to apply.
-        :param on_insert: DocType - document to insert if there is no matched
+        :param on_insert: Document - document to insert if there is no matched
         document in the collection
         :param session: Optional[ClientSession]
         :param bulk_writer: Optional[BulkWriter]
@@ -174,10 +173,10 @@ class UpdateOne(UpdateQuery):
 
     def __await__(
         self,
-    ) -> Generator[None, None, Union[UpdateResult, "DocType", None]]:
+    ) -> Generator[None, None, Union[UpdateResult, "beanie.Document", None]]:
         return self._update().__await__()
 
-    async def _update(self) -> Union[UpdateResult, "DocType", None]:
+    async def _update(self) -> Union[UpdateResult, "beanie.Document", None]:
         if self.bulk_writer:
             return self.bulk_writer.add_operation(
                 Operation(

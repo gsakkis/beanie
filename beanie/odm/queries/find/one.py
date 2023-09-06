@@ -116,7 +116,7 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
         and provide search criteria there
 
         :param args: *Mapping[str,Any] - the modifications to apply.
-        :param on_insert: DocType - document to insert if there is no matched
+        :param on_insert: Document - document to insert if there is no matched
         document in the collection
         :param session: Optional[ClientSession]
         :param response_type: Optional[UpdateResponse]
