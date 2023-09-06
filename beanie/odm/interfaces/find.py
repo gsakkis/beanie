@@ -1,8 +1,8 @@
-from collections.abc import Iterable
+from abc import ABC, abstractmethod
 from typing import (
     Any,
-    ClassVar,
     Dict,
+    Generic,
     List,
     Mapping,
     Optional,
@@ -16,24 +16,19 @@ from motor.motor_asyncio import AsyncIOMotorCollection
 from pydantic import BaseModel
 from pymongo.client_session import ClientSession
 
-import beanie
-from beanie.exceptions import SettingsNotInitialized
 from beanie.odm.fields import SortDirection
 from beanie.odm.queries.find import AggregationQuery, FindMany, FindOne
 from beanie.odm.settings import BaseSettings
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
+SettingsT = TypeVar("SettingsT", bound=BaseSettings)
 
 
-class FindInterface:
-    _settings: ClassVar[BaseSettings]
-
+class FindInterface(ABC, Generic[SettingsT]):
     @classmethod
-    def get_settings(cls) -> BaseSettings:
-        try:
-            return cls._settings
-        except AttributeError:
-            raise SettingsNotInitialized
+    @abstractmethod
+    def get_settings(cls) -> SettingsT:
+        ...
 
     @classmethod
     def get_motor_collection(cls) -> AsyncIOMotorCollection:
@@ -66,7 +61,7 @@ class FindInterface:
         :param **pymongo_kwargs: pymongo native parameters for find operation (if Document class contains links, this parameter must fit the respective parameter of the aggregate MongoDB function)
         :return: [FindOne](https://roman-right.github.io/beanie/api/queries/#findone) - find query instance
         """
-        args = cls._add_class_id_filter(args, with_children)
+        args = cls._add_class_id_filter(*args, with_children=with_children)
         return FindOne[ModelT](document_model=cls).find(
             *args,
             projection_model=projection_model,
@@ -106,7 +101,7 @@ class FindInterface:
         :param **pymongo_kwargs: pymongo native parameters for find operation (if Document class contains links, this parameter must fit the respective parameter of the aggregate MongoDB function)
         :return: [FindMany](https://roman-right.github.io/beanie/api/queries/#findmany) - query instance
         """
-        args = cls._add_class_id_filter(args, with_children)
+        args = cls._add_class_id_filter(*args, with_children=with_children)
         return FindMany[Any](document_model=cls).find(
             *args,
             sort=sort,
@@ -257,21 +252,23 @@ class FindInterface:
         )
 
     @classmethod
-    def _add_class_id_filter(cls, args: Tuple, with_children: bool = False):
+    def _add_class_id_filter(
+        cls, *args: Union[Mapping[str, Any], bool], with_children: bool
+    ) -> Tuple[Union[Mapping[str, Any], bool], ...]:
         settings = cls.get_settings()
         class_id = settings.class_id
         # skip if _class_id is already added
-        if any(isinstance(a, Iterable) and class_id in a for a in args):
+        if any(isinstance(a, Mapping) and class_id in a for a in args):
             return args
 
-        if issubclass(cls, beanie.Document) and cls._class_id:
-            class_id_filter = (
-                {"$in": [cls._class_id, *cls._children.keys()]}
-                if with_children
-                else cls._class_id
-            )
-            args += ({class_id: class_id_filter},)
+        class_id_filter = cls._get_class_id_filter(with_children)
+        if class_id_filter is None:
+            return args
 
-        if settings.union_doc:
-            args += ({class_id: settings.union_doc_alias},)
-        return args
+        return *args, {class_id: class_id_filter}
+
+    @classmethod
+    def _get_class_id_filter(
+        cls, with_children: bool = False
+    ) -> Optional[Any]:
+        return None

@@ -7,7 +7,6 @@ import pytest
 from pydantic import BaseModel, ValidationError
 
 from beanie import Document
-from beanie.exceptions import SettingsNotInitialized
 from beanie.odm.fields import PydanticObjectId
 from beanie.odm.utils.encoder import Encoder
 from tests.odm.models import (
@@ -120,11 +119,6 @@ def test_revision_id_not_in_schema():
 
     schema = Foo.model_json_schema()
     assert "revision_id" not in schema["properties"]
-
-    # check that the document has not been initialized,
-    # as otherwise the `revision_id` is normally gone from the schema.
-    with pytest.raises(SettingsNotInitialized):
-        Foo.get_settings()
 
 
 @pytest.mark.parametrize("exclude", [{"test_int"}, {"test_doc": {"test_int"}}])

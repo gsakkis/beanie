@@ -1,6 +1,6 @@
 import importlib
 import inspect
-from typing import List, Optional, Type, Union
+from typing import List, Optional, Type, Union, cast
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pydantic import BaseModel
@@ -8,17 +8,16 @@ from pymongo import IndexModel
 
 import beanie
 from beanie.odm.actions import ActionRegistry
-from beanie.odm.documents import Document, DocumentSettings
+from beanie.odm.documents import Document
 from beanie.odm.fields import ExpressionField, IndexModelField
 from beanie.odm.links import DOCS_REGISTRY
-from beanie.odm.union_doc import UnionDoc, UnionDocSettings
+from beanie.odm.union_doc import UnionDoc
 from beanie.odm.views import View, ViewSettings
 
 DocumentLike = Union[Document, View, UnionDoc]
 
 
 def init_document(cls: Type[Document]) -> None:
-    cls._settings = DocumentSettings.from_model_type(cls)
     cls._children = {}
     cls._hidden_fields = set()
     for k, v in cls.model_fields.items():
@@ -31,12 +30,11 @@ def init_document(cls: Type[Document]) -> None:
 
     # set up document inheritance
     parent_cls = cls.parent_document_cls()
-    if cls._settings.is_root and not (
-        parent_cls and parent_cls._settings.is_root
+    if cls.get_settings().is_root and not (
+        parent_cls and parent_cls.get_settings().is_root
     ):
         cls._class_id = cls.__name__
     elif parent_cls and parent_cls._class_id:
-        cls._settings.name = parent_cls.get_collection_name()
         cls._class_id = class_id = f"{parent_cls._class_id}.{cls.__name__}"
         while parent_cls is not None:
             parent_cls._children[class_id] = cls
@@ -44,14 +42,8 @@ def init_document(cls: Type[Document]) -> None:
 
 
 def init_view(cls: Type[View]):
-    cls._settings = ViewSettings.from_model_type(cls)
     for k, v in cls.model_fields.items():
         setattr(cls, k, ExpressionField(v.alias or k))
-
-
-def init_union_doc(cls: Type[UnionDoc]):
-    cls._settings = UnionDocSettings.from_model_type(cls)
-    cls._children = {}
 
 
 async def init_indexes(
@@ -65,13 +57,13 @@ async def init_indexes(
             index = IndexModel([(v.alias or k, index_type)], **kwargs)
             new_indexes.append(IndexModelField(index))
 
-    settings = cls._settings
+    settings = cls.get_settings()
     merge_indexes = IndexModelField.merge_indexes
     if settings.merge_indexes:
         super_indexes: List[IndexModelField] = []
         for superclass in reversed(cls.mro()):
             if issubclass(superclass, Document) and superclass != Document:
-                if indexes := superclass._settings.indexes:
+                if indexes := superclass.get_settings().indexes:
                     super_indexes = merge_indexes(super_indexes, indexes)
         new_indexes = merge_indexes(new_indexes, super_indexes)
     elif settings.indexes:
@@ -176,7 +168,6 @@ async def init_beanie(
 
     for model in models:
         if issubclass(model, UnionDoc):
-            init_union_doc(model)
             await model.get_settings().update_from_database(database)
         elif issubclass(model, Document):
             init_document(model)
@@ -184,9 +175,8 @@ async def init_beanie(
             await init_indexes(model, allow_index_dropping)
         elif issubclass(model, View):
             init_view(model)
-            await model.get_settings().update_from_database(
-                database, recreate=recreate_views
-            )
+            settings = cast(ViewSettings, model.get_settings())
+            await settings.update_from_database(database, recreate_views)
 
         if hasattr(model, "custom_init"):
             await model.custom_init()

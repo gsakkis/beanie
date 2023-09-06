@@ -54,7 +54,7 @@ def swap_revision_after(f: Callable):
 
 
 def _check_state(self, previous=False):
-    settings = self._settings
+    settings = self.get_settings()
     if not settings.use_state_management:
         raise StateManagementIsTurnedOff(
             "State management is turned off for this document"

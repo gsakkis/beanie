@@ -3,7 +3,6 @@ from motor.motor_asyncio import AsyncIOMotorCollection
 from pymongo import IndexModel
 
 from beanie import Document, Indexed, init_beanie
-from beanie.exceptions import SettingsNotInitialized
 from beanie.odm.queries.find import get_projection
 from tests.odm.models import (
     DocumentTestModel,
@@ -17,15 +16,6 @@ from tests.odm.models import (
     DocumentWithCustomInit,
     DocumentWithIndexMerging2,
 )
-
-
-async def test_init_settings_not_initialized():
-    class NewDocument(Document):
-        test_str: str
-
-    doc = NewDocument(test_str="test")
-    with pytest.raises(SettingsNotInitialized):
-        doc.get_settings()
 
 
 async def test_init_connection_string(settings):

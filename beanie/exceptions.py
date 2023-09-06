@@ -28,7 +28,3 @@ class NotSupported(Exception):
 
 class MongoDBVersionError(Exception):
     pass
-
-
-class SettingsNotInitialized(Exception):
-    pass

@@ -1,7 +1,7 @@
 from datetime import timedelta
-from typing import Any, Dict, Optional, Type
+from typing import Any, Dict, Optional
 
-from motor.motor_asyncio import AsyncIOMotorCollection, AsyncIOMotorDatabase
+from motor.motor_asyncio import AsyncIOMotorCollection
 from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import Self
 
@@ -10,6 +10,7 @@ class BaseSettings(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     name: Optional[str] = None
+    class_id: str = "_class_id"
 
     use_cache: bool = False
     cache_capacity: int = 32
@@ -18,15 +19,6 @@ class BaseSettings(BaseModel):
     projection: Optional[Dict[str, Any]] = None
 
     motor_collection: Optional[AsyncIOMotorCollection] = None
-
-    union_doc: Optional[Type] = None
-    union_doc_alias: Optional[str] = None
-    class_id: str = "_class_id"
-
-    async def update_from_database(
-        self, database: AsyncIOMotorDatabase, **kwargs: Any
-    ) -> None:
-        self.motor_collection = database[self.name]
 
     @classmethod
     def from_model_type(cls, model_type: type) -> Self:

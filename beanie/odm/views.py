@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, Dict, List, Union
+from typing import Any, ClassVar, Dict, List, Union
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import field_validator
@@ -19,7 +19,7 @@ class ViewSettings(BaseSettings):
         return v.get_collection_name() if issubclass(v, FindInterface) else v
 
     async def update_from_database(
-        self, database: AsyncIOMotorDatabase, recreate: bool = False, **_: Any
+        self, database: AsyncIOMotorDatabase, recreate: bool = False
     ) -> None:
         self.motor_collection = database[self.name]
         collection_names = await database.list_collection_names()
@@ -35,7 +35,15 @@ class ViewSettings(BaseSettings):
             )
 
 
-class View(LinkedModel, FindInterface):
+class View(LinkedModel, FindInterface[ViewSettings]):
+    _settings: ClassVar[ViewSettings]
+
+    @classmethod
+    def get_settings(cls) -> ViewSettings:
+        if "_settings" not in cls.__dict__:
+            cls._settings = ViewSettings.from_model_type(cls)
+        return cls._settings
+
     async def fetch_link(self, field: Union[str, Any]):
         ref_obj = getattr(self, field, None)
         if isinstance(ref_obj, Link):

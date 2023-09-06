@@ -102,11 +102,14 @@ class DocumentSettings(BaseSettings):
     merge_indexes: bool = False
     timeseries: Optional[TimeSeriesConfig] = None
 
+    union_doc: Optional[Type] = None
+    union_doc_alias: Optional[str] = None
+
     keep_nulls: bool = True
     is_root: bool = False
 
     async def update_from_database(
-        self, database: AsyncIOMotorDatabase, **kwargs: Any
+        self, database: AsyncIOMotorDatabase
     ) -> None:
         self.motor_collection = database[self.name]
         if self.timeseries:
@@ -131,7 +134,7 @@ class DocumentSettings(BaseSettings):
         return self
 
 
-class Document(LazyModel, LinkedModel, FindInterface):
+class Document(LazyModel, LinkedModel, FindInterface[DocumentSettings]):
     """
     Document Mapping class.
 
@@ -174,6 +177,18 @@ class Document(LazyModel, LinkedModel, FindInterface):
         if self._settings.use_revision:
             self._previous_revision_id = self.revision_id
             self.revision_id = uuid4()
+
+    @classmethod
+    def get_settings(cls) -> DocumentSettings:
+        if "_settings" not in cls.__dict__:
+            settings = DocumentSettings.from_model_type(cls)
+            # set the common collection name if this document class is part of an
+            # inheritance chain with is_root = True
+            parent_cls = cls.parent_document_cls()
+            if parent_cls and parent_cls._class_id:
+                settings.name = parent_cls.get_collection_name()
+            cls._settings = settings
+        return cls._settings
 
     @classmethod
     def parent_document_cls(cls) -> Optional[Type["Document"]]:
@@ -993,3 +1008,16 @@ class Document(LazyModel, LinkedModel, FindInterface):
     def link_from_id(cls, id: Any):
         ref = DBRef(id=id, collection=cls.get_collection_name())
         return Link(ref, document_class=cls)
+
+    @classmethod
+    def _get_class_id_filter(
+        cls, with_children: bool = False
+    ) -> Optional[Any]:
+        if cls._class_id:
+            if with_children:
+                return {"$in": [cls._class_id, *cls._children.keys()]}
+            else:
+                return cls._class_id
+        if cls._settings.union_doc:
+            return cls._settings.union_doc_alias
+        return None
