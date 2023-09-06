@@ -3,7 +3,6 @@ from datetime import timedelta
 from typing import (
     Any,
     Dict,
-    Generic,
     List,
     Mapping,
     Optional,
@@ -49,13 +48,12 @@ class BaseSettings(BaseModel):
 
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
-SettingsT = TypeVar("SettingsT", bound=BaseSettings)
 
 
-class FindInterface(ABC, Generic[SettingsT]):
+class FindInterface(ABC):
     @classmethod
     @abstractmethod
-    def get_settings(cls) -> SettingsT:
+    def get_settings(cls) -> BaseSettings:
         ...
 
     @classmethod
@@ -283,8 +281,7 @@ class FindInterface(ABC, Generic[SettingsT]):
     def _add_class_id_filter(
         cls, *args: Union[Mapping[str, Any], bool], with_children: bool
     ) -> Tuple[Union[Mapping[str, Any], bool], ...]:
-        settings = cls.get_settings()
-        class_id = settings.class_id
+        class_id = cls.get_settings().class_id
         # skip if _class_id is already added
         if any(isinstance(a, Mapping) and class_id in a for a in args):
             return args

@@ -12,7 +12,7 @@ class UnionDocSettings(BaseSettings):
         self.motor_collection = database[self.name]
 
 
-class UnionDoc(FindInterface[UnionDocSettings]):
+class UnionDoc(FindInterface):
     _children: ClassVar[Dict[str, Type]]
     _settings: ClassVar[UnionDocSettings]
 

@@ -33,12 +33,12 @@ class ViewSettings(BaseSettings):
             )
 
 
-class View(LinkedModel, FindInterface[ViewSettings]):
+class View(LinkedModel, FindInterface):
     _settings: ClassVar[ViewSettings]
 
     @classmethod
-    def __pydantic_init_subclass__(cls):
-        super().__pydantic_init_subclass__()
+    def __pydantic_init_subclass__(cls, **kwargs: Any) -> None:
+        super().__pydantic_init_subclass__(**kwargs)
         cls._settings = ViewSettings.from_model_type(cls)
 
     @classmethod

@@ -137,7 +137,7 @@ class DocumentSettings(BaseSettings):
         return self
 
 
-class Document(LazyModel, LinkedModel, FindInterface[DocumentSettings]):
+class Document(LazyModel, LinkedModel, FindInterface):
     """
     Document Mapping class.
 
@@ -177,8 +177,8 @@ class Document(LazyModel, LinkedModel, FindInterface[DocumentSettings]):
     _hidden_fields: ClassVar[Set[str]] = set()
 
     @classmethod
-    def __pydantic_init_subclass__(cls):
-        super().__pydantic_init_subclass__()
+    def __pydantic_init_subclass__(cls, **kwargs: Any) -> None:
+        super().__pydantic_init_subclass__(**kwargs)
         settings = DocumentSettings.from_model_type(cls)
         # set up document inheritance
         parent_cls = cls.parent_document_cls()

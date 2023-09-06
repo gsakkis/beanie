@@ -182,8 +182,8 @@ class LinkedModel(BaseModel):
     _link_fields: ClassVar[Dict[str, LinkInfo]]
 
     @classmethod
-    def __pydantic_init_subclass__(cls):
-        super().__pydantic_init_subclass__()
+    def __pydantic_init_subclass__(cls, **kwargs) -> None:
+        super().__pydantic_init_subclass__(**kwargs)
         cls._registry[cls.__name__] = cls
 
     @classmethod
