@@ -24,7 +24,7 @@ from beanie.odm.queries.find import AggregationQuery, FindMany, FindOne
 class BaseSettings(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    name: Optional[str] = None
+    name: str
     class_id: str = "_class_id"
 
     use_cache: bool = False
@@ -37,14 +37,10 @@ class BaseSettings(BaseModel):
 
     @classmethod
     def from_model_type(cls, model_type: type) -> Self:
-        self = cls.model_validate(
-            model_type.Settings.__dict__
-            if hasattr(model_type, "Settings")
-            else {}
-        )
-        if self.name is None:
-            self.name = model_type.__name__
-        return self
+        settings = dict(name=model_type.__name__)
+        if hasattr(model_type, "Settings"):
+            settings.update(vars(model_type.Settings))
+        return cls.model_validate(settings)
 
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
@@ -61,7 +57,7 @@ class FindInterface(ABC):
         return cls.get_settings().motor_collection
 
     @classmethod
-    def get_collection_name(cls) -> Optional[str]:
+    def get_collection_name(cls) -> str:
         return cls.get_settings().name
 
     @classmethod

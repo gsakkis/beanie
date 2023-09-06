@@ -29,7 +29,7 @@ def construct_query(link_info: LinkInfo, queries: List):
             lookup_steps = [
                 {
                     "$lookup": {
-                        "from": link_info.document_class.get_motor_collection().name,  # type: ignore
+                        "from": link_info.document_class.get_collection_name(),
                         "localField": f"{link_info.lookup_field_name}.$id",
                         "foreignField": "_id",
                         "as": f"_link_{link_info.field_name}",
@@ -58,7 +58,7 @@ def construct_query(link_info: LinkInfo, queries: List):
                     }
                 },
                 {"$unset": f"_link_{link_info.field_name}"},
-            ]  # type: ignore
+            ]
             if link_info.nested_links is not None:
                 lookup_steps[0]["$lookup"]["pipeline"] = []  # type: ignore
                 for nested_link in link_info.nested_links:
@@ -72,7 +72,7 @@ def construct_query(link_info: LinkInfo, queries: List):
             lookup_steps = [
                 {
                     "$lookup": {
-                        "from": link_info.document_class.get_motor_collection().name,  # type: ignore
+                        "from": link_info.document_class.get_collection_name(),
                         "let": {
                             "link_id": f"${link_info.lookup_field_name}.$id"
                         },
@@ -125,7 +125,7 @@ def construct_query(link_info: LinkInfo, queries: List):
             lookup_steps = [
                 {
                     "$lookup": {
-                        "from": link_info.document_class.get_motor_collection().name,  # type: ignore
+                        "from": link_info.document_class.get_collection_name(),
                         "localField": "_id",
                         "foreignField": f"{link_info.lookup_field_name}.$id",
                         "as": f"_link_{link_info.field_name}",
@@ -154,7 +154,7 @@ def construct_query(link_info: LinkInfo, queries: List):
                     }
                 },
                 {"$unset": f"_link_{link_info.field_name}"},
-            ]  # type: ignore
+            ]
             if link_info.nested_links is not None:
                 lookup_steps[0]["$lookup"]["pipeline"] = []  # type: ignore
                 for nested_link in link_info.nested_links:
@@ -168,7 +168,7 @@ def construct_query(link_info: LinkInfo, queries: List):
             lookup_steps = [
                 {
                     "$lookup": {
-                        "from": link_info.document_class.get_motor_collection().name,  # type: ignore
+                        "from": link_info.document_class.get_collection_name(),
                         "let": {"link_id": "$_id"},
                         "as": f"_link_{link_info.field_name}",
                         "pipeline": [
@@ -224,7 +224,7 @@ def construct_query(link_info: LinkInfo, queries: List):
             queries.append(
                 {
                     "$lookup": {
-                        "from": link_info.document_class.get_motor_collection().name,  # type: ignore
+                        "from": link_info.document_class.get_collection_name(),
                         "localField": f"{link_info.lookup_field_name}.$id",
                         "foreignField": "_id",
                         "as": link_info.field_name,
@@ -242,7 +242,7 @@ def construct_query(link_info: LinkInfo, queries: List):
         else:
             lookup_step = {
                 "$lookup": {
-                    "from": link_info.document_class.get_motor_collection().name,  # type: ignore
+                    "from": link_info.document_class.get_collection_name(),
                     "let": {"link_id": f"${link_info.lookup_field_name}.$id"},
                     "as": link_info.field_name,
                     "pipeline": [
@@ -254,7 +254,7 @@ def construct_query(link_info: LinkInfo, queries: List):
             for nested_link in link_info.nested_links:
                 construct_query(
                     link_info.nested_links[nested_link],
-                    lookup_step["$lookup"]["pipeline"],
+                    lookup_step["$lookup"]["pipeline"],  # type: ignore
                 )
             queries.append(lookup_step)
 
@@ -266,7 +266,7 @@ def construct_query(link_info: LinkInfo, queries: List):
             queries.append(
                 {
                     "$lookup": {
-                        "from": link_info.document_class.get_motor_collection().name,  # type: ignore
+                        "from": link_info.document_class.get_collection_name(),
                         "localField": "_id",
                         "foreignField": f"{link_info.lookup_field_name}.$id",
                         "as": link_info.field_name,
@@ -284,7 +284,7 @@ def construct_query(link_info: LinkInfo, queries: List):
         else:
             lookup_step = {
                 "$lookup": {
-                    "from": link_info.document_class.get_motor_collection().name,  # type: ignore
+                    "from": link_info.document_class.get_collection_name(),
                     "let": {"link_id": "$_id"},
                     "as": link_info.field_name,
                     "pipeline": [
@@ -305,7 +305,7 @@ def construct_query(link_info: LinkInfo, queries: List):
             for nested_link in link_info.nested_links:
                 construct_query(
                     link_info.nested_links[nested_link],
-                    lookup_step["$lookup"]["pipeline"],
+                    lookup_step["$lookup"]["pipeline"],  # type: ignore
                 )
             queries.append(lookup_step)
 

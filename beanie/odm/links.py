@@ -3,6 +3,7 @@ import typing
 from collections import OrderedDict
 from enum import Enum
 from typing import (
+    TYPE_CHECKING,
     Any,
     ClassVar,
     Dict,
@@ -23,9 +24,11 @@ from pydantic import BaseModel, TypeAdapter, field_validator, model_validator
 from pydantic.fields import FieldInfo
 from pydantic_core import core_schema
 
-import beanie
 from beanie.odm.operators.find.comparison import In
 from beanie.odm.utils.parsing import parse_obj
+
+if TYPE_CHECKING:
+    from beanie.odm.documents import Document
 
 
 class LinkTypes(str, Enum):
@@ -40,7 +43,7 @@ class LinkTypes(str, Enum):
     OPTIONAL_BACK_LIST = "OPTIONAL_BACK_LIST"
 
 
-T = TypeVar("T", bound="beanie.Document")
+T = TypeVar("T", bound="Document")
 
 
 class Link(Generic[T]):
@@ -57,7 +60,7 @@ class Link(Generic[T]):
     @classmethod
     async def fetch_list(
         cls,
-        links: List[Union["Link", "beanie.Document"]],
+        links: List[Union["Link", "Document"]],
         fetch_links: bool = False,
     ):
         """Fetch list that contains links and documents"""
@@ -167,7 +170,7 @@ class BackLink(Generic[T]):
 class LinkInfo(BaseModel):
     field_name: str
     lookup_field_name: str
-    document_class: Type["LinkedModel"]
+    document_class: Type["Document"]
     link_type: LinkTypes
     nested_links: Optional[Dict] = None
 

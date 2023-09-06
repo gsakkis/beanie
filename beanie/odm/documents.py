@@ -54,7 +54,7 @@ from beanie.odm.fields import (
     WriteRules,
 )
 from beanie.odm.interfaces.find import BaseSettings, FindInterface
-from beanie.odm.links import Link, LinkedModel, LinkTypes
+from beanie.odm.links import Link, LinkedModel, LinkInfo, LinkTypes
 from beanie.odm.models import (
     InspectionError,
     InspectionResult,
@@ -998,7 +998,7 @@ class Document(LazyModel, LinkedModel, FindInterface):
     def to_ref(self):
         if self.id is None:
             raise DocumentWasNotSaved("Can not create dbref without id")
-        return DBRef(self.get_motor_collection().name, self.id)
+        return DBRef(self.get_collection_name(), self.id)
 
     @classmethod
     async def distinct(
@@ -1029,3 +1029,8 @@ class Document(LazyModel, LinkedModel, FindInterface):
         if cls._settings.union_doc:
             return cls._settings.union_doc_alias
         return None
+
+
+# Break the cyclic dependency between `Document` and `LinkInfo` to prevent:
+#   `LinkInfo` is not fully defined; you should define `Document`, then call `LinkInfo.model_rebuild()`.
+LinkInfo.model_rebuild()
