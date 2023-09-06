@@ -18,6 +18,7 @@ from uuid import UUID, uuid4
 
 from bson import DBRef
 from lazy_model import LazyModel
+from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import (
     ConfigDict,
     Field,
@@ -31,9 +32,11 @@ from pymongo.errors import DuplicateKeyError
 from pymongo.results import DeleteResult, InsertManyResult
 from typing_extensions import Self
 
+import beanie
 from beanie.exceptions import (
     DocumentNotFound,
     DocumentWasNotSaved,
+    MongoDBVersionError,
     NotSupported,
     ReplaceError,
     RevisionIdWasChanged,
@@ -43,6 +46,7 @@ from beanie.odm.bulk import BulkWriter, Operation
 from beanie.odm.fields import (
     DeleteRules,
     ExpressionField,
+    IndexModelField,
     PydanticObjectId,
     WriteRules,
 )
@@ -62,7 +66,8 @@ from beanie.odm.operators.update.general import (
 )
 from beanie.odm.operators.update.general import Set as SetOperator
 from beanie.odm.queries.update import UpdateMany, UpdateResponse
-from beanie.odm.settings.document import DocumentSettings
+from beanie.odm.settings.base import ItemSettings
+from beanie.odm.settings.timeseries import TimeSeriesConfig
 from beanie.odm.utils.encoder import Encoder
 from beanie.odm.utils.parsing import merge_models
 from beanie.odm.utils.state import (
@@ -85,6 +90,48 @@ def json_schema_extra(schema: Dict[str, Any], model: Type["Document"]) -> None:
         if not v.get("hidden", False):
             props[k] = v
     schema["properties"] = props
+
+
+class DocumentSettings(ItemSettings):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    use_state_management: bool = False
+    state_management_replace_objects: bool = False
+    state_management_save_previous: bool = False
+    validate_on_save: bool = False
+    use_revision: bool = False
+
+    indexes: List[IndexModelField] = Field(default_factory=list)
+    merge_indexes: bool = False
+    timeseries: Optional[TimeSeriesConfig] = None
+
+    keep_nulls: bool = True
+    is_root: bool = False
+
+    async def update_from_database(
+        self, database: AsyncIOMotorDatabase, **kwargs: Any
+    ) -> None:
+        self.motor_collection = database[self.name]
+        if self.timeseries:
+            if beanie.DATABASE_MAJOR_VERSION < 5:
+                raise MongoDBVersionError(
+                    "Timeseries are supported by MongoDB version 5 and higher"
+                )
+            collections = await database.list_collection_names()
+            if self.name and self.name not in collections:
+                self.motor_collection = await database.create_collection(
+                    **self.timeseries.build_query(self.name)
+                )
+
+    @classmethod
+    def from_model_type(cls, model_type: Type["Document"]) -> Self:
+        self = super().from_model_type(model_type)
+        # register in the Union Doc
+        if union_doc := self.union_doc:
+            union_doc._children[self.name] = model_type
+            self.union_doc_alias = self.name
+            self.name = union_doc.get_collection_name()
+        return self
 
 
 class Document(LazyModel, LinkedModel, FindInterface):

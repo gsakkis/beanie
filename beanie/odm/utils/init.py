@@ -8,14 +8,11 @@ from pymongo import IndexModel
 
 import beanie
 from beanie.odm.actions import ActionRegistry
-from beanie.odm.documents import Document
-from beanie.odm.fields import ExpressionField
+from beanie.odm.documents import Document, DocumentSettings
+from beanie.odm.fields import ExpressionField, IndexModelField
 from beanie.odm.links import DOCS_REGISTRY
-from beanie.odm.settings.document import DocumentSettings, IndexModelField
-from beanie.odm.settings.union_doc import UnionDocSettings
-from beanie.odm.settings.view import ViewSettings
-from beanie.odm.union_doc import UnionDoc
-from beanie.odm.views import View
+from beanie.odm.union_doc import UnionDoc, UnionDocSettings
+from beanie.odm.views import View, ViewSettings
 
 DocumentLike = Union[Document, View, UnionDoc]
 
