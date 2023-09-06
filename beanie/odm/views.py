@@ -3,9 +3,8 @@ from typing import Any, ClassVar, Dict, List
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import field_validator
 
-from beanie.odm.interfaces.find import FindInterface
+from beanie.odm.interfaces.find import BaseSettings, FindInterface
 from beanie.odm.links import LinkedModel
-from beanie.odm.settings import BaseSettings
 
 
 class ViewSettings(BaseSettings):

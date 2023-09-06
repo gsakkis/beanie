@@ -53,7 +53,7 @@ from beanie.odm.fields import (
     PydanticObjectId,
     WriteRules,
 )
-from beanie.odm.interfaces.find import FindInterface
+from beanie.odm.interfaces.find import BaseSettings, FindInterface
 from beanie.odm.links import Link, LinkedModel, LinkTypes
 from beanie.odm.models import (
     InspectionError,
@@ -69,7 +69,6 @@ from beanie.odm.operators.update.general import (
 )
 from beanie.odm.operators.update.general import Set as SetOperator
 from beanie.odm.queries.update import UpdateMany, UpdateResponse
-from beanie.odm.settings import BaseSettings
 from beanie.odm.timeseries import TimeSeriesConfig
 from beanie.odm.utils.encoder import Encoder
 from beanie.odm.utils.parsing import merge_models

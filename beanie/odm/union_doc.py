@@ -2,8 +2,7 @@ from typing import ClassVar, Dict, Type
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from beanie.odm.interfaces.find import FindInterface
-from beanie.odm.settings import BaseSettings
+from beanie.odm.interfaces.find import BaseSettings, FindInterface
 
 
 class UnionDocSettings(BaseSettings):
