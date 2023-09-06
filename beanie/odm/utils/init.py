@@ -1,5 +1,4 @@
 import importlib
-import inspect
 from typing import List, Optional, Type, Union, cast
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
@@ -9,7 +8,6 @@ from pymongo import IndexModel
 import beanie
 from beanie.odm.documents import Document
 from beanie.odm.fields import ExpressionField, IndexModelField
-from beanie.odm.links import DOCS_REGISTRY
 from beanie.odm.union_doc import UnionDoc
 from beanie.odm.views import View, ViewSettings
 
@@ -54,27 +52,15 @@ async def init_indexes(
         await collection.create_indexes([i.index for i in new_indexes])
 
 
-def register_document_model(
-    type_or_str: Union[Type[DocumentLike], str]
-) -> Type[DocumentLike]:
-    if isinstance(type_or_str, type):
-        model = type_or_str
-        module = inspect.getmodule(model)
-    else:
-        try:
-            module_name, class_name = type_or_str.rsplit(".", 1)
-        except ValueError:
-            raise ValueError(
-                f"'{type_or_str}' doesn't have '.' path, eg. path.to.model.class"
-            )
-        module = importlib.import_module(module_name)
-        model = getattr(module, class_name)
-
-    for name, obj in inspect.getmembers(module):
-        if inspect.isclass(obj) and issubclass(obj, BaseModel):
-            DOCS_REGISTRY.register(name, obj)
-
-    return model
+def resolve_name(name: str) -> Type[DocumentLike]:
+    try:
+        module_name, class_name = name.rsplit(".", 1)
+    except ValueError:
+        raise ValueError(
+            f"'{name}' doesn't have '.' path, eg. path.to.model.class"
+        )
+    module = importlib.import_module(module_name)
+    return getattr(module, class_name)
 
 
 def type_sort_key(doctype: Type[DocumentLike]) -> int:
@@ -122,8 +108,9 @@ async def init_beanie(
     beanie.DATABASE_MAJOR_VERSION = int(build_info["version"].split(".")[0])
 
     models: List[Type[DocumentLike]] = []
-    for document_model in document_models:
-        model = register_document_model(document_model)
+    for model in document_models:
+        if isinstance(model, str):
+            model = resolve_name(model)
         if issubclass(model, Document):
             for superclass in reversed(model.mro()):
                 if (
