@@ -7,7 +7,6 @@ from typing import (
     Any,
     ClassVar,
     Dict,
-    ForwardRef,
     Generic,
     List,
     Optional,
@@ -96,11 +95,10 @@ class Link(Generic[T]):
     def __get_pydantic_core_schema__(
         cls, source_type: Any
     ) -> core_schema.CoreSchema:
-        document_class_annotation = get_args(source_type)[0]
+        document_annotation = get_args(source_type)[0]
 
         def validate(v: Union[DBRef, T], _):
-            document_class: Type[T]
-            document_class = LinkedModel.eval_type(document_class_annotation)
+            document_class = LinkedModelMixin.eval_type(document_annotation)
             if isinstance(v, DBRef):
                 return cls(v, document_class)
             if isinstance(v, Link):
@@ -153,10 +151,10 @@ class BackLink(Generic[T]):
     def __get_pydantic_core_schema__(
         cls, source_type: Any
     ) -> core_schema.CoreSchema:
-        document_class_annotation = get_args(source_type)[0]
+        document_annotation = get_args(source_type)[0]
 
         def validate(v: Union[DBRef, T], _):
-            document_class = LinkedModel.eval_type(document_class_annotation)
+            document_class = LinkedModelMixin.eval_type(document_annotation)
             if isinstance(v, (dict, BaseModel)):
                 return parse_obj(document_class, v)
             return cls(document_class)
@@ -176,38 +174,40 @@ class LinkInfo(BaseModel):
 
     @field_validator("document_class", mode="before")
     @classmethod
-    def _resolve_forward_ref(cls, v: Any) -> type:
-        return LinkedModel.eval_type(v)
+    def _resolve_forward_ref(cls, v: Any) -> Type["Document"]:
+        return LinkedModelMixin.eval_type(v)
 
 
-class LinkedModel(BaseModel):
-    _registry: ClassVar[Dict[str, Type["LinkedModel"]]] = {}
-    _link_fields: ClassVar[Dict[str, LinkInfo]]
+class LinkedModelMixin:
+    _registry: ClassVar[Dict[str, Type["LinkedModelMixin"]]] = {}
+    link_fields: ClassVar[Dict[str, LinkInfo]]
 
     @classmethod
-    def __pydantic_init_subclass__(cls, **kwargs) -> None:
-        super().__pydantic_init_subclass__(**kwargs)
+    def __init_subclass__(cls) -> None:
+        super().__init_subclass__()
         cls._registry[cls.__name__] = cls
 
     @classmethod
     def get_link_fields(cls) -> Dict[str, LinkInfo]:
         try:
-            # _link_fields is not inheritable
-            return cls.__dict__["_link_fields"]
+            # link_fields is not inheritable
+            return cls.__dict__["link_fields"]
         except KeyError:
-            # this can't be done in __init_subclass__/__pydantic_init_subclass__
-            # because there may forward references to models that are not registered yet
-            cls._link_fields = {}
+            if not issubclass(cls, BaseModel):
+                raise TypeError("LinkedModelMixin must be used with BaseModel")
+            # this can't be done in __init_subclass__ because there may forward
+            # references to models that are not registered yet
+            cls.link_fields = {}
             for k, v in cls.model_fields.items():
                 link_info = detect_link(v, k)
                 if link_info is not None:
-                    cls._link_fields[k] = link_info
+                    cls.link_fields[k] = link_info
                     check_nested_links(link_info)
-            return cls._link_fields
+            return cls.link_fields
 
     @classmethod
-    def eval_type(cls, type_or_ref: Union[type, ForwardRef]) -> type:
-        return typing._eval_type(type_or_ref, cls._registry, None)  # type: ignore[attr-defined]
+    def eval_type(cls, t: Any) -> Type["Document"]:
+        return typing._eval_type(t, cls._registry, None)  # type: ignore[attr-defined]
 
     async def fetch_link(self, field: str) -> None:
         ref_obj = getattr(self, field, None)

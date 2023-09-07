@@ -54,7 +54,7 @@ from beanie.odm.fields import (
     WriteRules,
 )
 from beanie.odm.interfaces.find import BaseSettings, FindInterface
-from beanie.odm.links import Link, LinkedModel, LinkInfo, LinkTypes
+from beanie.odm.links import Link, LinkedModelMixin, LinkInfo, LinkTypes
 from beanie.odm.models import (
     InspectionError,
     InspectionResult,
@@ -124,7 +124,7 @@ class DocumentSettings(BaseSettings):
         return self
 
 
-class Document(LazyModel, LinkedModel, FindInterface):
+class Document(LazyModel, LinkedModelMixin, FindInterface):
     """
     Document Mapping class.
 

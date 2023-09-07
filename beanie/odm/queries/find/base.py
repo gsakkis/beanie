@@ -7,7 +7,7 @@ from typing_extensions import Self
 import beanie
 from beanie.odm.cache import LRUCache
 from beanie.odm.fields import ExpressionField
-from beanie.odm.links import LinkedModel
+from beanie.odm.links import LinkedModelMixin
 from beanie.odm.operators.find.logical import And
 from beanie.odm.queries import BaseQuery
 from beanie.odm.utils.encoder import Encoder
@@ -40,7 +40,7 @@ class FindQuery(BaseQuery):
 
     def get_filter_query(self) -> Mapping[str, Any]:
         """Returns: MongoDB filter query"""
-        if issubclass(self.document_model, LinkedModel):
+        if issubclass(self.document_model, LinkedModelMixin):
             for i, query in enumerate(self.find_expressions):
                 self.find_expressions[i] = convert_ids(
                     query, self.document_model, self.fetch_links
@@ -144,7 +144,7 @@ def get_projection(model: Type[BaseModel]) -> Optional[Mapping[str, Any]]:
 
 def convert_ids(
     query: Mapping[str, Any],
-    model_type: Type[LinkedModel],
+    model_type: Type[LinkedModelMixin],
     fetch_links: bool,
 ) -> Mapping[str, Any]:
     # TODO add all the cases
