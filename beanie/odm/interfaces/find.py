@@ -12,7 +12,7 @@ from typing import (
     Union,
 )
 
-from motor.motor_asyncio import AsyncIOMotorCollection
+from motor.motor_asyncio import AsyncIOMotorCollection, AsyncIOMotorDatabase
 from pydantic import BaseModel, ConfigDict, Field
 from pymongo.client_session import ClientSession
 from typing_extensions import Self
@@ -25,19 +25,23 @@ class BaseSettings(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     name: str
+    database: AsyncIOMotorDatabase
     class_id: str = "_class_id"
 
     use_cache: bool = False
     cache_capacity: int = 32
     cache_expiration_time: timedelta = timedelta(minutes=10)
     bson_encoders: Dict[Any, Any] = Field(default_factory=dict)
-    projection: Optional[Dict[str, Any]] = None
 
-    motor_collection: Optional[AsyncIOMotorCollection] = None
+    @property
+    def motor_collection(self) -> AsyncIOMotorCollection:
+        return self.database[self.name]
 
     @classmethod
-    def from_model_type(cls, model_type: type) -> Self:
-        settings = dict(name=model_type.__name__)
+    def from_model_type(
+        cls, model_type: type, database: AsyncIOMotorDatabase
+    ) -> Self:
+        settings = dict(name=model_type.__name__, database=database)
         if hasattr(model_type, "Settings"):
             settings.update(vars(model_type.Settings))
         return cls.model_validate(settings)

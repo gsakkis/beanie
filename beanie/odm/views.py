@@ -16,30 +16,15 @@ class ViewSettings(BaseSettings):
     def _source_name(cls, v: Any) -> Any:
         return v.get_collection_name() if issubclass(v, FindInterface) else v
 
-    async def update_from_database(
-        self, database: AsyncIOMotorDatabase, recreate: bool = False
-    ) -> None:
-        self.motor_collection = database[self.name]
-        collection_names = await database.list_collection_names()
-        if recreate or self.name not in collection_names:
-            if self.name in collection_names:
-                await self.motor_collection.drop()
-            await database.command(
-                {
-                    "create": self.name,
-                    "viewOn": self.source,
-                    "pipeline": self.pipeline,
-                }
-            )
-
 
 class View(LinkedModel, FindInterface):
     _settings: ClassVar[ViewSettings]
 
     @classmethod
-    def __pydantic_init_subclass__(cls, **kwargs: Any) -> None:
-        super().__pydantic_init_subclass__(**kwargs)
-        cls._settings = ViewSettings.from_model_type(cls)
+    async def update_from_database(
+        cls, database: AsyncIOMotorDatabase
+    ) -> None:
+        cls._settings = ViewSettings.from_model_type(cls, database)
 
     @classmethod
     def get_settings(cls) -> ViewSettings:

@@ -24,8 +24,8 @@ class TimeSeriesConfig(BaseModel):
     granularity: Optional[Granularity] = None
     expire_after_seconds: Optional[float] = None
 
-    def build_query(self, collection_name: str) -> Dict[str, Any]:
-        res: Dict[str, Any] = {"name": collection_name}
+    def to_dict(self) -> Dict[str, Any]:
+        res: Dict[str, Any] = {}
         timeseries = {"timeField": self.time_field}
         if self.meta_field is not None:
             timeseries["metaField"] = self.meta_field

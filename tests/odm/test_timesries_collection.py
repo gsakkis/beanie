@@ -39,3 +39,4 @@ async def test_timeseries_collection(db):
             },
             "info": {"readOnly": False},
         }
+        await DocumentWithTimeseries.get_motor_collection().drop()

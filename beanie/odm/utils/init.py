@@ -1,5 +1,5 @@
 import importlib
-from typing import List, Optional, Type, Union, cast
+from typing import List, Optional, Type, Union
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pydantic import BaseModel
@@ -9,14 +9,12 @@ import beanie
 from beanie.odm.documents import Document
 from beanie.odm.fields import ExpressionField, IndexModelField
 from beanie.odm.union_doc import UnionDoc
-from beanie.odm.views import View, ViewSettings
+from beanie.odm.views import View
 
 DocumentLike = Union[Document, View, UnionDoc]
 
 
-async def init_indexes(
-    cls: Type[Document], allow_index_dropping: bool
-) -> None:
+async def init_indexes(cls: Type[Document], drop_old: bool) -> None:
     # Indexed field wrapped with Indexed()
     new_indexes = []
     for k, v in cls.model_fields.items():
@@ -39,7 +37,7 @@ async def init_indexes(
 
     # Only drop indexes if the user specifically allows for it
     collection = cls.get_motor_collection()
-    if allow_index_dropping:
+    if drop_old:
         old_indexes = IndexModelField.from_motor_index_information(
             await collection.index_information()
         )
@@ -50,6 +48,23 @@ async def init_indexes(
     # create indices
     if new_indexes:
         await collection.create_indexes([i.index for i in new_indexes])
+
+
+async def init_view(
+    cls: Type[View], database: AsyncIOMotorDatabase, recreate: bool
+) -> None:
+    settings = cls.get_settings()
+    collection_names = await database.list_collection_names()
+    if recreate or settings.name not in collection_names:
+        if settings.name in collection_names:
+            await settings.motor_collection.drop()
+        await database.command(
+            {
+                "create": settings.name,
+                "viewOn": settings.source,
+                "pipeline": settings.pipeline,
+            }
+        )
 
 
 def resolve_name(name: str) -> Type[DocumentLike]:
@@ -131,14 +146,10 @@ async def init_beanie(
             for k, v in model.model_fields.items():
                 setattr(model, k, ExpressionField(v.alias or k))
 
-        if issubclass(model, UnionDoc):
-            await model.get_settings().update_from_database(database)
-        elif issubclass(model, Document):
-            await model.get_settings().update_from_database(database)
+        await model.update_from_database(database)
+        if issubclass(model, Document):
             await init_indexes(model, allow_index_dropping)
-        elif issubclass(model, View):
-            settings = cast(ViewSettings, model.get_settings())
-            await settings.update_from_database(database, recreate_views)
-
+        if issubclass(model, View):
+            await init_view(model, database, recreate_views)
         if hasattr(model, "custom_init"):
             await model.custom_init()

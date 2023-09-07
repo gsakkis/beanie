@@ -6,19 +6,19 @@ from beanie.odm.interfaces.find import BaseSettings, FindInterface
 
 
 class UnionDocSettings(BaseSettings):
-    async def update_from_database(
-        self, database: AsyncIOMotorDatabase
-    ) -> None:
-        self.motor_collection = database[self.name]
+    pass
 
 
 class UnionDoc(FindInterface):
     _children: ClassVar[Dict[str, Type]]
     _settings: ClassVar[UnionDocSettings]
 
-    def __init_subclass__(cls):
+    @classmethod
+    async def update_from_database(
+        cls, database: AsyncIOMotorDatabase
+    ) -> None:
         cls._children = {}
-        cls._settings = UnionDocSettings.from_model_type(cls)
+        cls._settings = UnionDocSettings.from_model_type(cls, database)
 
     @classmethod
     def get_settings(cls) -> UnionDocSettings:

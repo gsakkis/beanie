@@ -111,24 +111,11 @@ class DocumentSettings(BaseSettings):
     keep_nulls: bool = True
     is_root: bool = False
 
-    async def update_from_database(
-        self, database: AsyncIOMotorDatabase
-    ) -> None:
-        self.motor_collection = database[self.name]
-        if self.timeseries:
-            if beanie.DATABASE_MAJOR_VERSION < 5:
-                raise MongoDBVersionError(
-                    "Timeseries are supported by MongoDB version 5 and higher"
-                )
-            collections = await database.list_collection_names()
-            if self.name and self.name not in collections:
-                self.motor_collection = await database.create_collection(
-                    **self.timeseries.build_query(self.name)
-                )
-
     @classmethod
-    def from_model_type(cls, model_type: Type["Document"]) -> Self:
-        self = super().from_model_type(model_type)
+    def from_model_type(
+        cls, model_type: type, database: AsyncIOMotorDatabase
+    ) -> Self:
+        self = super().from_model_type(model_type, database)
         # register in the Union Doc
         if union_doc := self.union_doc:
             union_doc._children[self.name] = model_type
@@ -177,9 +164,10 @@ class Document(LazyModel, LinkedModel, FindInterface):
     _hidden_fields: ClassVar[Set[str]] = set()
 
     @classmethod
-    def __pydantic_init_subclass__(cls, **kwargs: Any) -> None:
-        super().__pydantic_init_subclass__(**kwargs)
-        settings = DocumentSettings.from_model_type(cls)
+    async def update_from_database(
+        cls, database: AsyncIOMotorDatabase
+    ) -> None:
+        settings = DocumentSettings.from_model_type(cls, database)
         # set up document inheritance
         parent_cls = cls.parent_document_cls()
         if settings.is_root and not (
@@ -194,6 +182,16 @@ class Document(LazyModel, LinkedModel, FindInterface):
             while parent_cls is not None:
                 parent_cls._children[class_id] = cls
                 parent_cls = parent_cls.parent_document_cls()
+
+        if settings.timeseries:
+            if beanie.DATABASE_MAJOR_VERSION < 5:
+                raise MongoDBVersionError(
+                    "Timeseries are supported by MongoDB version 5 and higher"
+                )
+            collections = await database.list_collection_names()
+            if settings.name not in collections:
+                kwargs = settings.timeseries.to_dict()
+                await database.create_collection(settings.name, **kwargs)
 
         cls._settings = settings
         cls._children = {}
@@ -454,7 +452,7 @@ class Document(LazyModel, LinkedModel, FindInterface):
         session: Optional[ClientSession] = None,
         link_rule: WriteRules = WriteRules.DO_NOTHING,
         ignore_revision: bool = False,
-        **kwargs,
+        **pymongo_kwargs: Any,
     ) -> None:
         """
         Update an existing model in the database or
@@ -500,7 +498,7 @@ class Document(LazyModel, LinkedModel, FindInterface):
                 session=session,
                 ignore_revision=ignore_revision,
                 upsert=True,
-                **kwargs,
+                **pymongo_kwargs,
             )
         else:
             return await self.update(
@@ -508,7 +506,7 @@ class Document(LazyModel, LinkedModel, FindInterface):
                 session=session,
                 ignore_revision=ignore_revision,
                 upsert=True,
-                **kwargs,
+                **pymongo_kwargs,
             )
 
     @saved_state_needed
@@ -648,7 +646,7 @@ class Document(LazyModel, LinkedModel, FindInterface):
         expression: Dict[Union[ExpressionField, str], Any],
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
-        **kwargs,
+        **pymongo_kwargs: Any,
     ):
         """
         Set values
@@ -676,7 +674,7 @@ class Document(LazyModel, LinkedModel, FindInterface):
             SetOperator(expression),
             session=session,
             bulk_writer=bulk_writer,
-            **kwargs,
+            **pymongo_kwargs,
         )
 
     def current_date(
@@ -684,7 +682,7 @@ class Document(LazyModel, LinkedModel, FindInterface):
         expression: Dict[Union[ExpressionField, str], Any],
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
-        **kwargs,
+        **pymongo_kwargs: Any,
     ):
         """
         Set current date
@@ -700,7 +698,7 @@ class Document(LazyModel, LinkedModel, FindInterface):
             CurrentDate(expression),
             session=session,
             bulk_writer=bulk_writer,
-            **kwargs,
+            **pymongo_kwargs,
         )
 
     def inc(
@@ -708,7 +706,7 @@ class Document(LazyModel, LinkedModel, FindInterface):
         expression: Dict[Union[ExpressionField, str], Any],
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
-        **kwargs,
+        **pymongo_kwargs: Any,
     ):
         """
         Increment
@@ -735,7 +733,7 @@ class Document(LazyModel, LinkedModel, FindInterface):
             Inc(expression),
             session=session,
             bulk_writer=bulk_writer,
-            **kwargs,
+            **pymongo_kwargs,
         )
 
     @wrap_with_actions(EventTypes.DELETE)
@@ -1006,10 +1004,10 @@ class Document(LazyModel, LinkedModel, FindInterface):
         key: str,
         filter: Optional[Mapping[str, Any]] = None,
         session: Optional[ClientSession] = None,
-        **kwargs: Any,
+        **pymongo_kwargs: Any,
     ) -> list:
         return await cls.get_motor_collection().distinct(
-            key, filter, session, **kwargs
+            key, filter, session, **pymongo_kwargs
         )
 
     @classmethod
