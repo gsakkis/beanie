@@ -60,16 +60,8 @@ def construct_query(link_info: LinkInfo, queries: List):
     return queries
 
 
-def _steps_direct1(link_info: LinkInfo, queries: List):
-    lookup_steps = [
-        {
-            "$lookup": {
-                "from": link_info.document_class.get_collection_name(),
-                "localField": f"{link_info.lookup_field_name}.$id",
-                "foreignField": "_id",
-                "as": f"_link_{link_info.field_name}",
-            }
-        },
+def _common_steps(link_info: LinkInfo):
+    return [
         {
             "$unwind": {
                 "path": f"$_link_{link_info.field_name}",
@@ -93,6 +85,20 @@ def _steps_direct1(link_info: LinkInfo, queries: List):
             }
         },
         {"$unset": f"_link_{link_info.field_name}"},
+    ]
+
+
+def _steps_direct1(link_info: LinkInfo, queries: List):
+    lookup_steps = [
+        {
+            "$lookup": {
+                "from": link_info.document_class.get_collection_name(),
+                "localField": f"{link_info.lookup_field_name}.$id",
+                "foreignField": "_id",
+                "as": f"_link_{link_info.field_name}",
+            }
+        },
+        *_common_steps(link_info),
     ]
     if link_info.nested_links is not None:
         lookup_steps[0]["$lookup"]["pipeline"] = []  # type: ignore
@@ -116,29 +122,7 @@ def _steps_direct2(link_info: LinkInfo, queries: List):
                 ],
             }
         },
-        {
-            "$unwind": {
-                "path": f"$_link_{link_info.field_name}",
-                "preserveNullAndEmptyArrays": True,
-            }
-        },
-        {
-            "$set": {
-                link_info.field_name: {
-                    "$cond": {
-                        "if": {
-                            "$ifNull": [
-                                f"$_link_{link_info.field_name}",
-                                False,
-                            ]
-                        },
-                        "then": f"$_link_{link_info.field_name}",
-                        "else": f"${link_info.field_name}",
-                    }
-                }
-            }
-        },
-        {"$unset": f"_link_{link_info.field_name}"},
+        *_common_steps(link_info),
     ]
     assert link_info.nested_links is not None
     for nested_link in link_info.nested_links:
@@ -159,29 +143,7 @@ def _steps_back_direct1(link_info: LinkInfo, queries: List):
                 "as": f"_link_{link_info.field_name}",
             }
         },
-        {
-            "$unwind": {
-                "path": f"$_link_{link_info.field_name}",
-                "preserveNullAndEmptyArrays": True,
-            }
-        },
-        {
-            "$set": {
-                link_info.field_name: {
-                    "$cond": {
-                        "if": {
-                            "$ifNull": [
-                                f"$_link_{link_info.field_name}",
-                                False,
-                            ]
-                        },
-                        "then": f"$_link_{link_info.field_name}",
-                        "else": f"${link_info.field_name}",
-                    }
-                }
-            }
-        },
-        {"$unset": f"_link_{link_info.field_name}"},
+        *_common_steps(link_info),
     ]
     if link_info.nested_links is not None:
         lookup_steps[0]["$lookup"]["pipeline"] = []  # type: ignore
@@ -214,29 +176,7 @@ def _steps_back_direct2(link_info: LinkInfo, queries: List):
                 ],
             }
         },
-        {
-            "$unwind": {
-                "path": f"$_link_{link_info.field_name}",
-                "preserveNullAndEmptyArrays": True,
-            }
-        },
-        {
-            "$set": {
-                link_info.field_name: {
-                    "$cond": {
-                        "if": {
-                            "$ifNull": [
-                                f"$_link_{link_info.field_name}",
-                                False,
-                            ]
-                        },
-                        "then": f"$_link_{link_info.field_name}",
-                        "else": f"${link_info.field_name}",
-                    }
-                }
-            }
-        },
-        {"$unset": f"_link_{link_info.field_name}"},
+        *_common_steps(link_info),
     ]
     assert link_info.nested_links is not None
     for nested_link in link_info.nested_links:
