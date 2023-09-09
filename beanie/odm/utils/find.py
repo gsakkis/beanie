@@ -26,6 +26,7 @@ def construct_query(link_info: LinkInfo, queries: List):
             _steps_direct1(link_info, queries)
         else:
             _steps_direct2(link_info, queries)
+        queries.extend(_common_steps(link_info))
     else:
         if database_major_version >= 5 or link_info.nested_links is None:
             _steps_list1(link_info, queries)
@@ -71,25 +72,20 @@ def _steps_direct1(link_info: LinkInfo, queries: List):
     else:
         local_field, foreign_field = lookup_field, id_field
 
-    lookup_steps = [
-        {
-            "$lookup": {
-                "from": link_info.document_class.get_collection_name(),
-                "localField": local_field,
-                "foreignField": foreign_field,
-                "as": f"_link_{link_info.field_name}",
-            }
-        },
-        *_common_steps(link_info),
-    ]
+    lookup = {
+        "from": link_info.document_class.get_collection_name(),
+        "localField": local_field,
+        "foreignField": foreign_field,
+        "as": f"_link_{link_info.field_name}",
+    }
     if link_info.nested_links is not None:
-        lookup_steps[0]["$lookup"]["pipeline"] = []  # type: ignore
+        lookup["pipeline"] = []  # type: ignore
         for nested_link in link_info.nested_links:
             construct_query(
                 link_info.nested_links[nested_link],
-                lookup_steps[0]["$lookup"]["pipeline"],  # type: ignore
+                lookup["pipeline"],  # type: ignore
             )
-    queries += lookup_steps
+    queries.append({"$lookup": lookup})
 
 
 def _steps_direct2(link_info: LinkInfo, queries: List):
@@ -102,24 +98,19 @@ def _steps_direct2(link_info: LinkInfo, queries: List):
         link_id = lookup_field
         expr = [id_field, "$$link_id"]
 
-    lookup_steps = [
-        {
-            "$lookup": {
-                "from": link_info.document_class.get_collection_name(),
-                "let": {"link_id": link_id},
-                "as": f"_link_{link_info.field_name}",
-                "pipeline": [{"$match": {"$expr": {"$eq": expr}}}],
-            }
-        },
-        *_common_steps(link_info),
-    ]
-    assert link_info.nested_links is not None
-    for nested_link in link_info.nested_links:
-        construct_query(
-            link_info.nested_links[nested_link],
-            lookup_steps[0]["$lookup"]["pipeline"],  # type: ignore
-        )
-    queries += lookup_steps
+    lookup = {
+        "from": link_info.document_class.get_collection_name(),
+        "let": {"link_id": link_id},
+        "pipeline": [{"$match": {"$expr": {"$eq": expr}}}],
+        "as": f"_link_{link_info.field_name}",
+    }
+    if link_info.nested_links is not None:
+        for nested_link in link_info.nested_links:
+            construct_query(
+                link_info.nested_links[nested_link],
+                lookup["pipeline"],  # type: ignore
+            )
+    queries.append({"$lookup": lookup})
 
 
 def _steps_list1(link_info: LinkInfo, queries: List):
@@ -130,23 +121,20 @@ def _steps_list1(link_info: LinkInfo, queries: List):
     else:
         local_field, foreign_field = lookup_field, id_field
 
-    queries.append(
-        {
-            "$lookup": {
-                "from": link_info.document_class.get_collection_name(),
-                "localField": local_field,
-                "foreignField": foreign_field,
-                "as": link_info.field_name,
-            }
-        }
-    )
+    lookup = {
+        "from": link_info.document_class.get_collection_name(),
+        "localField": local_field,
+        "foreignField": foreign_field,
+        "as": link_info.field_name,
+    }
     if link_info.nested_links is not None:
-        queries[-1]["$lookup"]["pipeline"] = []
+        lookup["pipeline"] = []  # type: ignore
         for nested_link in link_info.nested_links:
             construct_query(
                 link_info.nested_links[nested_link],
-                queries[-1]["$lookup"]["pipeline"],
+                lookup["pipeline"],  # type: ignore
             )
+    queries.append({"$lookup": lookup})
 
 
 def _steps_list2(link_info: LinkInfo, queries: List):
@@ -159,18 +147,16 @@ def _steps_list2(link_info: LinkInfo, queries: List):
         link_id = lookup_field
         expr = [id_field, "$$link_id"]
 
-    lookup_step = {
-        "$lookup": {
-            "from": link_info.document_class.get_collection_name(),
-            "let": {"link_id": link_id},
-            "as": link_info.field_name,
-            "pipeline": [{"$match": {"$expr": {"$in": expr}}}],
-        }
+    lookup = {
+        "from": link_info.document_class.get_collection_name(),
+        "let": {"link_id": link_id},
+        "pipeline": [{"$match": {"$expr": {"$in": expr}}}],
+        "as": link_info.field_name,
     }
-    assert link_info.nested_links is not None
-    for nested_link in link_info.nested_links:
-        construct_query(
-            link_info.nested_links[nested_link],
-            lookup_step["$lookup"]["pipeline"],  # type: ignore
-        )
-    queries.append(lookup_step)
+    if link_info.nested_links is not None:
+        for nested_link in link_info.nested_links:
+            construct_query(
+                link_info.nested_links[nested_link],
+                lookup["pipeline"],  # type: ignore
+            )
+    queries.append({"$lookup": lookup})
