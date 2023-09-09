@@ -12,7 +12,6 @@ from beanie.odm.links import LinkedModelMixin
 from beanie.odm.operators.find.logical import And
 from beanie.odm.queries import BaseQuery
 from beanie.odm.utils.encoder import Encoder
-from beanie.odm.utils.find import iter_stages
 from beanie.odm.utils.parsing import ParseableModel
 
 if TYPE_CHECKING:
@@ -122,7 +121,7 @@ class FindQuery(BaseQuery):
                     f"{document_model} doesn't support link fetching"
                 )
             for link_info in document_model.get_link_fields().values():
-                pipeline.extend(iter_stages(link_info))
+                pipeline.extend(link_info.iter_pipeline_stages())
         if find_query := self.get_filter_query():
             pipeline.append({"$match": find_query})
         if extra_stages:

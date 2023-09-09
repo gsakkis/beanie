@@ -23,6 +23,7 @@ from pydantic import BaseModel, TypeAdapter, field_validator, model_validator
 from pydantic.fields import FieldInfo
 from pydantic_core import core_schema
 
+import beanie
 from beanie.odm.operators.find.comparison import In
 from beanie.odm.utils.parsing import parse_obj
 
@@ -176,6 +177,65 @@ class LinkInfo(BaseModel):
     @classmethod
     def _resolve_forward_ref(cls, v: Any) -> Type["Document"]:
         return LinkedModelMixin.eval_type(v)
+
+    def iter_pipeline_stages(self) -> typing.Iterator[Dict[str, Any]]:
+        as_field = self.field_name
+        is_direct = "DIRECT" in self.link_type
+        if is_direct:
+            as_field = "_link_" + as_field
+
+        lookup: Dict[str, Any] = {
+            "from": self.document_class.get_collection_name(),
+            "as": as_field,
+        }
+
+        lookup_field = f"{self.lookup_field_name}.$id"
+        is_backlink = "BACK" in self.link_type
+        if beanie.DATABASE_MAJOR_VERSION >= 5 or self.nested_links is None:
+            local_field, foreign_field = lookup_field, "_id"
+            if is_backlink:
+                local_field, foreign_field = foreign_field, local_field
+            lookup["localField"] = local_field
+            lookup["foreignField"] = foreign_field
+        else:
+            match_op = "$eq" if is_direct else "$in"
+            if is_backlink:
+                let_expr = {"link_id": "$_id"}
+                match_expr = ["$$link_id", "$" + lookup_field]
+            else:
+                let_expr = {"link_id": "$" + lookup_field}
+                match_expr = ["$_id", "$$link_id"]
+            lookup["let"] = let_expr
+            lookup["pipeline"] = [
+                {"$match": {"$expr": {match_op: match_expr}}}
+            ]
+
+        if self.nested_links is not None:
+            pipeline = lookup.setdefault("pipeline", [])
+            for nested_link_info in self.nested_links.values():
+                pipeline.extend(nested_link_info.iter_pipeline_stages())
+
+        yield {"$lookup": lookup}
+
+        if is_direct:
+            yield {
+                "$unwind": {
+                    "path": "$" + as_field,
+                    "preserveNullAndEmptyArrays": True,
+                }
+            }
+            yield {
+                "$set": {
+                    self.field_name: {
+                        "$cond": {
+                            "if": {"$ifNull": ["$" + as_field, False]},
+                            "then": "$" + as_field,
+                            "else": "$" + self.field_name,
+                        }
+                    }
+                }
+            }
+            yield {"$unset": as_field}
 
 
 class LinkedModelMixin:
