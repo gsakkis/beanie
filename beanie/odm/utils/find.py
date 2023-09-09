@@ -20,51 +20,44 @@ def construct_lookup_queries(cls: type) -> List[Dict[str, Any]]:
 
 
 def construct_query(link_info: LinkInfo, queries: List):
-    database_major_version = beanie.DATABASE_MAJOR_VERSION
-    if "DIRECT" in link_info.link_type:
-        if database_major_version >= 5 or link_info.nested_links is None:
-            _steps_direct1(link_info, queries)
-        else:
-            _steps_direct2(link_info, queries)
-        queries.extend(_common_steps(link_info))
+    if beanie.DATABASE_MAJOR_VERSION >= 5 or link_info.nested_links is None:
+        _steps_concise(link_info, queries)
     else:
-        if database_major_version >= 5 or link_info.nested_links is None:
-            _steps_list1(link_info, queries)
-        else:
-            _steps_list2(link_info, queries)
+        _steps_verbose(link_info, queries)
+
+    if "DIRECT" in link_info.link_type:
+        queries.extend(
+            [
+                {
+                    "$unwind": {
+                        "path": f"$_link_{link_info.field_name}",
+                        "preserveNullAndEmptyArrays": True,
+                    }
+                },
+                {
+                    "$set": {
+                        link_info.field_name: {
+                            "$cond": {
+                                "if": {
+                                    "$ifNull": [
+                                        f"$_link_{link_info.field_name}",
+                                        False,
+                                    ]
+                                },
+                                "then": f"$_link_{link_info.field_name}",
+                                "else": f"${link_info.field_name}",
+                            }
+                        }
+                    }
+                },
+                {"$unset": f"_link_{link_info.field_name}"},
+            ]
+        )
 
     return queries
 
 
-def _common_steps(link_info: LinkInfo):
-    return [
-        {
-            "$unwind": {
-                "path": f"$_link_{link_info.field_name}",
-                "preserveNullAndEmptyArrays": True,
-            }
-        },
-        {
-            "$set": {
-                link_info.field_name: {
-                    "$cond": {
-                        "if": {
-                            "$ifNull": [
-                                f"$_link_{link_info.field_name}",
-                                False,
-                            ]
-                        },
-                        "then": f"$_link_{link_info.field_name}",
-                        "else": f"${link_info.field_name}",
-                    }
-                }
-            }
-        },
-        {"$unset": f"_link_{link_info.field_name}"},
-    ]
-
-
-def _steps_direct1(link_info: LinkInfo, queries: List):
+def _steps_concise(link_info: LinkInfo, queries: List):
     lookup_field = f"{link_info.lookup_field_name}.$id"
     id_field = "_id"
     if "BACK" in link_info.link_type:
@@ -72,11 +65,16 @@ def _steps_direct1(link_info: LinkInfo, queries: List):
     else:
         local_field, foreign_field = lookup_field, id_field
 
+    if "DIRECT" in link_info.link_type:
+        as_field = f"_link_{link_info.field_name}"
+    else:
+        as_field = link_info.field_name
+
     lookup = {
         "from": link_info.document_class.get_collection_name(),
         "localField": local_field,
         "foreignField": foreign_field,
-        "as": f"_link_{link_info.field_name}",
+        "as": as_field,
     }
     if link_info.nested_links is not None:
         lookup["pipeline"] = []  # type: ignore
@@ -88,7 +86,7 @@ def _steps_direct1(link_info: LinkInfo, queries: List):
     queries.append({"$lookup": lookup})
 
 
-def _steps_direct2(link_info: LinkInfo, queries: List):
+def _steps_verbose(link_info: LinkInfo, queries: List):
     lookup_field = f"${link_info.lookup_field_name}.$id"
     id_field = "$_id"
     if "BACK" in link_info.link_type:
@@ -98,60 +96,18 @@ def _steps_direct2(link_info: LinkInfo, queries: List):
         link_id = lookup_field
         expr = [id_field, "$$link_id"]
 
-    lookup = {
-        "from": link_info.document_class.get_collection_name(),
-        "let": {"link_id": link_id},
-        "pipeline": [{"$match": {"$expr": {"$eq": expr}}}],
-        "as": f"_link_{link_info.field_name}",
-    }
-    if link_info.nested_links is not None:
-        for nested_link in link_info.nested_links:
-            construct_query(
-                link_info.nested_links[nested_link],
-                lookup["pipeline"],  # type: ignore
-            )
-    queries.append({"$lookup": lookup})
-
-
-def _steps_list1(link_info: LinkInfo, queries: List):
-    lookup_field = f"{link_info.lookup_field_name}.$id"
-    id_field = "_id"
-    if "BACK" in link_info.link_type:
-        local_field, foreign_field = id_field, lookup_field
+    if "DIRECT" in link_info.link_type:
+        match_expr = "$eq"
+        as_field = f"_link_{link_info.field_name}"
     else:
-        local_field, foreign_field = lookup_field, id_field
-
-    lookup = {
-        "from": link_info.document_class.get_collection_name(),
-        "localField": local_field,
-        "foreignField": foreign_field,
-        "as": link_info.field_name,
-    }
-    if link_info.nested_links is not None:
-        lookup["pipeline"] = []  # type: ignore
-        for nested_link in link_info.nested_links:
-            construct_query(
-                link_info.nested_links[nested_link],
-                lookup["pipeline"],  # type: ignore
-            )
-    queries.append({"$lookup": lookup})
-
-
-def _steps_list2(link_info: LinkInfo, queries: List):
-    lookup_field = f"${link_info.lookup_field_name}.$id"
-    id_field = "$_id"
-    if "BACK" in link_info.link_type:
-        link_id = id_field
-        expr = ["$$link_id", lookup_field]
-    else:
-        link_id = lookup_field
-        expr = [id_field, "$$link_id"]
+        match_expr = "$in"
+        as_field = link_info.field_name
 
     lookup = {
         "from": link_info.document_class.get_collection_name(),
         "let": {"link_id": link_id},
-        "pipeline": [{"$match": {"$expr": {"$in": expr}}}],
-        "as": link_info.field_name,
+        "pipeline": [{"$match": {"$expr": {match_expr: expr}}}],
+        "as": as_field,
     }
     if link_info.nested_links is not None:
         for nested_link in link_info.nested_links:
