@@ -28,22 +28,9 @@ class EventTypes(str, Enum):
     UPDATE = "UPDATE"
 
 
-Insert = EventTypes.INSERT
-Replace = EventTypes.REPLACE
-Save = EventTypes.SAVE
-SaveChanges = EventTypes.SAVE_CHANGES
-ValidateOnSave = EventTypes.VALIDATE_ON_SAVE
-Delete = EventTypes.DELETE
-Update = EventTypes.UPDATE
-
-
 class ActionDirections(str, Enum):  # TODO think about this name
     BEFORE = "BEFORE"
     AFTER = "AFTER"
-
-
-Before = ActionDirections.BEFORE
-After = ActionDirections.AFTER
 
 
 class ActionRegistry:

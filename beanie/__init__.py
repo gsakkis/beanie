@@ -1,15 +1,8 @@
 from beanie.migrations.controllers.free_fall import free_fall_migration
 from beanie.migrations.controllers.iterative import iterative_migration
 from beanie.odm.actions import (
-    After,
-    Before,
-    Delete,
-    Insert,
-    Replace,
-    Save,
-    SaveChanges,
-    Update,
-    ValidateOnSave,
+    ActionDirections,
+    EventTypes,
     after_event,
     before_event,
 )
@@ -29,6 +22,17 @@ from beanie.odm.utils.init import init_beanie
 from beanie.odm.views import View
 
 DATABASE_MAJOR_VERSION = 4
+
+Insert = EventTypes.INSERT
+Replace = EventTypes.REPLACE
+Save = EventTypes.SAVE
+SaveChanges = EventTypes.SAVE_CHANGES
+ValidateOnSave = EventTypes.VALIDATE_ON_SAVE
+Delete = EventTypes.DELETE
+Update = EventTypes.UPDATE
+Before = ActionDirections.BEFORE
+After = ActionDirections.AFTER
+del EventTypes, ActionDirections
 
 __version__ = "1.21.0"
 __all__ = [
