@@ -26,6 +26,7 @@ from pymongo import IndexModel
 
 from beanie import (
     DecimalAnnotation,
+    Delete,
     Document,
     Indexed,
     Insert,
@@ -34,7 +35,7 @@ from beanie import (
     Update,
     ValidateOnSave,
 )
-from beanie.odm.actions import Delete, after_event, before_event
+from beanie.odm.actions import after_event, before_event
 from beanie.odm.fields import PydanticObjectId
 from beanie.odm.links import BackLink, Link
 from beanie.odm.timeseries import TimeSeriesConfig
