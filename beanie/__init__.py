@@ -8,13 +8,8 @@ from beanie.odm.actions import (
 )
 from beanie.odm.bulk import BulkWriter
 from beanie.odm.custom_types import DecimalAnnotation
-from beanie.odm.documents import Document
-from beanie.odm.fields import (
-    DeleteRules,
-    Indexed,
-    PydanticObjectId,
-    WriteRules,
-)
+from beanie.odm.documents import DeleteRules, Document, WriteRules
+from beanie.odm.fields import Indexed, PydanticObjectId
 from beanie.odm.links import BackLink, Link
 from beanie.odm.timeseries import Granularity, TimeSeriesConfig
 from beanie.odm.union_doc import UnionDoc

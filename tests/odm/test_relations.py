@@ -3,9 +3,8 @@ from typing import List
 import pytest
 from pydantic.fields import Field
 
-from beanie import Document, init_beanie
+from beanie import DeleteRules, Document, WriteRules, init_beanie
 from beanie.exceptions import DocumentWasNotSaved
-from beanie.odm.fields import DeleteRules, WriteRules
 from beanie.odm.links import BackLink, Link
 from tests.odm.models import (
     AddressView,

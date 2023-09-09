@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import (
     TYPE_CHECKING,
     AbstractSet,
@@ -47,11 +48,9 @@ from beanie.odm.actions import (
 )
 from beanie.odm.bulk import BulkWriter, Operation
 from beanie.odm.fields import (
-    DeleteRules,
     ExpressionField,
     IndexModelField,
     PydanticObjectId,
-    WriteRules,
 )
 from beanie.odm.interfaces.find import BaseSettings, FindInterface
 from beanie.odm.links import Link, LinkedModelMixin, LinkInfo, LinkTypes
@@ -82,14 +81,6 @@ from beanie.odm.utils.typing import extract_id_class
 
 if TYPE_CHECKING:
     from pydantic.typing import AbstractSetIntStr, DictStrAny, MappingIntStrAny
-
-
-def json_schema_extra(schema: Dict[str, Any]) -> None:
-    props = {}
-    for k, v in schema.get("properties", {}).items():
-        if not v.get("hidden", False):
-            props[k] = v
-    schema["properties"] = props
 
 
 class DocumentSettings(BaseSettings):
@@ -124,6 +115,24 @@ class DocumentSettings(BaseSettings):
         return self
 
 
+class DeleteRules(str, Enum):
+    DO_NOTHING = "DO_NOTHING"
+    DELETE_LINKS = "DELETE_LINKS"
+
+
+class WriteRules(str, Enum):
+    DO_NOTHING = "DO_NOTHING"
+    WRITE = "WRITE"
+
+
+def _json_schema_extra(schema: Dict[str, Any]) -> None:
+    props = {}
+    for k, v in schema.get("properties", {}).items():
+        if not v.get("hidden", False):
+            props[k] = v
+    schema["properties"] = props
+
+
 class Document(LazyModel, LinkedModelMixin, FindInterface):
     """
     Document Mapping class.
@@ -140,7 +149,7 @@ class Document(LazyModel, LinkedModelMixin, FindInterface):
     """
 
     model_config = ConfigDict(
-        json_schema_extra=json_schema_extra,
+        json_schema_extra=_json_schema_extra,
         populate_by_name=True,
         alias_generator=lambda s: "_id" if s == "id" else s,
     )

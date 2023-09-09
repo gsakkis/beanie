@@ -146,16 +146,6 @@ class ExpressionField(str):
         return self
 
 
-class DeleteRules(str, Enum):
-    DO_NOTHING = "DO_NOTHING"
-    DELETE_LINKS = "DELETE_LINKS"
-
-
-class WriteRules(str, Enum):
-    DO_NOTHING = "DO_NOTHING"
-    WRITE = "WRITE"
-
-
 class IndexModelField:
     def __init__(self, index: pymongo.IndexModel):
         self.index = index
