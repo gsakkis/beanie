@@ -5,13 +5,14 @@ from pymongo.client_session import ClientSession
 from typing_extensions import Self
 
 import beanie
+from beanie.exceptions import NotSupported
 from beanie.odm.cache import LRUCache
 from beanie.odm.fields import ExpressionField
 from beanie.odm.links import LinkedModelMixin
 from beanie.odm.operators.find.logical import And
 from beanie.odm.queries import BaseQuery
 from beanie.odm.utils.encoder import Encoder
-from beanie.odm.utils.find import construct_lookup_queries
+from beanie.odm.utils.find import iter_stages
 from beanie.odm.utils.parsing import ParseableModel
 
 if TYPE_CHECKING:
@@ -115,7 +116,13 @@ class FindQuery(BaseQuery):
     ) -> List[Mapping[str, Any]]:
         pipeline: List[Mapping[str, Any]] = []
         if self.fetch_links:
-            pipeline += construct_lookup_queries(self.document_model)
+            document_model = self.document_model
+            if not issubclass(document_model, LinkedModelMixin):
+                raise NotSupported(
+                    f"{document_model} doesn't support link fetching"
+                )
+            for link_info in document_model.get_link_fields().values():
+                pipeline.extend(iter_stages(link_info))
         if find_query := self.get_filter_query():
             pipeline.append({"$match": find_query})
         if extra_stages:
