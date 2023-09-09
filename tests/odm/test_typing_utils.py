@@ -1,6 +1,8 @@
 from typing import Optional, Union
 
-from beanie import Document, Link
+import bson
+
+from beanie import Document, Link, PydanticObjectId
 from beanie.odm.utils.typing import extract_id_class
 
 
@@ -18,3 +20,6 @@ class TestTyping:
         assert extract_id_class(Optional[str]) == str
         # Link
         assert extract_id_class(Link[Lock]) == Lock
+        # PydanticObjectId
+        assert extract_id_class(PydanticObjectId) == bson.ObjectId
+        assert extract_id_class(Optional[PydanticObjectId]) == bson.ObjectId

@@ -1,7 +1,7 @@
+import bson
 import pytest
 from pymongo.errors import DuplicateKeyError
 
-from beanie.odm.fields import PydanticObjectId
 from tests.odm.models import (
     DocumentTestModel,
     DocumentWithKeepNullsFalse,
@@ -26,7 +26,7 @@ async def test_insert_many(documents_not_inserted):
 
 async def test_create(document_not_inserted):
     await document_not_inserted.insert()
-    assert isinstance(document_not_inserted.id, PydanticObjectId)
+    assert isinstance(document_not_inserted.id, bson.ObjectId)
 
 
 async def test_create_twice(document_not_inserted):
@@ -56,7 +56,7 @@ async def test_insert_many_with_session(documents_not_inserted, session):
 
 async def test_create_with_session(document_not_inserted, session):
     await document_not_inserted.insert(session=session)
-    assert isinstance(document_not_inserted.id, PydanticObjectId)
+    assert isinstance(document_not_inserted.id, bson.ObjectId)
 
 
 async def test_insert_keep_nulls_false():

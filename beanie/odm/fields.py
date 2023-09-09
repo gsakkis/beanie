@@ -1,12 +1,12 @@
 from enum import Enum
 from typing import Any, List
 
+import bson
 import pymongo
-from bson import ObjectId
 from bson.errors import InvalidId
-from pydantic import GetCoreSchemaHandler, GetJsonSchemaHandler
-from pydantic.json_schema import JsonSchemaValue
+from pydantic import PlainSerializer, PlainValidator, WithJsonSchema
 from pydantic_core import core_schema
+from typing_extensions import Annotated
 
 from beanie.odm.operators.find.comparison import GT, GTE, LT, LTE, NE, Eq
 
@@ -26,9 +26,7 @@ def Indexed(typ, index_type=pymongo.ASCENDING, **kwargs):
             return typ.__new__(typ, *args, **kwargs)
 
         @classmethod
-        def __get_pydantic_core_schema__(
-            cls, _source_type: Any, _handler: GetCoreSchemaHandler
-        ) -> core_schema.CoreSchema:
+        def __get_pydantic_core_schema__(cls, source_type, handler):
             return core_schema.no_info_after_validator_function(
                 lambda v: v,
                 core_schema.simple_ser_schema(typ.__name__),
@@ -38,54 +36,23 @@ def Indexed(typ, index_type=pymongo.ASCENDING, **kwargs):
     return NewType
 
 
-class PydanticObjectId(ObjectId):
-    """
-    Object Id field. Compatible with Pydantic.
-    """
+def _validate_objectid(v: Any) -> bson.ObjectId:
+    try:
+        return bson.ObjectId(v.decode("utf-8") if isinstance(v, bytes) else v)
+    except InvalidId:
+        raise ValueError("Id must be of type bson.ObjectId")
 
-    @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
 
-    @classmethod
-    def validate(cls, v, _: core_schema.ValidationInfo):
-        if isinstance(v, bytes):
-            v = v.decode("utf-8")
-        try:
-            return PydanticObjectId(v)
-        except InvalidId:
-            raise ValueError("Id must be of type PydanticObjectId")
-
-    @classmethod
-    def __get_pydantic_core_schema__(
-        cls, source_type: Any, handler: GetCoreSchemaHandler
-    ) -> core_schema.CoreSchema:  # type: ignore
-        return core_schema.json_or_python_schema(
-            python_schema=core_schema.general_plain_validator_function(
-                cls.validate
-            ),
-            json_schema=core_schema.str_schema(),
-            serialization=core_schema.plain_serializer_function_ser_schema(
-                lambda instance: str(instance)
-            ),
-        )
-
-    @classmethod
-    def __get_pydantic_json_schema__(
-        cls, schema: core_schema.CoreSchema, handler: GetJsonSchemaHandler  # type: ignore
-    ) -> JsonSchemaValue:
-        json_schema = handler(schema)
-        json_schema.update(
-            type="string",
-            example="5eb7cf5a86d9755df3a6c593",
-        )
-        return json_schema
+PydanticObjectId = Annotated[
+    bson.ObjectId,
+    PlainValidator(_validate_objectid),
+    PlainSerializer(lambda v: str(v)),
+    WithJsonSchema({"type": "string", "example": "5eb7cf5a86d9755df3a6c593"}),
+]
 
 
 class SortDirection(int, Enum):
-    """
-    Sorting directions
-    """
+    """Sorting directions"""
 
     ASCENDING = pymongo.ASCENDING
     DESCENDING = pymongo.DESCENDING
@@ -191,9 +158,7 @@ class IndexModelField:
         return list(left_dict.values())
 
     @classmethod
-    def __get_pydantic_core_schema__(
-        cls, source_type: Any, handler: GetCoreSchemaHandler
-    ) -> core_schema.CoreSchema:  # type: ignore
+    def __get_pydantic_core_schema__(cls, source_type, handler):
         def validate(v, _):
             if not isinstance(v, pymongo.IndexModel):
                 v = pymongo.IndexModel(v)
