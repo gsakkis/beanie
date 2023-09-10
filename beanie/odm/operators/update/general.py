@@ -38,37 +38,9 @@ class Set(BaseUpdateGeneralOperator):
     operator = "$set"
 
 
-class SetRevisionId:
-    """
-    `$set` update query operator
-
-    Example:
-
-    ```python
-    class Sample(Document):
-        one: int
-
-    Set({Sample.one: 2})
-    ```
-
-    Will return query object like
-
-    ```python
-    {"$set": {"one": 2}}
-    ```
-
-    MongoDB doc:
-    <https://docs.mongodb.com/manual/reference/operator/update/set/>
-    """
-
+class SetRevisionId(Set):
     def __init__(self, revision_id):
-        self.revision_id = revision_id
-        self.operator = "$set"
-        self.expression = {"revision_id": self.revision_id}
-
-    @property
-    def query(self):
-        return {self.operator: self.expression}
+        super().__init__({"revision_id": revision_id})
 
 
 class CurrentDate(BaseUpdateGeneralOperator):

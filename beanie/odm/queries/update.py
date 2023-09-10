@@ -55,14 +55,12 @@ class UpdateQuery(BaseQuery, UpdateMethods):
     def update_query(self) -> Dict[str, Any]:
         query: Dict[str, Any] = {}
         for expression in self.update_expressions:
-            if isinstance(expression, BaseOperator):
+            if isinstance(expression, SetRevisionId):
+                query.setdefault("$set", {}).update(expression.query["$set"])
+            elif isinstance(expression, BaseOperator):
                 query.update(expression.query)
             elif isinstance(expression, dict):
                 query.update(expression)
-            elif isinstance(expression, SetRevisionId):
-                set_query = query.get("$set", {})
-                set_query.update(expression.query.get("$set", {}))
-                query["$set"] = set_query
             else:
                 raise TypeError("Wrong expression type")
         return Encoder(custom_encoders=self.encoders).encode(query)
