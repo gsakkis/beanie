@@ -1,7 +1,7 @@
 from beanie.odm.operators import BaseOperator
 
 
-class BaseUpdateGeneralOperator(BaseOperator):
+class BaseUpdateOperator(BaseOperator):
     operator = ""
 
     def __init__(self, expression):
@@ -12,24 +12,9 @@ class BaseUpdateGeneralOperator(BaseOperator):
         return {self.operator: self.expression}
 
 
-class Set(BaseUpdateGeneralOperator):
+class Set(BaseUpdateOperator):
     """
     `$set` update query operator
-
-    Example:
-
-    ```python
-    class Sample(Document):
-        one: int
-
-    Set({Sample.one: 2})
-    ```
-
-    Will return query object like
-
-    ```python
-    {"$set": {"one": 2}}
-    ```
 
     MongoDB doc:
     <https://docs.mongodb.com/manual/reference/operator/update/set/>
@@ -43,24 +28,9 @@ class SetRevisionId(Set):
         super().__init__({"revision_id": revision_id})
 
 
-class CurrentDate(BaseUpdateGeneralOperator):
+class CurrentDate(BaseUpdateOperator):
     """
     `$currentDate` update query operator
-
-    Example:
-
-    ```python
-    class Sample(Document):
-        ts: datetime
-
-    CurrentDate({Sample.ts, True})
-    ```
-
-    Will return query object like
-
-    ```python
-    {"$currentDate": {"ts": True}}
-    ```
 
     MongoDB doc:
     <https://docs.mongodb.com/manual/reference/operator/update/currentDate/>
@@ -69,24 +39,9 @@ class CurrentDate(BaseUpdateGeneralOperator):
     operator = "$currentDate"
 
 
-class Inc(BaseUpdateGeneralOperator):
+class Inc(BaseUpdateOperator):
     """
     `$inc` update query operator
-
-    Example:
-
-    ```python
-    class Sample(Document):
-        one: int
-
-    Inc({Sample.one, 2})
-    ```
-
-    Will return query object like
-
-    ```python
-    {"$inc": {"one": 2}}
-    ```
 
     MongoDB doc:
     <https://docs.mongodb.com/manual/reference/operator/update/inc/>
@@ -95,24 +50,9 @@ class Inc(BaseUpdateGeneralOperator):
     operator = "$inc"
 
 
-class Min(BaseUpdateGeneralOperator):
+class Min(BaseUpdateOperator):
     """
     `$min` update query operator
-
-    Example:
-
-    ```python
-    class Sample(Document):
-        one: int
-
-    Min({Sample.one, 2})
-    ```
-
-    Will return query object like
-
-    ```python
-    {"$min": {"one": 2}}
-    ```
 
     MongoDB doc:
     <https://docs.mongodb.com/manual/reference/operator/update/min/>
@@ -121,24 +61,9 @@ class Min(BaseUpdateGeneralOperator):
     operator = "$min"
 
 
-class Max(BaseUpdateGeneralOperator):
+class Max(BaseUpdateOperator):
     """
     `$max` update query operator
-
-    Example:
-
-    ```python
-    class Sample(Document):
-        one: int
-
-    Max({Sample.one, 2})
-    ```
-
-    Will return query object like
-
-    ```python
-    {"$max": {"one": 2}}
-    ```
 
     MongoDB doc:
     <https://docs.mongodb.com/manual/reference/operator/update/max/>
@@ -147,24 +72,9 @@ class Max(BaseUpdateGeneralOperator):
     operator = "$max"
 
 
-class Mul(BaseUpdateGeneralOperator):
+class Mul(BaseUpdateOperator):
     """
     `$mul` update query operator
-
-    Example:
-
-    ```python
-    class Sample(Document):
-        one: int
-
-    Mul({Sample.one, 2})
-    ```
-
-    Will return query object like
-
-    ```python
-    {"$mul": {"one": 2}}
-    ```
 
     MongoDB doc:
     <https://docs.mongodb.com/manual/reference/operator/update/mul/>
@@ -173,7 +83,7 @@ class Mul(BaseUpdateGeneralOperator):
     operator = "$mul"
 
 
-class Rename(BaseUpdateGeneralOperator):
+class Rename(BaseUpdateOperator):
     """
     `$rename` update query operator
 
@@ -184,7 +94,7 @@ class Rename(BaseUpdateGeneralOperator):
     operator = "$rename"
 
 
-class SetOnInsert(BaseUpdateGeneralOperator):
+class SetOnInsert(BaseUpdateOperator):
     """
     `$setOnInsert` update query operator
 
@@ -195,7 +105,7 @@ class SetOnInsert(BaseUpdateGeneralOperator):
     operator = "$setOnInsert"
 
 
-class Unset(BaseUpdateGeneralOperator):
+class Unset(BaseUpdateOperator):
     """
     `$unset` update query operator
 
@@ -204,3 +114,69 @@ class Unset(BaseUpdateGeneralOperator):
     """
 
     operator = "$unset"
+
+
+class Bit(BaseUpdateOperator):
+    """
+    `$bit` update query operator
+
+    MongoDB doc:
+    <https://docs.mongodb.com/manual/reference/operator/update/bit/>
+    """
+
+    operator = "$bit"
+
+
+class AddToSet(BaseUpdateOperator):
+    """
+    `$addToSet` update array query operator
+
+    MongoDB docs:
+    <https://docs.mongodb.com/manual/reference/operator/update/addToSet/>
+    """
+
+    operator = "$addToSet"
+
+
+class Pop(BaseUpdateOperator):
+    """
+    `$pop` update array query operator
+
+    MongoDB docs:
+    <https://docs.mongodb.com/manual/reference/operator/update/pop/>
+    """
+
+    operator = "$pop"
+
+
+class Pull(BaseUpdateOperator):
+    """
+    `$pull` update array query operator
+
+    MongoDB docs:
+    <https://docs.mongodb.com/manual/reference/operator/update/pull/>
+    """
+
+    operator = "$pull"
+
+
+class Push(BaseUpdateOperator):
+    """
+    `$push` update array query operator
+
+    MongoDB docs:
+    <https://docs.mongodb.com/manual/reference/operator/update/push/>
+    """
+
+    operator = "$push"
+
+
+class PullAll(BaseUpdateOperator):
+    """
+    `$pullAll` update array query operator
+
+    MongoDB docs:
+    <https://docs.mongodb.com/manual/reference/operator/update/pullAll/>
+    """
+
+    operator = "$pullAll"

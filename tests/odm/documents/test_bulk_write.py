@@ -2,7 +2,7 @@ import pytest
 from pymongo.errors import BulkWriteError
 
 from beanie.odm.bulk import BulkWriter
-from beanie.odm.operators.update.general import Set
+from beanie.odm.operators.update import Set
 from tests.odm.models import DocumentTestModel, SubDocument
 
 

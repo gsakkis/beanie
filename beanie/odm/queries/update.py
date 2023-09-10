@@ -22,7 +22,7 @@ import beanie
 from beanie.odm.bulk import BulkWriter, Operation
 from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.operators import BaseOperator
-from beanie.odm.operators.update.general import SetRevisionId
+from beanie.odm.operators.update import SetRevisionId
 from beanie.odm.queries import BaseQuery
 from beanie.odm.utils.encoder import Encoder
 from beanie.odm.utils.parsing import parse_obj

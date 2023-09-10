@@ -3,7 +3,7 @@ from pymongo.errors import BulkWriteError
 
 from beanie import BulkWriter
 from beanie.exceptions import RevisionIdWasChanged
-from beanie.odm.operators.update.general import Inc
+from beanie.odm.operators.update import Inc
 from tests.odm.models import DocumentWithRevisionTurnedOn
 
 

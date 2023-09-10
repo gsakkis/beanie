@@ -1,9 +1,15 @@
-from beanie.odm.operators.update.general import (
+from beanie.odm.operators.update import (
+    AddToSet,
+    Bit,
     CurrentDate,
     Inc,
     Max,
     Min,
     Mul,
+    Pop,
+    Pull,
+    PullAll,
+    Push,
     Rename,
     Set,
     SetOnInsert,
@@ -55,3 +61,33 @@ def test_set_on_insert():
 def test_unset():
     q = Unset({Sample.integer: 2})
     assert q == {"$unset": {"integer": 2}}
+
+
+def test_add_to_set():
+    q = AddToSet({Sample.integer: 2})
+    assert q == {"$addToSet": {"integer": 2}}
+
+
+def test_pop():
+    q = Pop({Sample.integer: 2})
+    assert q == {"$pop": {"integer": 2}}
+
+
+def test_pull():
+    q = Pull({Sample.integer: 2})
+    assert q == {"$pull": {"integer": 2}}
+
+
+def test_push():
+    q = Push({Sample.integer: 2})
+    assert q == {"$push": {"integer": 2}}
+
+
+def test_pull_all():
+    q = PullAll({Sample.integer: 2})
+    assert q == {"$pullAll": {"integer": 2}}
+
+
+def test_bit():
+    q = Bit({Sample.integer: 2})
+    assert q == {"$bit": {"integer": 2}}

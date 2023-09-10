@@ -56,8 +56,8 @@ from beanie.odm.models import (
     InspectionResult,
     InspectionStatuses,
 )
+from beanie.odm.operators import update as update_ops
 from beanie.odm.operators.find.comparison import In
-from beanie.odm.operators.update import general as update_ops
 from beanie.odm.queries.update import UpdateMany, UpdateResponse
 from beanie.odm.timeseries import TimeSeriesConfig
 from beanie.odm.utils.encoder import Encoder

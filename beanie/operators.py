@@ -33,20 +33,18 @@ from beanie.odm.operators.find.geospatial import (
     NearSphere,
 )
 from beanie.odm.operators.find.logical import And, Nor, Not, Or
-from beanie.odm.operators.update.array import (
+from beanie.odm.operators.update import (
     AddToSet,
-    Pop,
-    Pull,
-    PullAll,
-    Push,
-)
-from beanie.odm.operators.update.bitwise import Bit
-from beanie.odm.operators.update.general import (
+    Bit,
     CurrentDate,
     Inc,
     Max,
     Min,
     Mul,
+    Pop,
+    Pull,
+    PullAll,
+    Push,
     Rename,
     Set,
     SetOnInsert,
