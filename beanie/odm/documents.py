@@ -47,8 +47,9 @@ from beanie.odm.actions import (
     wrap_with_actions,
 )
 from beanie.odm.bulk import BulkWriter, Operation
-from beanie.odm.fields import ExpressionField, IndexModel, PydanticObjectId
+from beanie.odm.fields import IndexModel, PydanticObjectId
 from beanie.odm.interfaces.find import BaseSettings, FindInterface
+from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.links import Link, LinkedModelMixin, LinkInfo, LinkTypes
 from beanie.odm.models import (
     InspectionError,
@@ -56,13 +57,7 @@ from beanie.odm.models import (
     InspectionStatuses,
 )
 from beanie.odm.operators.find.comparison import In
-from beanie.odm.operators.update.general import (
-    CurrentDate,
-    Inc,
-    SetRevisionId,
-    Unset,
-)
-from beanie.odm.operators.update.general import Set as SetOperator
+from beanie.odm.operators.update import general as update_ops
 from beanie.odm.queries.update import UpdateMany, UpdateResponse
 from beanie.odm.timeseries import TimeSeriesConfig
 from beanie.odm.utils.encoder import Encoder
@@ -127,7 +122,7 @@ def _json_schema_extra(schema: Dict[str, Any]) -> None:
     schema["properties"] = props
 
 
-class Document(LazyModel, LinkedModelMixin, FindInterface):
+class Document(LazyModel, LinkedModelMixin, FindInterface, UpdateMethods):
     """
     Document Mapping class.
 
@@ -135,11 +130,6 @@ class Document(LazyModel, LinkedModelMixin, FindInterface):
 
     - `id` - MongoDB document ObjectID "_id" field.
     Mapped to the PydanticObjectId class
-
-    Inherited from:
-
-    - Pydantic BaseModel
-    - [UpdateMethods](https://roman-right.github.io/beanie/api/interfaces/#aggregatemethods)
     """
 
     model_config = ConfigDict(
@@ -496,16 +486,16 @@ class Document(LazyModel, LinkedModelMixin, FindInterface):
 
         if self._settings.keep_nulls is False:
             return await self.update(
-                SetOperator(self.get_dict()),
-                Unset(self._get_top_level_nones()),
+                update_ops.Set(self.get_dict()),
+                update_ops.Unset(self._get_top_level_nones()),
                 session=session,
                 ignore_revision=ignore_revision,
                 upsert=True,
                 **pymongo_kwargs,
             )
         else:
-            return await self.update(
-                SetOperator(self.get_dict()),
+            return await self.set(
+                self.get_dict(),
                 session=session,
                 ignore_revision=ignore_revision,
                 upsert=True,
@@ -536,15 +526,15 @@ class Document(LazyModel, LinkedModelMixin, FindInterface):
         changes = self.get_changes()
         if self._settings.keep_nulls is False:
             return await self.update(
-                SetOperator(changes),
-                Unset(self._get_top_level_nones()),
+                update_ops.Set(changes),
+                update_ops.Unset(self._get_top_level_nones()),
                 ignore_revision=ignore_revision,
                 session=session,
                 bulk_writer=bulk_writer,
             )
         else:
             return await self.set(
-                changes,  # type: ignore #TODO fix typing
+                changes,
                 ignore_revision=ignore_revision,
                 session=session,
                 bulk_writer=bulk_writer,
@@ -605,7 +595,7 @@ class Document(LazyModel, LinkedModelMixin, FindInterface):
             find_query["revision_id"] = self._previous_revision_id
 
         if use_revision_id:
-            arguments.append(SetRevisionId(self.revision_id))
+            arguments.append(update_ops.SetRevisionId(self.revision_id))
         try:
             result = await self.find_one(find_query).update(
                 *arguments,
@@ -642,101 +632,6 @@ class Document(LazyModel, LinkedModelMixin, FindInterface):
         """
         return cls.find_all().update(
             *args, session=session, bulk_writer=bulk_writer, **pymongo_kwargs
-        )
-
-    def set(
-        self,
-        expression: Dict[Union[ExpressionField, str], Any],
-        session: Optional[ClientSession] = None,
-        bulk_writer: Optional[BulkWriter] = None,
-        **pymongo_kwargs: Any,
-    ):
-        """
-        Set values
-
-        Example:
-
-        ```python
-
-        class Sample(Document):
-            one: int
-
-        await Document.find(Sample.one == 1).set({Sample.one: 100})
-
-        ```
-
-        Uses [Set operator](https://roman-right.github.io/beanie/api/operators/update/#set)
-
-        :param expression: Dict[Union[ExpressionField, str], Any] - keys and
-        values to set
-        :param session: Optional[ClientSession] - pymongo session
-        :param bulk_writer: Optional[BulkWriter] - bulk writer
-        :return: self
-        """
-        return self.update(
-            SetOperator(expression),
-            session=session,
-            bulk_writer=bulk_writer,
-            **pymongo_kwargs,
-        )
-
-    def current_date(
-        self,
-        expression: Dict[Union[ExpressionField, str], Any],
-        session: Optional[ClientSession] = None,
-        bulk_writer: Optional[BulkWriter] = None,
-        **pymongo_kwargs: Any,
-    ):
-        """
-        Set current date
-
-        Uses [CurrentDate operator](https://roman-right.github.io/beanie/api/operators/update/#currentdate)
-
-        :param expression: Dict[Union[ExpressionField, str], Any]
-        :param session: Optional[ClientSession] - pymongo session
-        :param bulk_writer: Optional[BulkWriter] - bulk writer
-        :return: self
-        """
-        return self.update(
-            CurrentDate(expression),
-            session=session,
-            bulk_writer=bulk_writer,
-            **pymongo_kwargs,
-        )
-
-    def inc(
-        self,
-        expression: Dict[Union[ExpressionField, str], Any],
-        session: Optional[ClientSession] = None,
-        bulk_writer: Optional[BulkWriter] = None,
-        **pymongo_kwargs: Any,
-    ):
-        """
-        Increment
-
-        Example:
-
-        ```python
-
-        class Sample(Document):
-            one: int
-
-        await Document.find(Sample.one == 1).inc({Sample.one: 100})
-
-        ```
-
-        Uses [Inc operator](https://roman-right.github.io/beanie/api/operators/update/#inc)
-
-        :param expression: Dict[Union[ExpressionField, str], Any]
-        :param session: Optional[ClientSession] - pymongo session
-        :param bulk_writer: Optional[BulkWriter] - bulk writer
-        :return: self
-        """
-        return self.update(
-            Inc(expression),
-            session=session,
-            bulk_writer=bulk_writer,
-            **pymongo_kwargs,
         )
 
     @wrap_with_actions(EventTypes.DELETE)
@@ -825,12 +720,12 @@ class Document(LazyModel, LinkedModelMixin, FindInterface):
                 self._previous_saved_state = self._saved_state
             self._saved_state = self.get_dict()
 
-    @property  # type: ignore
+    @property
     @saved_state_needed
     def is_changed(self) -> bool:
         return self._saved_state != self.get_dict()
 
-    @property  # type: ignore
+    @property
     @saved_state_needed
     @previous_saved_state_needed
     def has_changed(self) -> bool:
@@ -943,7 +838,7 @@ class Document(LazyModel, LinkedModelMixin, FindInterface):
             elif isinstance(exclude, Mapping):
                 exclude = dict(
                     {k: True for k in self._hidden_fields}, **exclude
-                )  # type: ignore
+                )
             elif exclude is None:
                 exclude = self._hidden_fields
 
