@@ -1,27 +1,20 @@
 from enum import Enum
-from typing import Any, List
+from functools import cached_property
+from typing import Any, Dict, Iterator, List, Tuple
 
 import bson
 import pymongo
 from bson.errors import InvalidId
-from pydantic import PlainSerializer, PlainValidator, WithJsonSchema
+from pydantic import (
+    GetCoreSchemaHandler,
+    PlainSerializer,
+    PlainValidator,
+    WithJsonSchema,
+)
 from pydantic_core import core_schema
-from typing_extensions import Annotated
+from typing_extensions import Annotated, Self
 
 from beanie.odm.operators.find.comparison import GT, GTE, LT, LTE, NE, Eq
-
-
-def Indexed(annotation, index_type=pymongo.ASCENDING, **kwargs):
-    """
-    Returns an Annotated type with a `{"get_index_model" : f}` dict metadata, where
-    f is a function `f(key) -> IndexModel` that generates a pymongo Index instance
-    for the given key.
-    """
-
-    def get_index_model(key):
-        return pymongo.IndexModel([(key, index_type)], **kwargs)
-
-    return Annotated[annotation, {"get_index_model": get_index_model}]
 
 
 def _validate_objectid(v: Any) -> bson.ObjectId:
@@ -101,55 +94,71 @@ class ExpressionField(str):
         return self
 
 
-class IndexModelField:
-    def __init__(self, index: pymongo.IndexModel):
-        self.index = index
-        self.name = index.document["name"]
+def Indexed(annotation, index_type=pymongo.ASCENDING, **kwargs):
+    """
+    Returns an Annotated type with a `{"get_index_model" : f}` dict metadata, where
+    f is a function `f(key) -> IndexModel` that generates a pymongo Index instance
+    for the given key.
+    """
 
-        self.fields = tuple(sorted(self.index.document["key"]))
-        self.options = tuple(
-            sorted(
-                (k, v)
-                for k, v in self.index.document.items()
-                if k not in ["key", "v"]
-            )
-        )
+    def get_index_model(key):
+        return IndexModel([(key, index_type)], **kwargs)
 
-    def __eq__(self, other):
-        return self.fields == other.fields and self.options == other.options
+    return Annotated[annotation, {"get_index_model": get_index_model}]
 
-    def __repr__(self):
-        return f"IndexModelField({self.name}, {self.fields}, {self.options})"
+
+class IndexModel(pymongo.IndexModel):
+    @classmethod
+    def from_pymongo(cls, index: pymongo.IndexModel) -> Self:
+        self = cls.__new__(cls)
+        self.__document = index.document
+        return self
+
+    @cached_property
+    def name(self) -> str:
+        return self.document["name"]
+
+    @cached_property
+    def keys(self) -> Tuple[Tuple[str, int], ...]:
+        return tuple(sorted(self.document["key"]))
+
+    @cached_property
+    def options(self) -> Dict[str, Any]:
+        return {
+            k: v for k, v in self.document.items() if k not in ("key", "v")
+        }
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, IndexModel):
+            return False
+        return self.keys == other.keys and self.options == other.options
 
     @classmethod
-    def from_motor_index_information(cls, index_info: dict):
-        result = []
+    def iter_indexes(cls, index_info: Dict[str, Any]) -> Iterator[Self]:
         for name, details in index_info.items():
-            fields = details["key"]
-            if ("_id", 1) in fields:
+            keys = details.pop("key")
+            if ("_id", 1) in keys:
                 continue
-
-            options = {k: v for k, v in details.items() if k != "key"}
-            index_model = IndexModelField(
-                pymongo.IndexModel(fields, name=name, **options)
-            )
-            result.append(index_model)
-        return result
-
-    @staticmethod
-    def merge_indexes(
-        left: List["IndexModelField"], right: List["IndexModelField"]
-    ):
-        left_dict = {index.fields: index for index in left}
-        right_dict = {index.fields: index for index in right}
-        left_dict.update(right_dict)
-        return list(left_dict.values())
+            yield cls(keys, name=name, **details)
 
     @classmethod
-    def __get_pydantic_core_schema__(cls, source_type, handler):
-        def validate(v, _):
-            if not isinstance(v, pymongo.IndexModel):
-                v = pymongo.IndexModel(v)
-            return IndexModelField(v)
+    def merge_indexes(cls, left: List[Self], right: List[Self]) -> List[Self]:
+        merged = {index.keys: index for index in left}
+        for index in right:
+            merged[index.keys] = index
+        return list(merged.values())
 
-        return core_schema.general_plain_validator_function(validate)
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls, source_type: Any, handler: GetCoreSchemaHandler
+    ) -> core_schema.CoreSchema:
+        def validate(v):
+            if isinstance(v, cls):
+                return v
+            if isinstance(v, pymongo.IndexModel):
+                return cls.from_pymongo(v)
+            return cls(v)
+
+        return core_schema.no_info_before_validator_function(
+            validate, schema=handler(source_type)
+        )

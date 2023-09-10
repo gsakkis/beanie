@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 import beanie
 from beanie.odm.documents import Document
-from beanie.odm.fields import ExpressionField, IndexModelField
+from beanie.odm.fields import ExpressionField, IndexModel
 from beanie.odm.union_doc import UnionDoc
 from beanie.odm.views import View
 
@@ -20,13 +20,12 @@ async def init_indexes(cls: Type[Document], drop_old: bool) -> None:
         if v.metadata and isinstance(v.metadata[0], dict):
             get_index_model = v.metadata[0].get("get_index_model")
             if get_index_model:
-                index = get_index_model(v.alias or k)
-                new_indexes.append(IndexModelField(index))
+                new_indexes.append(get_index_model(v.alias or k))
 
     settings = cls.get_settings()
-    merge_indexes = IndexModelField.merge_indexes
+    merge_indexes = IndexModel.merge_indexes
     if settings.merge_indexes:
-        super_indexes: List[IndexModelField] = []
+        super_indexes: List[IndexModel] = []
         for superclass in reversed(cls.mro()):
             if issubclass(superclass, Document) and superclass != Document:
                 if indexes := superclass.get_settings().indexes:
@@ -38,16 +37,14 @@ async def init_indexes(cls: Type[Document], drop_old: bool) -> None:
     # Only drop indexes if the user specifically allows for it
     collection = cls.get_motor_collection()
     if drop_old:
-        old_indexes = IndexModelField.from_motor_index_information(
-            await collection.index_information()
-        )
-        for index in old_indexes:
+        index_info = await collection.index_information()
+        for index in IndexModel.iter_indexes(index_info):
             if index not in new_indexes:
                 await collection.drop_index(index.name)
 
     # create indices
     if new_indexes:
-        await collection.create_indexes([i.index for i in new_indexes])
+        await collection.create_indexes(new_indexes)
 
 
 async def init_view(

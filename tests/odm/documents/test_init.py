@@ -1,6 +1,6 @@
+import pymongo
 import pytest
 from motor.motor_asyncio import AsyncIOMotorCollection
-from pymongo import IndexModel
 
 from beanie import Document, Indexed, init_beanie
 from beanie.odm.queries.find import get_projection
@@ -245,7 +245,7 @@ async def test_index_recreation(db):
 
         class Settings:
             indexes = [
-                IndexModel(
+                pymongo.IndexModel(
                     "name",
                     unique=True,
                     partialFilterExpression={"is_active": {"$eq": "active"}},

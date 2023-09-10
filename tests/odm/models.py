@@ -22,7 +22,6 @@ from pydantic import (
     SecretStr,
 )
 from pydantic_extra_types.color import Color
-from pymongo import IndexModel
 
 from beanie import (
     DecimalAnnotation,
@@ -144,7 +143,7 @@ class DocumentTestModelWithComplexIndex(Document):
                 ("test_int", pymongo.ASCENDING),
                 ("test_str", pymongo.DESCENDING),
             ],
-            IndexModel(
+            pymongo.IndexModel(
                 [("test_str", pymongo.DESCENDING)],
                 name="test_string_index_DESCENDING",
             ),
@@ -784,11 +783,11 @@ class DocumentWithIndexMerging1(Document):
             [
                 ("s2", pymongo.ASCENDING),
             ],
-            IndexModel(
+            pymongo.IndexModel(
                 [("s3", pymongo.ASCENDING)],
                 name="s3_index",
             ),
-            IndexModel(
+            pymongo.IndexModel(
                 [("s4", pymongo.ASCENDING)],
                 name="s4_index",
             ),
@@ -804,7 +803,7 @@ class DocumentWithIndexMerging2(DocumentWithIndexMerging1):
             [
                 ("s2", pymongo.DESCENDING),
             ],
-            IndexModel(
+            pymongo.IndexModel(
                 [("s3", pymongo.DESCENDING)],
                 name="s3_index",
             ),
