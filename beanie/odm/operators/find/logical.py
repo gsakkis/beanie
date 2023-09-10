@@ -1,21 +1,21 @@
-from typing import Any, Dict, Mapping, Union
+from typing import Any, Mapping, Union
 
 from beanie.odm.operators import BaseOperator
 
 
 class LogicalOperatorForListOfExpressions(BaseOperator):
-    operator: str = ""
+    operator = ""
 
     def __init__(
         self,
-        *expressions: Union[BaseOperator, Dict[str, Any], Mapping[str, Any]],
+        *expressions: Union[BaseOperator, Mapping[str, Any]],
     ):
+        if not expressions:
+            raise AttributeError("At least one expression must be provided")
         self.expressions = list(expressions)
 
     @property
-    def query(self) -> Mapping[str, Any]:
-        if not self.expressions:
-            raise AttributeError("At least one expression must be provided")
+    def query(self):
         if len(self.expressions) == 1:
             return self.expressions[0]
         return {self.operator: self.expressions}
@@ -75,7 +75,7 @@ class And(LogicalOperatorForListOfExpressions):
     operator = "$and"
 
 
-class Nor(BaseOperator):
+class Nor(LogicalOperatorForListOfExpressions):
     """
     `$nor` query operator
 
@@ -99,17 +99,11 @@ class Nor(BaseOperator):
     <https://docs.mongodb.com/manual/reference/operator/query/nor/>
     """
 
-    def __init__(
-        self,
-        *expressions: Union[
-            BaseOperator, Dict[str, Any], Mapping[str, Any], bool
-        ],
-    ):
-        self.expressions = list(expressions)
+    operator = "$nor"
 
     @property
     def query(self):
-        return {"$nor": self.expressions}
+        return {self.operator: self.expressions}
 
 
 class Not(BaseOperator):
@@ -136,9 +130,11 @@ class Not(BaseOperator):
     <https://docs.mongodb.com/manual/reference/operator/query/not/>
     """
 
-    def __init__(self, expression: Mapping[str, Any]):
+    operator = "$not"
+
+    def __init__(self, expression: Union[BaseOperator, Mapping[str, Any]]):
         self.expression = expression
 
     @property
     def query(self):
-        return {"$not": self.expression}
+        return {self.operator: self.expression}
