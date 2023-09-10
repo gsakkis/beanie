@@ -7,7 +7,6 @@ from typing_extensions import Self
 import beanie
 from beanie.exceptions import NotSupported
 from beanie.odm.cache import LRUCache
-from beanie.odm.fields import ExpressionField
 from beanie.odm.links import LinkedModelMixin
 from beanie.odm.operators.find.logical import And
 from beanie.odm.queries import BaseQuery
@@ -158,8 +157,7 @@ def convert_ids(
     for k, v in query.items():
         k_splitted = k.split(".")
         if (
-            isinstance(k, ExpressionField)
-            and len(k_splitted) == 2
+            len(k_splitted) == 2
             and k_splitted[0] in model_type.get_link_fields()
             and k_splitted[1] == "id"
         ):

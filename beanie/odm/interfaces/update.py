@@ -1,17 +1,14 @@
 from abc import abstractmethod
-from typing import Any, Dict, Mapping, Optional, Union
+from typing import Any, Dict, Mapping, Optional
 
 from pymongo.client_session import ClientSession
 
 from beanie.odm.bulk import BulkWriter
-from beanie.odm.fields import ExpressionField
 from beanie.odm.operators.update.general import CurrentDate, Inc, Set
 
 
 class UpdateMethods:
-    """
-    Update methods
-    """
+    """Update methods"""
 
     @abstractmethod
     def update(
@@ -25,7 +22,7 @@ class UpdateMethods:
 
     def set(
         self,
-        expression: Dict[Union[ExpressionField, str], Any],
+        expression: Dict[str, Any],
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
         **pymongo_kwargs: Any,
@@ -46,7 +43,7 @@ class UpdateMethods:
 
         Uses [Set operator](https://roman-right.github.io/beanie/api/operators/update/#set)
 
-        :param expression: Dict[Union[ExpressionField, str], Any] - keys and
+        :param expression: Dict[str, Any] - keys and
         values to set
         :param session: Optional[ClientSession] - pymongo session
         :param bulk_writer: Optional[BulkWriter] - bulk writer
@@ -61,7 +58,7 @@ class UpdateMethods:
 
     def current_date(
         self,
-        expression: Dict[Union[ExpressionField, str], Any],
+        expression: Dict[str, Any],
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
         **pymongo_kwargs: Any,
@@ -71,7 +68,7 @@ class UpdateMethods:
 
         Uses [CurrentDate operator](https://roman-right.github.io/beanie/api/operators/update/#currentdate)
 
-        :param expression: Dict[Union[ExpressionField, str], Any]
+        :param expression: Dict[str, Any]
         :param session: Optional[ClientSession] - pymongo session
         :param bulk_writer: Optional[BulkWriter] - bulk writer
         :return: self
@@ -85,7 +82,7 @@ class UpdateMethods:
 
     def inc(
         self,
-        expression: Dict[Union[ExpressionField, str], Any],
+        expression: Dict[str, Any],
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
         **pymongo_kwargs: Any,
@@ -106,7 +103,7 @@ class UpdateMethods:
 
         Uses [Inc operator](https://roman-right.github.io/beanie/api/operators/update/#inc)
 
-        :param expression: Dict[Union[ExpressionField, str], Any]
+        :param expression: Dict[str, Any]
         :param session: Optional[ClientSession] - pymongo session
         :param bulk_writer: Optional[BulkWriter] - bulk writer
         :return: self

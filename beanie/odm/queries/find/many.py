@@ -18,7 +18,7 @@ from typing_extensions import Self
 
 import beanie
 from beanie.odm.bulk import BulkWriter
-from beanie.odm.fields import ExpressionField, SortDirection
+from beanie.odm.fields import SortDirection
 from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.queries.cursor import BaseCursorQuery, ProjectionT
 from beanie.odm.queries.delete import DeleteMany
@@ -139,23 +139,24 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
             elif isinstance(arg, list):
                 self.sort(*arg)
             elif isinstance(arg, tuple):
-                self.sort_expressions.append(arg)
+                self._add_sort(*arg)
             elif isinstance(arg, str):
-                if arg.startswith("+"):
-                    self.sort_expressions.append(
-                        (arg[1:], SortDirection.ASCENDING)
-                    )
-                elif arg.startswith("-"):
-                    self.sort_expressions.append(
-                        (arg[1:], SortDirection.DESCENDING)
-                    )
-                else:
-                    self.sort_expressions.append(
-                        (arg, SortDirection.ASCENDING)
-                    )
+                self._add_sort(arg)
             else:
                 raise TypeError("Wrong argument type")
         return self
+
+    def _add_sort(self, key: str, direction: Optional[SortDirection] = None):
+        if direction is None:
+            if key.startswith("-"):
+                direction = SortDirection.DESCENDING
+                key = key[1:]
+            else:
+                direction = SortDirection.ASCENDING
+                if key.startswith("+"):
+                    key = key[1:]
+
+        self.sort_expressions.append((key, direction))
 
     def skip(self, n: Optional[int]) -> Self:
         """
@@ -355,7 +356,7 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
 
     async def sum(
         self,
-        field: Union[str, ExpressionField],
+        field: str,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
         **pymongo_kwargs: Any,
@@ -375,7 +376,7 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
 
         ```
 
-        :param field: Union[str, ExpressionField]
+        :param field: str
         :param session: Optional[ClientSession] - pymongo session
         :param ignore_cache: bool
         :return: float - sum. None if there are no items.
@@ -386,7 +387,7 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
 
     async def avg(
         self,
-        field: Union[str, ExpressionField],
+        field: str,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
         **pymongo_kwargs: Any,
@@ -405,7 +406,7 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
         avg_count = await Document.find(Sample.price <= 100).avg(Sample.count)
         ```
 
-        :param field: Union[str, ExpressionField]
+        :param field: str
         :param session: Optional[ClientSession] - pymongo session
         :param ignore_cache: bool
         :return: Optional[float] - avg. None if there are no items.
@@ -416,7 +417,7 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
 
     async def max(
         self,
-        field: Union[str, ExpressionField],
+        field: str,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
         **pymongo_kwargs: Any,
@@ -435,7 +436,7 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
         max_count = await Document.find(Sample.price <= 100).max(Sample.count)
         ```
 
-        :param field: Union[str, ExpressionField]
+        :param field: str
         :param session: Optional[ClientSession] - pymongo session
         :return: float - max. None if there are no items.
         """
@@ -445,7 +446,7 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
 
     async def min(
         self,
-        field: Union[str, ExpressionField],
+        field: str,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
         **pymongo_kwargs: Any,
@@ -464,7 +465,7 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
         min_count = await Document.find(Sample.price <= 100).min(Sample.count)
         ```
 
-        :param field: Union[str, ExpressionField]
+        :param field: str
         :param session: Optional[ClientSession] - pymongo session
         :return: float - min. None if there are no items.
         """
@@ -475,7 +476,7 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
     async def _compute_aggregate(
         self,
         operator: str,
-        field: Union[str, ExpressionField],
+        field: str,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
         **pymongo_kwargs: Any,

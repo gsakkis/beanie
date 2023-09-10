@@ -14,7 +14,7 @@ from pydantic import (
 from pydantic_core import core_schema
 from typing_extensions import Annotated, Self
 
-from beanie.odm.operators.find.comparison import GT, GTE, LT, LTE, NE, Eq
+from beanie.odm.operators.find import comparison
 
 
 def _validate_objectid(v: Any) -> bson.ObjectId:
@@ -49,37 +49,32 @@ class ExpressionField(str):
         """
         return ExpressionField(f"{self}.{item}")
 
-    def __getattr__(self, item):
-        """
-        Get sub field
-
-        :param item: name of the subfield
-        :return: ExpressionField
-        """
-        return ExpressionField(f"{self}.{item}")
+    __getattr__ = __getitem__
 
     def __hash__(self):
-        return hash(str(self))
+        return super().__hash__()
 
     def __eq__(self, other):
         if isinstance(other, ExpressionField):
-            return super(ExpressionField, self).__eq__(other)
-        return Eq(field=self, other=other)
-
-    def __gt__(self, other):
-        return GT(field=self, other=other)
-
-    def __ge__(self, other):
-        return GTE(field=self, other=other)
-
-    def __lt__(self, other):
-        return LT(field=self, other=other)
-
-    def __le__(self, other):
-        return LTE(field=self, other=other)
+            return str(self) == other
+        return comparison.Eq(self, other)
 
     def __ne__(self, other):
-        return NE(field=self, other=other)
+        if isinstance(other, ExpressionField):
+            return str(self) != other
+        return comparison.NE(self, other)
+
+    def __gt__(self, other):
+        return comparison.GT(self, other)
+
+    def __ge__(self, other):
+        return comparison.GTE(self, other)
+
+    def __lt__(self, other):
+        return comparison.LT(self, other)
+
+    def __le__(self, other):
+        return comparison.LTE(self, other)
 
     def __pos__(self):
         return self, SortDirection.ASCENDING
