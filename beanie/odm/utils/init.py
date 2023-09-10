@@ -3,7 +3,6 @@ from typing import List, Optional, Type, Union
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pydantic import BaseModel
-from pymongo import IndexModel
 
 import beanie
 from beanie.odm.documents import Document
@@ -18,10 +17,11 @@ async def init_indexes(cls: Type[Document], drop_old: bool) -> None:
     # Indexed field wrapped with Indexed()
     new_indexes = []
     for k, v in cls.model_fields.items():
-        if indexed := getattr(v.annotation, "_indexed", None):
-            index_type, kwargs = indexed
-            index = IndexModel([(v.alias or k, index_type)], **kwargs)
-            new_indexes.append(IndexModelField(index))
+        if v.metadata and isinstance(v.metadata[0], dict):
+            get_index_model = v.metadata[0].get("get_index_model")
+            if get_index_model:
+                index = get_index_model(v.alias or k)
+                new_indexes.append(IndexModelField(index))
 
     settings = cls.get_settings()
     merge_indexes = IndexModelField.merge_indexes

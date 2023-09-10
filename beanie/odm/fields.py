@@ -11,29 +11,17 @@ from typing_extensions import Annotated
 from beanie.odm.operators.find.comparison import GT, GTE, LT, LTE, NE, Eq
 
 
-def Indexed(typ, index_type=pymongo.ASCENDING, **kwargs):
+def Indexed(annotation, index_type=pymongo.ASCENDING, **kwargs):
     """
-    Returns a subclass of `typ` with an extra attribute `_indexed` as a tuple:
-    - Index 0: `index_type` such as `pymongo.ASCENDING`
-    - Index 1: `kwargs` passed to `IndexModel`
-    When instantiated the type of the result will actually be `typ`.
+    Returns an Annotated type with a `{"get_index_model" : f}` dict metadata, where
+    f is a function `f(key) -> IndexModel` that generates a pymongo Index instance
+    for the given key.
     """
 
-    class NewType(typ):
-        _indexed = (index_type, kwargs)
+    def get_index_model(key):
+        return pymongo.IndexModel([(key, index_type)], **kwargs)
 
-        def __new__(cls, *args, **kwargs):
-            return typ.__new__(typ, *args, **kwargs)
-
-        @classmethod
-        def __get_pydantic_core_schema__(cls, source_type, handler):
-            return core_schema.no_info_after_validator_function(
-                lambda v: v,
-                core_schema.simple_ser_schema(typ.__name__),
-            )
-
-    NewType.__name__ = f"Indexed {typ.__name__}"
-    return NewType
+    return Annotated[annotation, {"get_index_model": get_index_model}]
 
 
 def _validate_objectid(v: Any) -> bson.ObjectId:
