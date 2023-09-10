@@ -1,14 +1,9 @@
-from abc import ABC
 from typing import Optional
 
-from beanie.odm.operators.find import BaseFindOperator
+from beanie.odm.operators import BaseOperator
 
 
-class BaseFindArrayOperator(BaseFindOperator, ABC):
-    ...
-
-
-class All(BaseFindArrayOperator):
+class All(BaseOperator):
     """
     `$all` array query operator
 
@@ -44,7 +39,7 @@ class All(BaseFindArrayOperator):
         return {self.field: {"$all": self.values_list}}
 
 
-class ElemMatch(BaseFindArrayOperator):
+class ElemMatch(BaseOperator):
     """
     `$elemMatch` array query operator
 
@@ -85,7 +80,7 @@ class ElemMatch(BaseFindArrayOperator):
         return {self.field: {"$elemMatch": self.expression}}
 
 
-class Size(BaseFindArrayOperator):
+class Size(BaseOperator):
     """
     `$size` array query operator
 

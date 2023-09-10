@@ -1,7 +1,7 @@
-from beanie.odm.operators.find import BaseFindOperator
+from beanie.odm.operators import BaseOperator
 
 
-class BaseFindComparisonOperator(BaseFindOperator):
+class BaseFindComparisonOperator(BaseOperator):
     operator = ""
 
     def __init__(

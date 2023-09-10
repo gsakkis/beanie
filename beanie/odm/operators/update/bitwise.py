@@ -1,13 +1,7 @@
-from abc import ABC
-
-from beanie.odm.operators.update import BaseUpdateOperator
+from beanie.odm.operators import BaseOperator
 
 
-class BaseUpdateBitwiseOperator(BaseUpdateOperator, ABC):
-    ...
-
-
-class Bit(BaseUpdateBitwiseOperator):
+class Bit(BaseOperator):
     """
     `$bit` update query operator
 

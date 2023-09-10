@@ -1,7 +1,7 @@
-from beanie.odm.operators.update import BaseUpdateOperator
+from beanie.odm.operators import BaseOperator
 
 
-class BaseUpdateArrayOperator(BaseUpdateOperator):
+class BaseUpdateArrayOperator(BaseOperator):
     operator = ""
 
     def __init__(self, expression):

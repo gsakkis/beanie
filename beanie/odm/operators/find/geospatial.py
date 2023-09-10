@@ -1,15 +1,10 @@
-from abc import ABC
 from enum import Enum
 from typing import List, Optional
 
-from beanie.odm.operators.find import BaseFindOperator
+from beanie.odm.operators import BaseOperator
 
 
-class BaseFindGeospatialOperator(BaseFindOperator, ABC):
-    ...
-
-
-class GeoIntersects(BaseFindGeospatialOperator):
+class GeoIntersects(BaseOperator):
     """
     `$geoIntersects` query operator
 
@@ -75,7 +70,7 @@ class GeoWithinTypes(str, Enum):
     MultiPolygon = "MultiPolygon"
 
 
-class GeoWithin(BaseFindGeospatialOperator):
+class GeoWithin(BaseOperator):
     """
     `$geoWithin` query operator
 
@@ -138,7 +133,7 @@ class GeoWithin(BaseFindGeospatialOperator):
         }
 
 
-class Box(BaseFindGeospatialOperator):
+class Box(BaseOperator):
     """
     `$box` query operator
 
@@ -188,7 +183,7 @@ class Box(BaseFindGeospatialOperator):
         return {self.field: {"$geoWithin": {"$box": self.coordinates}}}
 
 
-class Near(BaseFindGeospatialOperator):
+class Near(BaseOperator):
     """
     `$near` query operator
 

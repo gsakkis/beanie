@@ -21,7 +21,7 @@ from typing_extensions import Self
 import beanie
 from beanie.odm.bulk import BulkWriter, Operation
 from beanie.odm.interfaces.update import UpdateMethods
-from beanie.odm.operators.update import BaseUpdateOperator
+from beanie.odm.operators import BaseOperator
 from beanie.odm.operators.update.general import SetRevisionId
 from beanie.odm.queries import BaseQuery
 from beanie.odm.utils.encoder import Encoder
@@ -55,7 +55,7 @@ class UpdateQuery(BaseQuery, UpdateMethods):
     def update_query(self) -> Dict[str, Any]:
         query: Dict[str, Any] = {}
         for expression in self.update_expressions:
-            if isinstance(expression, BaseUpdateOperator):
+            if isinstance(expression, BaseOperator):
                 query.update(expression.query)
             elif isinstance(expression, dict):
                 query.update(expression)

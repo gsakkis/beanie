@@ -1,14 +1,9 @@
-from abc import ABC
 from typing import List, Union
 
-from beanie.odm.operators.find import BaseFindOperator
+from beanie.odm.operators import BaseOperator
 
 
-class BaseFindElementOperator(BaseFindOperator, ABC):
-    ...
-
-
-class Exists(BaseFindElementOperator):
+class Exists(BaseOperator):
     """
     `$exists` query operator
 
@@ -44,7 +39,7 @@ class Exists(BaseFindElementOperator):
         return {self.field: {"$exists": self.value}}
 
 
-class Type(BaseFindElementOperator):
+class Type(BaseOperator):
     """
     `$type` query operator
 

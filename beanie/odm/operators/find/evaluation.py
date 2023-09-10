@@ -1,14 +1,9 @@
-from abc import ABC
 from typing import Optional
 
-from beanie.odm.operators.find import BaseFindOperator
+from beanie.odm.operators import BaseOperator
 
 
-class BaseFindEvaluationOperator(BaseFindOperator, ABC):
-    ...
-
-
-class Expr(BaseFindEvaluationOperator):
+class Expr(BaseOperator):
     """
     `$type` query operator
 
@@ -40,7 +35,7 @@ class Expr(BaseFindEvaluationOperator):
         return {"$expr": self.expression}
 
 
-class JsonSchema(BaseFindEvaluationOperator):
+class JsonSchema(BaseOperator):
     """
     `$jsonSchema` query operator
 
@@ -56,7 +51,7 @@ class JsonSchema(BaseFindEvaluationOperator):
         return {"$jsonSchema": self.expression}
 
 
-class Mod(BaseFindEvaluationOperator):
+class Mod(BaseOperator):
     """
     `$mod` query operator
 
@@ -89,7 +84,7 @@ class Mod(BaseFindEvaluationOperator):
         return {self.field: {"$mod": [self.divisor, self.remainder]}}
 
 
-class RegEx(BaseFindEvaluationOperator):
+class RegEx(BaseOperator):
     """
     `$regex` query operator
 
@@ -115,7 +110,7 @@ class RegEx(BaseFindEvaluationOperator):
         return {self.field: expression}
 
 
-class Text(BaseFindEvaluationOperator):
+class Text(BaseOperator):
     """
     `$text` query operator
 
@@ -177,7 +172,7 @@ class Text(BaseFindEvaluationOperator):
         return expression
 
 
-class Where(BaseFindEvaluationOperator):
+class Where(BaseOperator):
     """
     `$where` query operator
 

@@ -1,7 +1,7 @@
-from beanie.odm.operators.find import BaseFindOperator
+from beanie.odm.operators import BaseOperator
 
 
-class BaseFindBitwiseOperator(BaseFindOperator):
+class BaseFindBitwiseOperator(BaseOperator):
     operator = ""
 
     def __init__(self, field, bitmask):
