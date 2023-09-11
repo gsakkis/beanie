@@ -1,6 +1,6 @@
 from enum import Enum
 from functools import cached_property
-from typing import Any, Dict, Iterator, List, Tuple
+from typing import Any, Dict, Iterator, List, Tuple, Union
 
 import bson
 import pymongo
@@ -14,7 +14,7 @@ from pydantic import (
 from pydantic_core import core_schema
 from typing_extensions import Annotated, Self
 
-from beanie.odm.operators import comparison
+from beanie.odm.operators import BaseOperator, comparison
 
 
 def _validate_objectid(v: Any) -> bson.ObjectId:
@@ -39,53 +39,61 @@ class SortDirection(int, Enum):
     DESCENDING = pymongo.DESCENDING
 
 
-class ExpressionField(str):
-    def __getitem__(self, item):
+class ExpressionField:
+    __slots__ = ("_expr",)
+
+    def __init__(self, expression: str):
+        self._expr = expression
+
+    def __str__(self) -> str:
+        return self._expr
+
+    def __getitem__(self, item: str) -> Self:
         """
         Get sub field
 
         :param item: name of the subfield
         :return: ExpressionField
         """
-        return ExpressionField(f"{self}.{item}")
+        return self.__class__(f"{self._expr}.{item}")
 
     __getattr__ = __getitem__
 
-    def __hash__(self):
-        return super().__hash__()
+    def __hash__(self) -> int:
+        return hash(self._expr)
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> Union[BaseOperator, bool]:  # type: ignore[override]
         if isinstance(other, ExpressionField):
-            return str(self) == other
-        return comparison.Eq(self, other)
+            return self._expr == other._expr
+        return comparison.Eq(self._expr, other)
 
-    def __ne__(self, other):
+    def __ne__(self, other: Any) -> Union[BaseOperator, bool]:  # type: ignore[override]
         if isinstance(other, ExpressionField):
-            return str(self) != other
-        return comparison.NE(self, other)
+            return self._expr != other._expr
+        return comparison.NE(self._expr, other)
 
-    def __gt__(self, other):
-        return comparison.GT(self, other)
+    def __gt__(self, other: Any) -> BaseOperator:
+        return comparison.GT(self._expr, other)
 
-    def __ge__(self, other):
-        return comparison.GTE(self, other)
+    def __ge__(self, other: Any) -> BaseOperator:
+        return comparison.GTE(self._expr, other)
 
-    def __lt__(self, other):
-        return comparison.LT(self, other)
+    def __lt__(self, other: Any) -> BaseOperator:
+        return comparison.LT(self._expr, other)
 
-    def __le__(self, other):
-        return comparison.LTE(self, other)
+    def __le__(self, other: Any) -> BaseOperator:
+        return comparison.LTE(self._expr, other)
 
-    def __pos__(self):
-        return self, SortDirection.ASCENDING
+    def __pos__(self) -> Tuple[str, SortDirection]:
+        return self._expr, SortDirection.ASCENDING
 
-    def __neg__(self):
-        return self, SortDirection.DESCENDING
+    def __neg__(self) -> Tuple[str, SortDirection]:
+        return self._expr, SortDirection.DESCENDING
 
-    def __copy__(self):
+    def __copy__(self) -> Self:
         return self
 
-    def __deepcopy__(self, memo):
+    def __deepcopy__(self, memo: dict) -> Self:
         return self
 
 
