@@ -1,3 +1,6 @@
+from typing import Optional
+from uuid import UUID
+
 from beanie.odm.operators import BaseOperator
 
 
@@ -13,7 +16,7 @@ class Set(BaseOperator):
 
 
 class SetRevisionId(Set):
-    def __init__(self, revision_id):
+    def __init__(self, revision_id: Optional[UUID]):
         super().__init__({"revision_id": revision_id})
 
 

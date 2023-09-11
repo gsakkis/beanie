@@ -1,3 +1,5 @@
+from typing import Any
+
 from beanie.odm.operators import BaseFieldOperator
 
 
@@ -11,7 +13,7 @@ class Eq(BaseFieldOperator):
 
     operator = "$eq"
 
-    def __init__(self, field, expression):
+    def __init__(self, field: str, expression: Any):
         super().__init__(field, expression)
         self[field] = expression
 

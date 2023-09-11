@@ -1,11 +1,13 @@
 from enum import Enum
-from typing import Optional
+from typing import List, Optional
 
 from beanie.odm.operators import BaseFieldOperator
 
 
 class BaseGeoOperator(BaseFieldOperator):
-    def __init__(self, field, geo_type, coordinates):
+    def __init__(
+        self, field: str, geo_type: str, coordinates: List[List[float]]
+    ):
         super().__init__(
             field,
             {"$geometry": {"type": geo_type, "coordinates": coordinates}},
@@ -148,11 +150,13 @@ class Box(BaseFieldOperator):
 
     operator = "$geoWithin"
 
-    def __init__(self, field, lower_left, upper_right):
+    def __init__(
+        self, field: str, lower_left: List[float], upper_right: List[float]
+    ):
         super().__init__(field, {"$box": [lower_left, upper_right]})
 
 
-class Near(BaseGeoOperator):
+class Near(BaseFieldOperator):
     """
     `$near` query operator
 
@@ -199,14 +203,20 @@ class Near(BaseGeoOperator):
 
     def __init__(
         self,
-        field,
+        field: str,
         longitude: float,
         latitude: float,
         max_distance: Optional[float] = None,
         min_distance: Optional[float] = None,
     ):
         super().__init__(
-            field, geo_type="Point", coordinates=[longitude, latitude]
+            field,
+            {
+                "$geometry": {
+                    "type": "Point",
+                    "coordinates": [longitude, latitude],
+                }
+            },
         )
         if max_distance:
             self[field][self.operator]["$maxDistance"] = max_distance

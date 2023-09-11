@@ -66,7 +66,7 @@ class Mod(BaseFieldOperator):
 
     operator = "$mod"
 
-    def __init__(self, field, divisor: int, remainder: int):
+    def __init__(self, field: str, divisor: int, remainder: int):
         super().__init__(field, [divisor, remainder])
 
 
@@ -80,7 +80,9 @@ class RegEx(BaseFieldOperator):
 
     operator = "$regex"
 
-    def __init__(self, field, pattern: str, options: Optional[str] = None):
+    def __init__(
+        self, field: str, pattern: str, options: Optional[str] = None
+    ):
         super().__init__(field, pattern)
         if options:
             self[field]["$options"] = options

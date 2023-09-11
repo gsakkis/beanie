@@ -11,7 +11,6 @@ from typing import (
     Set,
     Type,
     Union,
-    cast,
 )
 from uuid import UUID, uuid4
 
@@ -236,16 +235,13 @@ class Document(LazyModel, LinkedModelMixin, FindInterface, UpdateMethods):
         :param **pymongo_kwargs: pymongo native parameters for find operation
         :return: Union["Document", None]
         """
-        return cast(
-            Optional[Self],
-            await cls.find_one(
-                {"_id": cls._parse_document_id(document_id)},
-                session=session,
-                ignore_cache=ignore_cache,
-                fetch_links=fetch_links,
-                with_children=with_children,
-                **pymongo_kwargs,
-            ),
+        return await cls.find_one(  # type: ignore[func-returns-value]
+            {"_id": cls._parse_document_id(document_id)},
+            session=session,
+            ignore_cache=ignore_cache,
+            fetch_links=fetch_links,
+            with_children=with_children,
+            **pymongo_kwargs,
         )
 
     @wrap_with_actions(EventTypes.INSERT)
@@ -552,7 +548,7 @@ class Document(LazyModel, LinkedModelMixin, FindInterface, UpdateMethods):
         :return: None
         """
         ids_list = [document.id for document in documents]
-        if await cls.find(In(cls.id, ids_list)).count() != len(ids_list):
+        if await cls.find(In(cls.id, ids_list)).count() != len(ids_list):  # type: ignore[arg-type]
             raise ReplaceError(
                 "Some of the documents are not exist in the collection"
             )

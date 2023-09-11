@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Mapping, Optional
 
 from beanie.odm.operators import BaseFieldOperator
 
@@ -54,7 +54,12 @@ class ElemMatch(BaseFieldOperator):
 
     operator = "$elemMatch"
 
-    def __init__(self, field, expression: Optional[dict] = None, **kwargs):
+    def __init__(
+        self,
+        field: str,
+        expression: Optional[Mapping[str, Any]] = None,
+        **kwargs: Any,
+    ):
         super().__init__(
             field,
             dict(expression, **kwargs) if expression is not None else kwargs,

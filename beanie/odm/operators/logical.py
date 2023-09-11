@@ -1,3 +1,5 @@
+from typing import Any, Mapping
+
 from beanie.odm.operators import BaseOperator
 
 
@@ -5,7 +7,7 @@ class LogicalOperatorForListOfExpressions(BaseOperator):
     operator = ""
     allow_scalar = True
 
-    def __init__(self, *expressions):
+    def __init__(self, *expressions: Mapping[str, Any]):
         if not expressions:
             raise AttributeError("At least one expression must be provided")
 

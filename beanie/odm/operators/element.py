@@ -26,7 +26,7 @@ class Exists(BaseFieldOperator):
 
     operator = "$exists"
 
-    def __init__(self, field, value: bool = True):
+    def __init__(self, field: str, value: bool = True):
         super().__init__(field, value)
 
 
@@ -55,5 +55,5 @@ class Type(BaseFieldOperator):
 
     operator = "$type"
 
-    def __init__(self, field, *types: str):
+    def __init__(self, field: str, *types: str):
         super().__init__(field, list(types) if len(types) > 1 else types[0])
