@@ -1,19 +1,7 @@
-from beanie.odm.operators import BaseOperator
+from beanie.odm.operators import BaseFieldOperator
 
 
-class BaseFindComparisonOperator(BaseOperator):
-    operator = ""
-
-    def __init__(self, field, other):
-        self.field = field
-        self.other = other
-
-    @property
-    def query(self):
-        return {self.field: {self.operator: self.other}}
-
-
-class Eq(BaseFindComparisonOperator):
+class Eq(BaseFieldOperator):
     """
     `$eq` query operator
 
@@ -21,12 +9,14 @@ class Eq(BaseFindComparisonOperator):
     <https://docs.mongodb.com/manual/reference/operator/query/eq/>
     """
 
-    @property
-    def query(self):
-        return {self.field: self.other}
+    operator = "$eq"
+
+    def __init__(self, field, expression):
+        super().__init__(field, expression)
+        self[field] = expression
 
 
-class NE(BaseFindComparisonOperator):
+class NE(BaseFieldOperator):
     """
     `$ne` query operator
 
@@ -37,7 +27,7 @@ class NE(BaseFindComparisonOperator):
     operator = "$ne"
 
 
-class GT(BaseFindComparisonOperator):
+class GT(BaseFieldOperator):
     """
     `$gt` query operator
 
@@ -48,7 +38,7 @@ class GT(BaseFindComparisonOperator):
     operator = "$gt"
 
 
-class GTE(BaseFindComparisonOperator):
+class GTE(BaseFieldOperator):
     """
     `$gte` query operator
 
@@ -59,7 +49,7 @@ class GTE(BaseFindComparisonOperator):
     operator = "$gte"
 
 
-class LT(BaseFindComparisonOperator):
+class LT(BaseFieldOperator):
     """
     `$lt` query operator
 
@@ -70,7 +60,7 @@ class LT(BaseFindComparisonOperator):
     operator = "$lt"
 
 
-class LTE(BaseFindComparisonOperator):
+class LTE(BaseFieldOperator):
     """
     `$lte` query operator
 
@@ -81,7 +71,7 @@ class LTE(BaseFindComparisonOperator):
     operator = "$lte"
 
 
-class In(BaseFindComparisonOperator):
+class In(BaseFieldOperator):
     """
     `$in` query operator
 
@@ -92,7 +82,7 @@ class In(BaseFindComparisonOperator):
     operator = "$in"
 
 
-class NotIn(BaseFindComparisonOperator):
+class NotIn(BaseFieldOperator):
     """
     `$nin` query operator
 

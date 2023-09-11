@@ -1,19 +1,7 @@
-from beanie.odm.operators import BaseOperator
+from beanie.odm.operators import BaseFieldOperator
 
 
-class BaseFindBitwiseOperator(BaseOperator):
-    operator = ""
-
-    def __init__(self, field, bitmask):
-        self.field = field
-        self.bitmask = bitmask
-
-    @property
-    def query(self):
-        return {self.field: {self.operator: self.bitmask}}
-
-
-class BitsAllClear(BaseFindBitwiseOperator):
+class BitsAllClear(BaseFieldOperator):
     """
     `$bitsAllClear` query operator
 
@@ -24,7 +12,7 @@ class BitsAllClear(BaseFindBitwiseOperator):
     operator = "$bitsAllClear"
 
 
-class BitsAllSet(BaseFindBitwiseOperator):
+class BitsAllSet(BaseFieldOperator):
     """
     `$bitsAllSet` query operator
 
@@ -35,7 +23,7 @@ class BitsAllSet(BaseFindBitwiseOperator):
     operator = "$bitsAllSet"
 
 
-class BitsAnyClear(BaseFindBitwiseOperator):
+class BitsAnyClear(BaseFieldOperator):
     """
     `$bitsAnyClear` query operator
 
@@ -46,7 +34,7 @@ class BitsAnyClear(BaseFindBitwiseOperator):
     operator = "$bitsAnyClear"
 
 
-class BitsAnySet(BaseFindBitwiseOperator):
+class BitsAnySet(BaseFieldOperator):
     """
     `$bitsAnySet` query operator
 

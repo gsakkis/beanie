@@ -47,7 +47,7 @@ class FindQuery(BaseQuery):
         if self.find_expressions:
             return Encoder(
                 custom_encoders=self.document_model.get_settings().bson_encoders
-            ).encode(And(*self.find_expressions).query)
+            ).encode(And(*self.find_expressions))
         return {}
 
     def project(

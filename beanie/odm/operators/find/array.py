@@ -1,9 +1,9 @@
 from typing import Optional
 
-from beanie.odm.operators import BaseOperator
+from beanie.odm.operators import BaseFieldOperator
 
 
-class All(BaseOperator):
+class All(BaseFieldOperator):
     """
     `$all` array query operator
 
@@ -28,16 +28,8 @@ class All(BaseOperator):
 
     operator = "$all"
 
-    def __init__(self, field, values: list):
-        self.field = field
-        self.values_list = values
 
-    @property
-    def query(self):
-        return {self.field: {self.operator: self.values_list}}
-
-
-class ElemMatch(BaseOperator):
+class ElemMatch(BaseFieldOperator):
     """
     `$elemMatch` array query operator
 
@@ -63,18 +55,13 @@ class ElemMatch(BaseOperator):
     operator = "$elemMatch"
 
     def __init__(self, field, expression: Optional[dict] = None, **kwargs):
-        self.field = field
-        if expression is None:
-            self.expression = kwargs
-        else:
-            self.expression = dict(expression, **kwargs)
-
-    @property
-    def query(self):
-        return {self.field: {self.operator: self.expression}}
+        super().__init__(
+            field,
+            dict(expression, **kwargs) if expression is not None else kwargs,
+        )
 
 
-class Size(BaseOperator):
+class Size(BaseFieldOperator):
     """
     `$size` array query operator
 
@@ -98,11 +85,3 @@ class Size(BaseOperator):
     """
 
     operator = "$size"
-
-    def __init__(self, field, num: int):
-        self.field = field
-        self.num = num
-
-    @property
-    def query(self):
-        return {self.field: {self.operator: self.num}}

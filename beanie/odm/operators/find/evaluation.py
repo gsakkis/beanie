@@ -1,9 +1,9 @@
 from typing import Any, Dict, Optional
 
-from beanie.odm.operators import BaseOperator
+from beanie.odm.operators import BaseFieldOperator, BaseNonFieldOperator
 
 
-class Expr(BaseOperator):
+class Expr(BaseNonFieldOperator):
     """
     `$expr` query operator
 
@@ -29,15 +29,8 @@ class Expr(BaseOperator):
 
     operator = "$expr"
 
-    def __init__(self, expression: dict):
-        self.expression = expression
 
-    @property
-    def query(self):
-        return {self.operator: self.expression}
-
-
-class JsonSchema(BaseOperator):
+class JsonSchema(BaseNonFieldOperator):
     """
     `$jsonSchema` query operator
 
@@ -47,15 +40,8 @@ class JsonSchema(BaseOperator):
 
     operator = "$jsonSchema"
 
-    def __init__(self, expression: dict):
-        self.expression = expression
 
-    @property
-    def query(self):
-        return {self.operator: self.expression}
-
-
-class Mod(BaseOperator):
+class Mod(BaseFieldOperator):
     """
     `$mod` query operator
 
@@ -81,15 +67,10 @@ class Mod(BaseOperator):
     operator = "$mod"
 
     def __init__(self, field, divisor: int, remainder: int):
-        self.field = field
-        self.expression = [divisor, remainder]
-
-    @property
-    def query(self):
-        return {self.field: {self.operator: self.expression}}
+        super().__init__(field, [divisor, remainder])
 
 
-class RegEx(BaseOperator):
+class RegEx(BaseFieldOperator):
     """
     `$regex` query operator
 
@@ -100,17 +81,12 @@ class RegEx(BaseOperator):
     operator = "$regex"
 
     def __init__(self, field, pattern: str, options: Optional[str] = None):
-        self.field = field
-        self.expression = {self.operator: pattern}
+        super().__init__(field, pattern)
         if options:
-            self.expression["$options"] = options
-
-    @property
-    def query(self):
-        return {self.field: self.expression}
+            self[field]["$options"] = options
 
 
-class Text(BaseOperator):
+class Text(BaseNonFieldOperator):
     """
     `$text` query operator
 
@@ -148,20 +124,17 @@ class Text(BaseOperator):
         case_sensitive: Optional[bool] = None,
         diacritic_sensitive: Optional[bool] = None,
     ):
-        self.expression: Dict[str, Any] = {"$search": search}
+        expression: Dict[str, Any] = {"$search": search}
         if language is not None:
-            self.expression["$language"] = language
+            expression["$language"] = language
         if case_sensitive is not None:
-            self.expression["$caseSensitive"] = case_sensitive
+            expression["$caseSensitive"] = case_sensitive
         if diacritic_sensitive is not None:
-            self.expression["$diacriticSensitive"] = diacritic_sensitive
-
-    @property
-    def query(self):
-        return {self.operator: self.expression}
+            expression["$diacriticSensitive"] = diacritic_sensitive
+        super().__init__(expression)
 
 
-class Where(BaseOperator):
+class Where(BaseNonFieldOperator):
     """
     `$where` query operator
 
@@ -170,10 +143,3 @@ class Where(BaseOperator):
     """
 
     operator = "$where"
-
-    def __init__(self, expression: str):
-        self.expression = expression
-
-    @property
-    def query(self):
-        return {self.operator: self.expression}

@@ -1,10 +1,18 @@
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
-from beanie.odm.operators import BaseOperator
+from beanie.odm.operators import BaseFieldOperator
 
 
-class GeoIntersects(BaseOperator):
+class BaseGeoOperator(BaseFieldOperator):
+    def __init__(self, field, geo_type, coordinates):
+        super().__init__(
+            field,
+            {"$geometry": {"type": geo_type, "coordinates": coordinates}},
+        )
+
+
+class GeoIntersects(BaseGeoOperator):
     """
     `$geoIntersects` query operator
 
@@ -48,23 +56,13 @@ class GeoIntersects(BaseOperator):
 
     operator = "$geoIntersects"
 
-    def __init__(self, field, geo_type: str, coordinates: List[List[float]]):
-        self.field = field
-        self.expression = {
-            "$geometry": {"type": geo_type, "coordinates": coordinates}
-        }
-
-    @property
-    def query(self):
-        return {self.field: {self.operator: self.expression}}
-
 
 class GeoWithinTypes(str, Enum):
     Polygon = "Polygon"
     MultiPolygon = "MultiPolygon"
 
 
-class GeoWithin(BaseOperator):
+class GeoWithin(BaseGeoOperator):
     """
     `$geoWithin` query operator
 
@@ -108,20 +106,8 @@ class GeoWithin(BaseOperator):
 
     operator = "$geoWithin"
 
-    def __init__(
-        self, field, geo_type: GeoWithinTypes, coordinates: List[List[float]]
-    ):
-        self.field = field
-        self.expression = {
-            "$geometry": {"type": geo_type, "coordinates": coordinates}
-        }
 
-    @property
-    def query(self):
-        return {self.field: {self.operator: self.expression}}
-
-
-class Box(BaseOperator):
+class Box(BaseFieldOperator):
     """
     `$box` query operator
 
@@ -162,18 +148,11 @@ class Box(BaseOperator):
 
     operator = "$geoWithin"
 
-    def __init__(
-        self, field, lower_left: List[float], upper_right: List[float]
-    ):
-        self.field = field
-        self.expression = {"$box": [lower_left, upper_right]}
-
-    @property
-    def query(self):
-        return {self.field: {self.operator: self.expression}}
+    def __init__(self, field, lower_left, upper_right):
+        super().__init__(field, {"$box": [lower_left, upper_right]})
 
 
-class Near(BaseOperator):
+class Near(BaseGeoOperator):
     """
     `$near` query operator
 
@@ -226,21 +205,13 @@ class Near(BaseOperator):
         max_distance: Optional[float] = None,
         min_distance: Optional[float] = None,
     ):
-        self.field = field
-        self.expression: Dict[str, Any] = {
-            "$geometry": {
-                "type": "Point",
-                "coordinates": [longitude, latitude],
-            }
-        }
+        super().__init__(
+            field, geo_type="Point", coordinates=[longitude, latitude]
+        )
         if max_distance:
-            self.expression["$maxDistance"] = max_distance
+            self[field][self.operator]["$maxDistance"] = max_distance
         if min_distance:
-            self.expression["$minDistance"] = min_distance
-
-    @property
-    def query(self):
-        return {self.field: {self.operator: self.expression}}
+            self[field][self.operator]["$minDistance"] = min_distance
 
 
 class NearSphere(Near):

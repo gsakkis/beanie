@@ -1,7 +1,7 @@
-from beanie.odm.operators import BaseOperator
+from beanie.odm.operators import BaseFieldOperator
 
 
-class Exists(BaseOperator):
+class Exists(BaseFieldOperator):
     """
     `$exists` query operator
 
@@ -27,15 +27,10 @@ class Exists(BaseOperator):
     operator = "$exists"
 
     def __init__(self, field, value: bool = True):
-        self.field = field
-        self.value = value
-
-    @property
-    def query(self):
-        return {self.field: {self.operator: self.value}}
+        super().__init__(field, value)
 
 
-class Type(BaseOperator):
+class Type(BaseFieldOperator):
     """
     `$type` query operator
 
@@ -61,9 +56,4 @@ class Type(BaseOperator):
     operator = "$type"
 
     def __init__(self, field, *types: str):
-        self.field = field
-        self.types = list(types) if len(types) > 1 else types[0]
-
-    @property
-    def query(self):
-        return {self.field: {self.operator: self.types}}
+        super().__init__(field, list(types) if len(types) > 1 else types[0])

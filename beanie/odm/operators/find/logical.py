@@ -1,24 +1,18 @@
-from typing import Any, Mapping, Union
-
-from beanie.odm.operators import BaseOperator
+from beanie.odm.operators import BaseNonFieldOperator
 
 
-class LogicalOperatorForListOfExpressions(BaseOperator):
+class LogicalOperatorForListOfExpressions(BaseNonFieldOperator):
     operator = ""
+    allow_scalar = True
 
-    def __init__(
-        self,
-        *expressions: Union[BaseOperator, Mapping[str, Any]],
-    ):
+    def __init__(self, *expressions):
         if not expressions:
             raise AttributeError("At least one expression must be provided")
-        self.expressions = list(expressions)
 
-    @property
-    def query(self):
-        if len(self.expressions) == 1:
-            return self.expressions[0]
-        return {self.operator: self.expressions}
+        if self.allow_scalar and len(expressions) == 1:
+            self.update(expressions[0])
+        else:
+            super().__init__(list(expressions))
 
 
 class Or(LogicalOperatorForListOfExpressions):
@@ -46,6 +40,7 @@ class Or(LogicalOperatorForListOfExpressions):
     """
 
     operator = "$or"
+    allow_scalar = True
 
 
 class And(LogicalOperatorForListOfExpressions):
@@ -73,6 +68,7 @@ class And(LogicalOperatorForListOfExpressions):
     """
 
     operator = "$and"
+    allow_scalar = True
 
 
 class Nor(LogicalOperatorForListOfExpressions):
@@ -100,13 +96,10 @@ class Nor(LogicalOperatorForListOfExpressions):
     """
 
     operator = "$nor"
-
-    @property
-    def query(self):
-        return {self.operator: self.expressions}
+    allow_scalar = False
 
 
-class Not(BaseOperator):
+class Not(BaseNonFieldOperator):
     """
     `$not` query operator
 
@@ -131,10 +124,3 @@ class Not(BaseOperator):
     """
 
     operator = "$not"
-
-    def __init__(self, expression: Union[BaseOperator, Mapping[str, Any]]):
-        self.expression = expression
-
-    @property
-    def query(self):
-        return {self.operator: self.expression}
