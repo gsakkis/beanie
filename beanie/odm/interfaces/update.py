@@ -4,7 +4,7 @@ from typing import Any, Dict, Mapping, Optional
 from pymongo.client_session import ClientSession
 
 from beanie.odm.bulk import BulkWriter
-from beanie.odm.operators.update.general import CurrentDate, Inc, Set
+from beanie.odm.operators.update import CurrentDate, Inc, Set
 
 
 class UpdateMethods:

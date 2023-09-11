@@ -1,4 +1,4 @@
-from beanie.odm.operators.find.geospatial import (
+from beanie.odm.operators.geospatial import (
     Box,
     GeoIntersects,
     GeoWithin,

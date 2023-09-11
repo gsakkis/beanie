@@ -1,14 +1,7 @@
-from abc import ABC
-from typing import List, Union
-
-from beanie.odm.operators.find import BaseFindOperator
+from beanie.odm.operators import BaseFieldOperator
 
 
-class BaseFindElementOperator(BaseFindOperator, ABC):
-    ...
-
-
-class Exists(BaseFindElementOperator):
+class Exists(BaseFieldOperator):
     """
     `$exists` query operator
 
@@ -31,20 +24,13 @@ class Exists(BaseFindElementOperator):
     <https://docs.mongodb.com/manual/reference/operator/query/exists/>
     """
 
-    def __init__(
-        self,
-        field,
-        value: bool = True,
-    ):
-        self.field = field
-        self.value = value
+    operator = "$exists"
 
-    @property
-    def query(self):
-        return {self.field: {"$exists": self.value}}
+    def __init__(self, field: str, value: bool = True):
+        super().__init__(field, value)
 
 
-class Type(BaseFindElementOperator):
+class Type(BaseFieldOperator):
     """
     `$type` query operator
 
@@ -67,10 +53,7 @@ class Type(BaseFindElementOperator):
     <https://docs.mongodb.com/manual/reference/operator/query/type/>
     """
 
-    def __init__(self, field, types: Union[List[str], str]):
-        self.field = field
-        self.types = types
+    operator = "$type"
 
-    @property
-    def query(self):
-        return {self.field: {"$type": self.types}}
+    def __init__(self, field: str, *types: str):
+        super().__init__(field, list(types) if len(types) > 1 else types[0])

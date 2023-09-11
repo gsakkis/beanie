@@ -1,14 +1,9 @@
-from abc import ABC
-from typing import Optional
+from typing import Any, Mapping, Optional
 
-from beanie.odm.operators.find import BaseFindOperator
-
-
-class BaseFindArrayOperator(BaseFindOperator, ABC):
-    ...
+from beanie.odm.operators import BaseFieldOperator
 
 
-class All(BaseFindArrayOperator):
+class All(BaseFieldOperator):
     """
     `$all` array query operator
 
@@ -31,20 +26,10 @@ class All(BaseFindArrayOperator):
     <https://docs.mongodb.com/manual/reference/operator/query/all>
     """
 
-    def __init__(
-        self,
-        field,
-        values: list,
-    ):
-        self.field = field
-        self.values_list = values
-
-    @property
-    def query(self):
-        return {self.field: {"$all": self.values_list}}
+    operator = "$all"
 
 
-class ElemMatch(BaseFindArrayOperator):
+class ElemMatch(BaseFieldOperator):
     """
     `$elemMatch` array query operator
 
@@ -67,25 +52,21 @@ class ElemMatch(BaseFindArrayOperator):
     <https://docs.mongodb.com/manual/reference/operator/query/elemMatch/>
     """
 
+    operator = "$elemMatch"
+
     def __init__(
         self,
-        field,
-        expression: Optional[dict] = None,
-        **kwargs,
+        field: str,
+        expression: Optional[Mapping[str, Any]] = None,
+        **kwargs: Any,
     ):
-        self.field = field
-
-        if expression is None:
-            self.expression = kwargs
-        else:
-            self.expression = expression
-
-    @property
-    def query(self):
-        return {self.field: {"$elemMatch": self.expression}}
+        super().__init__(
+            field,
+            dict(expression, **kwargs) if expression is not None else kwargs,
+        )
 
 
-class Size(BaseFindArrayOperator):
+class Size(BaseFieldOperator):
     """
     `$size` array query operator
 
@@ -108,14 +89,4 @@ class Size(BaseFindArrayOperator):
     <https://docs.mongodb.com/manual/reference/operator/query/size/>
     """
 
-    def __init__(
-        self,
-        field,
-        num: int,
-    ):
-        self.field = field
-        self.num = num
-
-    @property
-    def query(self):
-        return {self.field: {"$size": self.num}}
+    operator = "$size"

@@ -1,4 +1,4 @@
-from beanie.odm.operators.find.array import All, ElemMatch, Size
+from beanie.odm.operators.array import All, ElemMatch, Size
 from tests.odm.models import PackageElemMatch, Sample
 
 

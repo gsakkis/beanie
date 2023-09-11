@@ -1,31 +1,20 @@
-from abc import ABC
-from typing import Any, Dict, Mapping, Union
+from typing import Any, Mapping
 
-from beanie.odm.operators.find import BaseFindOperator
-
-
-class BaseFindLogicalOperator(BaseFindOperator, ABC):
-    ...
+from beanie.odm.operators import BaseOperator
 
 
-class LogicalOperatorForListOfExpressions(BaseFindLogicalOperator):
-    operator: str = ""
+class LogicalOperatorForListOfExpressions(BaseOperator):
+    operator = ""
+    allow_scalar = True
 
-    def __init__(
-        self,
-        *expressions: Union[
-            BaseFindOperator, Dict[str, Any], Mapping[str, Any]
-        ],
-    ):
-        self.expressions = list(expressions)
-
-    @property
-    def query(self) -> Mapping[str, Any]:
-        if not self.expressions:
+    def __init__(self, *expressions: Mapping[str, Any]):
+        if not expressions:
             raise AttributeError("At least one expression must be provided")
-        if len(self.expressions) == 1:
-            return self.expressions[0]
-        return {self.operator: self.expressions}
+
+        if self.allow_scalar and len(expressions) == 1:
+            self.update(expressions[0])
+        else:
+            super().__init__(list(expressions))
 
 
 class Or(LogicalOperatorForListOfExpressions):
@@ -53,6 +42,7 @@ class Or(LogicalOperatorForListOfExpressions):
     """
 
     operator = "$or"
+    allow_scalar = True
 
 
 class And(LogicalOperatorForListOfExpressions):
@@ -80,9 +70,10 @@ class And(LogicalOperatorForListOfExpressions):
     """
 
     operator = "$and"
+    allow_scalar = True
 
 
-class Nor(BaseFindLogicalOperator):
+class Nor(LogicalOperatorForListOfExpressions):
     """
     `$nor` query operator
 
@@ -106,20 +97,11 @@ class Nor(BaseFindLogicalOperator):
     <https://docs.mongodb.com/manual/reference/operator/query/nor/>
     """
 
-    def __init__(
-        self,
-        *expressions: Union[
-            BaseFindOperator, Dict[str, Any], Mapping[str, Any], bool
-        ],
-    ):
-        self.expressions = list(expressions)
-
-    @property
-    def query(self):
-        return {"$nor": self.expressions}
+    operator = "$nor"
+    allow_scalar = False
 
 
-class Not(BaseFindLogicalOperator):
+class Not(BaseOperator):
     """
     `$not` query operator
 
@@ -143,9 +125,4 @@ class Not(BaseFindLogicalOperator):
     <https://docs.mongodb.com/manual/reference/operator/query/not/>
     """
 
-    def __init__(self, expression: Mapping[str, Any]):
-        self.expression = expression
-
-    @property
-    def query(self):
-        return {"$not": self.expression}
+    operator = "$not"

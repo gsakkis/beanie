@@ -8,7 +8,7 @@ import beanie
 from beanie.exceptions import NotSupported
 from beanie.odm.cache import LRUCache
 from beanie.odm.links import LinkedModelMixin
-from beanie.odm.operators.find.logical import And
+from beanie.odm.operators.logical import And
 from beanie.odm.queries import BaseQuery
 from beanie.odm.utils.encoder import Encoder
 from beanie.odm.utils.parsing import ParseableModel
@@ -47,7 +47,7 @@ class FindQuery(BaseQuery):
         if self.find_expressions:
             return Encoder(
                 custom_encoders=self.document_model.get_settings().bson_encoders
-            ).encode(And(*self.find_expressions).query)
+            ).encode(And(*self.find_expressions))
         return {}
 
     def project(

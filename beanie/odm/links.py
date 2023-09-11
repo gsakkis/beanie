@@ -24,7 +24,7 @@ from pydantic.fields import FieldInfo
 from pydantic_core import core_schema
 
 import beanie
-from beanie.odm.operators.find.comparison import In
+from beanie.odm.operators.comparison import In
 from beanie.odm.utils.parsing import parse_obj
 
 if TYPE_CHECKING:

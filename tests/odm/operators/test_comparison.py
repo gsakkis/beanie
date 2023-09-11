@@ -1,4 +1,4 @@
-from beanie.odm.operators.find.comparison import (
+from beanie.odm.operators.comparison import (
     GT,
     GTE,
     LT,

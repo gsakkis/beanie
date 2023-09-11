@@ -3,7 +3,7 @@ import copy
 
 import pytest
 
-from beanie.odm.operators.update.general import Max, Set
+from beanie.odm.operators.update import Max, Set
 from tests.odm.models import Sample
 
 

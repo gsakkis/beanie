@@ -1,4 +1,4 @@
-from beanie.odm.operators.find.bitwise import (
+from beanie.odm.operators.bitwise import (
     BitsAllClear,
     BitsAllSet,
     BitsAnyClear,

@@ -1,15 +1,20 @@
-from abc import ABC
 from enum import Enum
 from typing import List, Optional
 
-from beanie.odm.operators.find import BaseFindOperator
+from beanie.odm.operators import BaseFieldOperator
 
 
-class BaseFindGeospatialOperator(BaseFindOperator, ABC):
-    ...
+class BaseGeoOperator(BaseFieldOperator):
+    def __init__(
+        self, field: str, geo_type: str, coordinates: List[List[float]]
+    ):
+        super().__init__(
+            field,
+            {"$geometry": {"type": geo_type, "coordinates": coordinates}},
+        )
 
 
-class GeoIntersects(BaseFindGeospatialOperator):
+class GeoIntersects(BaseGeoOperator):
     """
     `$geoIntersects` query operator
 
@@ -51,23 +56,7 @@ class GeoIntersects(BaseFindGeospatialOperator):
     <https://docs.mongodb.com/manual/reference/operator/query/geoIntersects/>
     """
 
-    def __init__(self, field, geo_type: str, coordinates: List[List[float]]):
-        self.field = field
-        self.geo_type = geo_type
-        self.coordinates = coordinates
-
-    @property
-    def query(self):
-        return {
-            self.field: {
-                "$geoIntersects": {
-                    "$geometry": {
-                        "type": self.geo_type,
-                        "coordinates": self.coordinates,
-                    }
-                }
-            }
-        }
+    operator = "$geoIntersects"
 
 
 class GeoWithinTypes(str, Enum):
@@ -75,7 +64,7 @@ class GeoWithinTypes(str, Enum):
     MultiPolygon = "MultiPolygon"
 
 
-class GeoWithin(BaseFindGeospatialOperator):
+class GeoWithin(BaseGeoOperator):
     """
     `$geoWithin` query operator
 
@@ -117,28 +106,10 @@ class GeoWithin(BaseFindGeospatialOperator):
     <https://docs.mongodb.com/manual/reference/operator/query/geoWithin/>
     """
 
-    def __init__(
-        self, field, geo_type: GeoWithinTypes, coordinates: List[List[float]]
-    ):
-        self.field = field
-        self.geo_type = geo_type
-        self.coordinates = coordinates
-
-    @property
-    def query(self):
-        return {
-            self.field: {
-                "$geoWithin": {
-                    "$geometry": {
-                        "type": self.geo_type,
-                        "coordinates": self.coordinates,
-                    }
-                }
-            }
-        }
+    operator = "$geoWithin"
 
 
-class Box(BaseFindGeospatialOperator):
+class Box(BaseFieldOperator):
     """
     `$box` query operator
 
@@ -177,18 +148,15 @@ class Box(BaseFindGeospatialOperator):
     <https://docs.mongodb.com/manual/reference/operator/query/box/>
     """
 
+    operator = "$geoWithin"
+
     def __init__(
-        self, field, lower_left: List[float], upper_right: List[float]
+        self, field: str, lower_left: List[float], upper_right: List[float]
     ):
-        self.field = field
-        self.coordinates = [lower_left, upper_right]
-
-    @property
-    def query(self):
-        return {self.field: {"$geoWithin": {"$box": self.coordinates}}}
+        super().__init__(field, {"$box": [lower_left, upper_right]})
 
 
-class Near(BaseFindGeospatialOperator):
+class Near(BaseFieldOperator):
     """
     `$near` query operator
 
@@ -208,7 +176,7 @@ class Near(BaseFindGeospatialOperator):
                 [("geo", pymongo.GEOSPHERE)],  # GEO index
             ]
 
-    Near(Place.geo, 1.2345, 2.3456, min_distance=500)
+    Near(Place.geo, 1.2345, 2.3456, max_distance=500)
     ```
 
     Will return query object like
@@ -235,39 +203,25 @@ class Near(BaseFindGeospatialOperator):
 
     def __init__(
         self,
-        field,
+        field: str,
         longitude: float,
         latitude: float,
         max_distance: Optional[float] = None,
         min_distance: Optional[float] = None,
     ):
-        self.field = field
-        self.longitude = longitude
-        self.latitude = latitude
-        self.max_distance = max_distance
-        self.min_distance = min_distance
-
-    @property
-    def query(self):
-        expression = {
-            self.field: {
-                self.operator: {
-                    "$geometry": {
-                        "type": "Point",
-                        "coordinates": [self.longitude, self.latitude],
-                    },
+        super().__init__(
+            field,
+            {
+                "$geometry": {
+                    "type": "Point",
+                    "coordinates": [longitude, latitude],
                 }
-            }
-        }
-        if self.max_distance:
-            expression[self.field][self.operator][
-                "$maxDistance"
-            ] = self.max_distance  # type: ignore
-        if self.min_distance:
-            expression[self.field][self.operator][
-                "$minDistance"
-            ] = self.min_distance  # type: ignore
-        return expression
+            },
+        )
+        if max_distance:
+            self[field][self.operator]["$maxDistance"] = max_distance
+        if min_distance:
+            self[field][self.operator]["$minDistance"] = min_distance
 
 
 class NearSphere(Near):

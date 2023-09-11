@@ -21,8 +21,7 @@ from typing_extensions import Self
 import beanie
 from beanie.odm.bulk import BulkWriter, Operation
 from beanie.odm.interfaces.update import UpdateMethods
-from beanie.odm.operators.update import BaseUpdateOperator
-from beanie.odm.operators.update.general import SetRevisionId
+from beanie.odm.operators.update import SetRevisionId
 from beanie.odm.queries import BaseQuery
 from beanie.odm.utils.encoder import Encoder
 from beanie.odm.utils.parsing import parse_obj
@@ -55,14 +54,10 @@ class UpdateQuery(BaseQuery, UpdateMethods):
     def update_query(self) -> Dict[str, Any]:
         query: Dict[str, Any] = {}
         for expression in self.update_expressions:
-            if isinstance(expression, BaseUpdateOperator):
-                query.update(expression.query)
+            if isinstance(expression, SetRevisionId):
+                query.setdefault("$set", {}).update(expression["$set"])
             elif isinstance(expression, dict):
                 query.update(expression)
-            elif isinstance(expression, SetRevisionId):
-                set_query = query.get("$set", {})
-                set_query.update(expression.query.get("$set", {}))
-                query["$set"] = set_query
             else:
                 raise TypeError("Wrong expression type")
         return Encoder(custom_encoders=self.encoders).encode(query)
