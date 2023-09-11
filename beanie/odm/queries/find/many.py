@@ -34,7 +34,7 @@ class AggregationQuery(BaseCursorQuery[ProjectionT]):
 
     def __init__(
         self,
-        *args: Union[Mapping[str, Any], bool],
+        *args: Mapping[str, Any],
         aggregation_pipeline: List[Mapping[str, Any]],
         document_model: Type["FindInterface"],
         projection_model: Optional[Type[ParseableModel]] = None,
@@ -78,7 +78,7 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
 
     def find(
         self,
-        *args: Union[Mapping[str, Any], bool],
+        *args: Mapping[str, Any],
         projection_model: Optional[Type[ParseableModel]] = None,
         skip: Optional[int] = None,
         limit: Optional[int] = None,

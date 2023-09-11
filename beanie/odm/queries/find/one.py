@@ -7,7 +7,6 @@ from typing import (
     Optional,
     Type,
     TypeVar,
-    Union,
     cast,
 )
 
@@ -46,7 +45,7 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
 
     def find(
         self,
-        *args: Union[Mapping[str, Any], bool],
+        *args: Mapping[str, Any],
         projection_model: Optional[Type[ParseableModel]] = None,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,

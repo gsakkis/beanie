@@ -67,7 +67,7 @@ class FindInterface(ABC):
     @classmethod
     def find_one(
         cls,
-        *args: Union[Mapping[str, Any], bool],
+        *args: Mapping[str, Any],
         projection_model: Optional[Type[ModelT]] = None,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
@@ -100,7 +100,7 @@ class FindInterface(ABC):
     @classmethod
     def find_many(
         cls,
-        *args: Union[Mapping[str, Any], bool],
+        *args: Mapping[str, Any],
         projection_model: Optional[Type[ModelT]] = None,
         skip: Optional[int] = None,
         limit: Optional[int] = None,
@@ -144,7 +144,7 @@ class FindInterface(ABC):
     @classmethod
     def find(
         cls,
-        *args: Union[Mapping[str, Any], bool],
+        *args: Mapping[str, Any],
         projection_model: Optional[Type[ModelT]] = None,
         skip: Optional[int] = None,
         limit: Optional[int] = None,
@@ -279,8 +279,8 @@ class FindInterface(ABC):
 
     @classmethod
     def _add_class_id_filter(
-        cls, *args: Union[Mapping[str, Any], bool], with_children: bool
-    ) -> Tuple[Union[Mapping[str, Any], bool], ...]:
+        cls, *args: Mapping[str, Any], with_children: bool
+    ) -> Tuple[Mapping[str, Any], ...]:
         class_id = cls.get_settings().class_id
         # skip if _class_id is already added
         if any(isinstance(a, Mapping) and class_id in a for a in args):
