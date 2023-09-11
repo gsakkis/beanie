@@ -1,9 +1,9 @@
 from typing import Any, Dict, Optional
 
-from beanie.odm.operators import BaseFieldOperator, BaseNonFieldOperator
+from beanie.odm.operators import BaseFieldOperator, BaseOperator
 
 
-class Expr(BaseNonFieldOperator):
+class Expr(BaseOperator):
     """
     `$expr` query operator
 
@@ -30,7 +30,7 @@ class Expr(BaseNonFieldOperator):
     operator = "$expr"
 
 
-class JsonSchema(BaseNonFieldOperator):
+class JsonSchema(BaseOperator):
     """
     `$jsonSchema` query operator
 
@@ -86,7 +86,7 @@ class RegEx(BaseFieldOperator):
             self[field]["$options"] = options
 
 
-class Text(BaseNonFieldOperator):
+class Text(BaseOperator):
     """
     `$text` query operator
 
@@ -134,7 +134,7 @@ class Text(BaseNonFieldOperator):
         super().__init__(expression)
 
 
-class Where(BaseNonFieldOperator):
+class Where(BaseOperator):
     """
     `$where` query operator
 

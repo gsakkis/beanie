@@ -1,7 +1,7 @@
-from beanie.odm.operators import BaseNonFieldOperator
+from beanie.odm.operators import BaseOperator
 
 
-class LogicalOperatorForListOfExpressions(BaseNonFieldOperator):
+class LogicalOperatorForListOfExpressions(BaseOperator):
     operator = ""
     allow_scalar = True
 
@@ -99,7 +99,7 @@ class Nor(LogicalOperatorForListOfExpressions):
     allow_scalar = False
 
 
-class Not(BaseNonFieldOperator):
+class Not(BaseOperator):
     """
     `$not` query operator
 

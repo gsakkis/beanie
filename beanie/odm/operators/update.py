@@ -1,7 +1,7 @@
-from beanie.odm.operators import BaseNonFieldOperator
+from beanie.odm.operators import BaseOperator
 
 
-class Set(BaseNonFieldOperator):
+class Set(BaseOperator):
     """
     `$set` update query operator
 
@@ -17,7 +17,7 @@ class SetRevisionId(Set):
         super().__init__({"revision_id": revision_id})
 
 
-class CurrentDate(BaseNonFieldOperator):
+class CurrentDate(BaseOperator):
     """
     `$currentDate` update query operator
 
@@ -28,7 +28,7 @@ class CurrentDate(BaseNonFieldOperator):
     operator = "$currentDate"
 
 
-class Inc(BaseNonFieldOperator):
+class Inc(BaseOperator):
     """
     `$inc` update query operator
 
@@ -39,7 +39,7 @@ class Inc(BaseNonFieldOperator):
     operator = "$inc"
 
 
-class Min(BaseNonFieldOperator):
+class Min(BaseOperator):
     """
     `$min` update query operator
 
@@ -50,7 +50,7 @@ class Min(BaseNonFieldOperator):
     operator = "$min"
 
 
-class Max(BaseNonFieldOperator):
+class Max(BaseOperator):
     """
     `$max` update query operator
 
@@ -61,7 +61,7 @@ class Max(BaseNonFieldOperator):
     operator = "$max"
 
 
-class Mul(BaseNonFieldOperator):
+class Mul(BaseOperator):
     """
     `$mul` update query operator
 
@@ -72,7 +72,7 @@ class Mul(BaseNonFieldOperator):
     operator = "$mul"
 
 
-class Rename(BaseNonFieldOperator):
+class Rename(BaseOperator):
     """
     `$rename` update query operator
 
@@ -83,7 +83,7 @@ class Rename(BaseNonFieldOperator):
     operator = "$rename"
 
 
-class SetOnInsert(BaseNonFieldOperator):
+class SetOnInsert(BaseOperator):
     """
     `$setOnInsert` update query operator
 
@@ -94,7 +94,7 @@ class SetOnInsert(BaseNonFieldOperator):
     operator = "$setOnInsert"
 
 
-class Unset(BaseNonFieldOperator):
+class Unset(BaseOperator):
     """
     `$unset` update query operator
 
@@ -105,7 +105,7 @@ class Unset(BaseNonFieldOperator):
     operator = "$unset"
 
 
-class Bit(BaseNonFieldOperator):
+class Bit(BaseOperator):
     """
     `$bit` update query operator
 
@@ -116,7 +116,7 @@ class Bit(BaseNonFieldOperator):
     operator = "$bit"
 
 
-class AddToSet(BaseNonFieldOperator):
+class AddToSet(BaseOperator):
     """
     `$addToSet` update array query operator
 
@@ -127,7 +127,7 @@ class AddToSet(BaseNonFieldOperator):
     operator = "$addToSet"
 
 
-class Pop(BaseNonFieldOperator):
+class Pop(BaseOperator):
     """
     `$pop` update array query operator
 
@@ -138,7 +138,7 @@ class Pop(BaseNonFieldOperator):
     operator = "$pop"
 
 
-class Pull(BaseNonFieldOperator):
+class Pull(BaseOperator):
     """
     `$pull` update array query operator
 
@@ -149,7 +149,7 @@ class Pull(BaseNonFieldOperator):
     operator = "$pull"
 
 
-class Push(BaseNonFieldOperator):
+class Push(BaseOperator):
     """
     `$push` update array query operator
 
@@ -160,7 +160,7 @@ class Push(BaseNonFieldOperator):
     operator = "$push"
 
 
-class PullAll(BaseNonFieldOperator):
+class PullAll(BaseOperator):
     """
     `$pullAll` update array query operator
 
