@@ -1,11 +1,11 @@
-from beanie.odm.operators.find.array import All, ElemMatch, Size
-from beanie.odm.operators.find.bitwise import (
+from beanie.odm.operators.array import All, ElemMatch, Size
+from beanie.odm.operators.bitwise import (
     BitsAllClear,
     BitsAllSet,
     BitsAnyClear,
     BitsAnySet,
 )
-from beanie.odm.operators.find.comparison import (
+from beanie.odm.operators.comparison import (
     GT,
     GTE,
     LT,
@@ -15,8 +15,8 @@ from beanie.odm.operators.find.comparison import (
     In,
     NotIn,
 )
-from beanie.odm.operators.find.element import Exists, Type
-from beanie.odm.operators.find.evaluation import (
+from beanie.odm.operators.element import Exists, Type
+from beanie.odm.operators.evaluation import (
     Expr,
     JsonSchema,
     Mod,
@@ -24,7 +24,7 @@ from beanie.odm.operators.find.evaluation import (
     Text,
     Where,
 )
-from beanie.odm.operators.find.geospatial import (
+from beanie.odm.operators.geospatial import (
     Box,
     GeoIntersects,
     GeoWithin,
@@ -32,7 +32,7 @@ from beanie.odm.operators.find.geospatial import (
     Near,
     NearSphere,
 )
-from beanie.odm.operators.find.logical import And, Nor, Not, Or
+from beanie.odm.operators.logical import And, Nor, Not, Or
 from beanie.odm.operators.update import (
     AddToSet,
     Bit,

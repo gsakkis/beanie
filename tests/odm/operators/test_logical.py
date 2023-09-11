@@ -1,4 +1,4 @@
-from beanie.odm.operators.find.logical import And, Nor, Not, Or
+from beanie.odm.operators.logical import And, Nor, Not, Or
 from tests.odm.models import Sample
 
 

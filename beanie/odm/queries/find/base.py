@@ -8,7 +8,7 @@ import beanie
 from beanie.exceptions import NotSupported
 from beanie.odm.cache import LRUCache
 from beanie.odm.links import LinkedModelMixin
-from beanie.odm.operators.find.logical import And
+from beanie.odm.operators.logical import And
 from beanie.odm.queries import BaseQuery
 from beanie.odm.utils.encoder import Encoder
 from beanie.odm.utils.parsing import ParseableModel

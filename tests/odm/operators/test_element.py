@@ -1,4 +1,4 @@
-from beanie.odm.operators.find.element import Exists, Type
+from beanie.odm.operators.element import Exists, Type
 from tests.odm.models import Sample
 
 

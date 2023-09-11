@@ -1,5 +1,5 @@
 from beanie.odm.fields import SortDirection
-from beanie.odm.operators.find.comparison import In, NotIn
+from beanie.odm.operators.comparison import In, NotIn
 from tests.odm.models import Sample
 
 

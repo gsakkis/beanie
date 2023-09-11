@@ -1,4 +1,4 @@
-from beanie.odm.operators.find.evaluation import (
+from beanie.odm.operators.evaluation import (
     Expr,
     JsonSchema,
     Mod,

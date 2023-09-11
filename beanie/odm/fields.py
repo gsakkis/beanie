@@ -14,7 +14,7 @@ from pydantic import (
 from pydantic_core import core_schema
 from typing_extensions import Annotated, Self
 
-from beanie.odm.operators.find import comparison
+from beanie.odm.operators import comparison
 
 
 def _validate_objectid(v: Any) -> bson.ObjectId:
