@@ -34,26 +34,18 @@ async def test_regex():
 
 async def test_text():
     q = Text("something")
-    assert q == {
-        "$text": {
-            "$search": "something",
-            "$caseSensitive": False,
-            "$diacriticSensitive": False,
-        }
-    }
+    assert q == {"$text": {"$search": "something"}}
     q = Text("something", case_sensitive=True)
     assert q == {
         "$text": {
             "$search": "something",
             "$caseSensitive": True,
-            "$diacriticSensitive": False,
         }
     }
     q = Text("something", diacritic_sensitive=True)
     assert q == {
         "$text": {
             "$search": "something",
-            "$caseSensitive": False,
             "$diacriticSensitive": True,
         }
     }
@@ -61,8 +53,6 @@ async def test_text():
     assert q == {
         "$text": {
             "$search": "something",
-            "$caseSensitive": False,
-            "$diacriticSensitive": False,
             "$language": "test",
         }
     }

@@ -1,11 +1,11 @@
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from beanie.odm.operators import BaseOperator
 
 
 class Expr(BaseOperator):
     """
-    `$type` query operator
+    `$expr` query operator
 
     Example:
 
@@ -27,12 +27,14 @@ class Expr(BaseOperator):
     <https://docs.mongodb.com/manual/reference/operator/query/expr/>
     """
 
+    operator = "$expr"
+
     def __init__(self, expression: dict):
         self.expression = expression
 
     @property
     def query(self):
-        return {"$expr": self.expression}
+        return {self.operator: self.expression}
 
 
 class JsonSchema(BaseOperator):
@@ -43,12 +45,14 @@ class JsonSchema(BaseOperator):
     <https://docs.mongodb.com/manual/reference/operator/query/jsonSchema/>
     """
 
+    operator = "$jsonSchema"
+
     def __init__(self, expression: dict):
         self.expression = expression
 
     @property
     def query(self):
-        return {"$jsonSchema": self.expression}
+        return {self.operator: self.expression}
 
 
 class Mod(BaseOperator):
@@ -74,14 +78,15 @@ class Mod(BaseOperator):
     <https://docs.mongodb.com/manual/reference/operator/query/mod/>
     """
 
+    operator = "$mod"
+
     def __init__(self, field, divisor: int, remainder: int):
         self.field = field
-        self.divisor = divisor
-        self.remainder = remainder
+        self.expression = [divisor, remainder]
 
     @property
     def query(self):
-        return {self.field: {"$mod": [self.divisor, self.remainder]}}
+        return {self.field: {self.operator: self.expression}}
 
 
 class RegEx(BaseOperator):
@@ -92,22 +97,17 @@ class RegEx(BaseOperator):
     <https://docs.mongodb.com/manual/reference/operator/query/regex/>
     """
 
-    def __init__(
-        self,
-        field,
-        pattern: str,
-        options: Optional[str] = None,
-    ):
+    operator = "$regex"
+
+    def __init__(self, field, pattern: str, options: Optional[str] = None):
         self.field = field
-        self.pattern = pattern
-        self.options = options
+        self.expression = {self.operator: pattern}
+        if options:
+            self.expression["$options"] = options
 
     @property
     def query(self):
-        expression = {"$regex": self.pattern}
-        if self.options:
-            expression["$options"] = self.options
-        return {self.field: expression}
+        return {self.field: self.expression}
 
 
 class Text(BaseOperator):
@@ -139,37 +139,26 @@ class Text(BaseOperator):
     <https://docs.mongodb.com/manual/reference/operator/query/text/>
     """
 
+    operator = "$text"
+
     def __init__(
         self,
         search: str,
         language: Optional[str] = None,
-        case_sensitive: bool = False,
-        diacritic_sensitive: bool = False,
+        case_sensitive: Optional[bool] = None,
+        diacritic_sensitive: Optional[bool] = None,
     ):
-        """
-
-        :param search: str
-        :param language: Optional[str] = None
-        :param case_sensitive: bool = False
-        :param diacritic_sensitive: bool = False
-        """
-        self.search = search
-        self.language = language
-        self.case_sensitive = case_sensitive
-        self.diacritic_sensitive = diacritic_sensitive
+        self.expression: Dict[str, Any] = {"$search": search}
+        if language is not None:
+            self.expression["$language"] = language
+        if case_sensitive is not None:
+            self.expression["$caseSensitive"] = case_sensitive
+        if diacritic_sensitive is not None:
+            self.expression["$diacriticSensitive"] = diacritic_sensitive
 
     @property
     def query(self):
-        expression = {
-            "$text": {
-                "$search": self.search,
-                "$caseSensitive": self.case_sensitive,
-                "$diacriticSensitive": self.diacritic_sensitive,
-            }
-        }
-        if self.language:
-            expression["$text"]["$language"] = self.language
-        return expression
+        return {self.operator: self.expression}
 
 
 class Where(BaseOperator):
@@ -180,9 +169,11 @@ class Where(BaseOperator):
     <https://docs.mongodb.com/manual/reference/operator/query/where/>
     """
 
+    operator = "$where"
+
     def __init__(self, expression: str):
         self.expression = expression
 
     @property
     def query(self):
-        return {"$where": self.expression}
+        return {self.operator: self.expression}
