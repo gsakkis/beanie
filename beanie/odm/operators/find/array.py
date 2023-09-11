@@ -26,17 +26,15 @@ class All(BaseOperator):
     <https://docs.mongodb.com/manual/reference/operator/query/all>
     """
 
-    def __init__(
-        self,
-        field,
-        values: list,
-    ):
+    operator = "$all"
+
+    def __init__(self, field, values: list):
         self.field = field
         self.values_list = values
 
     @property
     def query(self):
-        return {self.field: {"$all": self.values_list}}
+        return {self.field: {self.operator: self.values_list}}
 
 
 class ElemMatch(BaseOperator):
@@ -62,22 +60,18 @@ class ElemMatch(BaseOperator):
     <https://docs.mongodb.com/manual/reference/operator/query/elemMatch/>
     """
 
-    def __init__(
-        self,
-        field,
-        expression: Optional[dict] = None,
-        **kwargs,
-    ):
-        self.field = field
+    operator = "$elemMatch"
 
+    def __init__(self, field, expression: Optional[dict] = None, **kwargs):
+        self.field = field
         if expression is None:
             self.expression = kwargs
         else:
-            self.expression = expression
+            self.expression = dict(expression, **kwargs)
 
     @property
     def query(self):
-        return {self.field: {"$elemMatch": self.expression}}
+        return {self.field: {self.operator: self.expression}}
 
 
 class Size(BaseOperator):
@@ -103,14 +97,12 @@ class Size(BaseOperator):
     <https://docs.mongodb.com/manual/reference/operator/query/size/>
     """
 
-    def __init__(
-        self,
-        field,
-        num: int,
-    ):
+    operator = "$size"
+
+    def __init__(self, field, num: int):
         self.field = field
         self.num = num
 
     @property
     def query(self):
-        return {self.field: {"$size": self.num}}
+        return {self.field: {self.operator: self.num}}
