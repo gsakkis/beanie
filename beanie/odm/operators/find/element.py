@@ -1,5 +1,3 @@
-from typing import List, Union
-
 from beanie.odm.operators import BaseOperator
 
 
@@ -26,17 +24,15 @@ class Exists(BaseOperator):
     <https://docs.mongodb.com/manual/reference/operator/query/exists/>
     """
 
-    def __init__(
-        self,
-        field,
-        value: bool = True,
-    ):
+    operator = "$exists"
+
+    def __init__(self, field, value: bool = True):
         self.field = field
         self.value = value
 
     @property
     def query(self):
-        return {self.field: {"$exists": self.value}}
+        return {self.field: {self.operator: self.value}}
 
 
 class Type(BaseOperator):
@@ -62,10 +58,12 @@ class Type(BaseOperator):
     <https://docs.mongodb.com/manual/reference/operator/query/type/>
     """
 
-    def __init__(self, field, types: Union[List[str], str]):
+    operator = "$type"
+
+    def __init__(self, field, *types: str):
         self.field = field
-        self.types = types
+        self.types = list(types) if len(types) > 1 else types[0]
 
     @property
     def query(self):
-        return {self.field: {"$type": self.types}}
+        return {self.field: {self.operator: self.types}}
