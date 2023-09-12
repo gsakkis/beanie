@@ -97,6 +97,9 @@ class ExpressionField:
         return self
 
 
+FieldExpr = Union[ExpressionField, str]
+
+
 def Indexed(annotation, index_type=pymongo.ASCENDING, **kwargs):
     """
     Returns an Annotated type with a `{"get_index_model" : f}` dict metadata, where

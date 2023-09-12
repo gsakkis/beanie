@@ -24,6 +24,7 @@ from pydantic.fields import FieldInfo
 from pydantic_core import core_schema
 
 import beanie
+from beanie.odm.fields import ExpressionField, FieldExpr
 from beanie.odm.operators.comparison import In
 from beanie.odm.utils.parsing import parse_obj
 
@@ -269,7 +270,9 @@ class LinkedModelMixin:
     def eval_type(cls, t: Any) -> Type["Document"]:
         return typing._eval_type(t, cls._registry, None)  # type: ignore[attr-defined]
 
-    async def fetch_link(self, field: str) -> None:
+    async def fetch_link(self, field: FieldExpr) -> None:
+        if isinstance(field, ExpressionField):
+            field = str(field)
         ref_obj = getattr(self, field, None)
         if isinstance(ref_obj, Link):
             value = await ref_obj.fetch(fetch_links=True)

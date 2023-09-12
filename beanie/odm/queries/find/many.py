@@ -18,7 +18,7 @@ from typing_extensions import Self
 
 import beanie
 from beanie.odm.bulk import BulkWriter
-from beanie.odm.fields import SortDirection
+from beanie.odm.fields import ExpressionField, FieldExpr, SortDirection
 from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.queries.cursor import BaseCursorQuery, ProjectionT
 from beanie.odm.queries.delete import DeleteMany
@@ -82,7 +82,9 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
         projection_model: Optional[Type[ParseableModel]] = None,
         skip: Optional[int] = None,
         limit: Optional[int] = None,
-        sort: Union[None, str, List[Tuple[str, SortDirection]]] = None,
+        sort: Union[
+            None, FieldExpr, List[Tuple[FieldExpr, SortDirection]]
+        ] = None,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
         fetch_links: bool = False,
@@ -120,9 +122,9 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
         self,
         *args: Union[
             None,
-            str,
-            Tuple[str, SortDirection],
-            List[Tuple[str, SortDirection]],
+            FieldExpr,
+            Tuple[FieldExpr, SortDirection],
+            List[Tuple[FieldExpr, SortDirection]],
         ],
     ) -> Self:
         """
@@ -140,13 +142,18 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
                 self.sort(*arg)
             elif isinstance(arg, tuple):
                 self._add_sort(*arg)
-            elif isinstance(arg, str):
-                self._add_sort(arg)
             else:
-                raise TypeError("Wrong argument type")
+                self._add_sort(arg)
         return self
 
-    def _add_sort(self, key: str, direction: Optional[SortDirection] = None):
+    def _add_sort(
+        self, key: FieldExpr, direction: Optional[SortDirection] = None
+    ):
+        if isinstance(key, ExpressionField):
+            key = str(key)
+        elif not isinstance(key, str):
+            raise TypeError(f"Sort key must be a string, not {type(key)}")
+
         if direction is None:
             if key.startswith("-"):
                 direction = SortDirection.DESCENDING
