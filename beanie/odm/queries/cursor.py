@@ -4,6 +4,7 @@ from typing import (
     Dict,
     Generic,
     List,
+    Mapping,
     Optional,
     TypeVar,
     Union,
@@ -13,6 +14,8 @@ from typing import (
 from motor.core import AgnosticBaseCursor
 from pydantic import BaseModel
 
+from beanie.exceptions import NotSupported
+from beanie.odm.links import LinkedModelMixin
 from beanie.odm.queries.find.base import FindQuery
 from beanie.odm.utils.parsing import parse_obj
 
@@ -72,6 +75,26 @@ class BaseCursorQuery(FindQuery, ABC, Generic[ProjectionT]):
             )
             for i in motor_list
         ]
+
+    def _build_aggregation_pipeline(
+        self, *extra_stages: Mapping[str, Any], project: bool = True
+    ) -> List[Mapping[str, Any]]:
+        pipeline: List[Mapping[str, Any]] = []
+        if self.fetch_links:
+            document_model = self.document_model
+            if not issubclass(document_model, LinkedModelMixin):
+                raise NotSupported(
+                    f"{document_model} doesn't support link fetching"
+                )
+            for link_info in document_model.get_link_fields().values():
+                pipeline.extend(link_info.iter_pipeline_stages())
+        if find_query := self.get_filter_query():
+            pipeline.append({"$match": find_query})
+        if extra_stages:
+            pipeline += extra_stages
+        if project and (projection := self._get_projection()) is not None:
+            pipeline.append({"$project": projection})
+        return pipeline
 
     @property
     @abstractmethod
