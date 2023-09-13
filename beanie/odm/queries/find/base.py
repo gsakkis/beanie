@@ -30,6 +30,8 @@ class FindQuery(BaseQuery):
         **pymongo_kwargs: Any,
     ):
         super().__init__(session, **pymongo_kwargs)
+        bson_encoders = document_model.get_settings().bson_encoders
+        self.encoder = Encoder(custom_encoders=bson_encoders)
         self.document_model = document_model
         self.projection_model = projection_model
         self.ignore_cache = ignore_cache
@@ -38,16 +40,10 @@ class FindQuery(BaseQuery):
 
     def get_filter_query(self) -> Mapping[str, Any]:
         """Returns: MongoDB filter query"""
-        if issubclass(self.document_model, LinkedModelMixin):
-            for i, query in enumerate(self.find_expressions):
-                self.find_expressions[i] = convert_ids(
-                    query, self.document_model, self.fetch_links
-                )
-        if self.find_expressions:
-            return Encoder(
-                custom_encoders=self.document_model.get_settings().bson_encoders
-            ).encode(And(*self.find_expressions))
-        return {}
+        expressions = self.find_expressions
+        for i, expression in enumerate(expressions):
+            expressions[i] = self._convert_ids(expression)
+        return self.encoder.encode(And(*expressions)) if expressions else {}
 
     def project(
         self, projection_model: Optional[Type[ParseableModel]] = None
@@ -108,6 +104,23 @@ class FindQuery(BaseQuery):
             return None
         return get_projection(self.projection_model)
 
+    def _convert_ids(self, expression: Mapping[str, Any]) -> Mapping[str, Any]:
+        if not issubclass(self.document_model, LinkedModelMixin):
+            return expression
+
+        # TODO add all the cases
+        new_query = {}
+        for k, v in expression.items():
+            ksplit = k.split(".")
+            if (
+                len(ksplit) == 2
+                and ksplit[0] in self.document_model.get_link_fields()
+                and ksplit[1] == "id"
+            ):
+                k = ".".join((ksplit[0], "_id" if self.fetch_links else "$id"))
+            new_query[k] = self._convert_ids(v) if isinstance(v, dict) else v
+        return new_query
+
 
 def get_projection(model: Type[BaseModel]) -> Optional[Mapping[str, Any]]:
     if issubclass(model, beanie.Document) and model._class_id:
@@ -124,24 +137,3 @@ def get_projection(model: Type[BaseModel]) -> Optional[Mapping[str, Any]]:
     return {
         field.alias or name: 1 for name, field in model.model_fields.items()
     }
-
-
-def convert_ids(
-    query: Mapping[str, Any],
-    model_type: Type[LinkedModelMixin],
-    fetch_links: bool,
-) -> Mapping[str, Any]:
-    # TODO add all the cases
-    new_query = {}
-    for k, v in query.items():
-        k_splitted = k.split(".")
-        if (
-            len(k_splitted) == 2
-            and k_splitted[0] in model_type.get_link_fields()
-            and k_splitted[1] == "id"
-        ):
-            k = ".".join((k_splitted[0], "_id" if fetch_links else "$id"))
-        if isinstance(v, dict):
-            v = convert_ids(v, model_type, fetch_links)
-        new_query[k] = v
-    return new_query
