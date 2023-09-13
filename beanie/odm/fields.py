@@ -100,6 +100,19 @@ class ExpressionField:
 FieldExpr = Union[ExpressionField, str]
 
 
+def convert_field_exprs_to_str(expression: Any) -> Any:
+    if isinstance(expression, dict):
+        return {
+            convert_field_exprs_to_str(k): convert_field_exprs_to_str(v)
+            for k, v in expression.items()
+        }
+    if isinstance(expression, list):
+        return list(map(convert_field_exprs_to_str, expression))
+    if isinstance(expression, ExpressionField):
+        return str(expression)
+    return expression
+
+
 def Indexed(annotation, index_type=pymongo.ASCENDING, **kwargs):
     """
     Returns an Annotated type with a `{"get_index_model" : f}` dict metadata, where

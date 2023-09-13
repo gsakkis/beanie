@@ -18,7 +18,12 @@ from typing_extensions import Self
 
 import beanie
 from beanie.odm.bulk import BulkWriter
-from beanie.odm.fields import ExpressionField, FieldExpr, SortDirection
+from beanie.odm.fields import (
+    ExpressionField,
+    FieldExpr,
+    SortDirection,
+    convert_field_exprs_to_str,
+)
 from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.queries.cursor import BaseCursorQuery, ProjectionT
 from beanie.odm.queries.delete import DeleteMany
@@ -49,7 +54,7 @@ class AggregationQuery(BaseCursorQuery[ProjectionT]):
             session=session,
             **pymongo_kwargs,
         )
-        self.find_expressions += args  # type: ignore # bool workaround
+        self.find_expressions.extend(args)
         self.aggregation_pipeline = aggregation_pipeline
 
     def _cache_key_dict(self) -> Dict[str, Any]:
@@ -78,7 +83,7 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
 
     def find(
         self,
-        *args: Mapping[str, Any],
+        *args: Mapping[FieldExpr, Any],
         projection_model: Optional[Type[ParseableModel]] = None,
         skip: Optional[int] = None,
         limit: Optional[int] = None,
@@ -106,7 +111,7 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
         :param **pymongo_kwargs: pymongo native parameters for find operation (if Document class contains links, this parameter must fit the respective parameter of the aggregate MongoDB function)
         :return: FindMany - query instance
         """
-        self.find_expressions += args  # type: ignore # bool workaround
+        self.find_expressions.extend(map(convert_field_exprs_to_str, args))
         self.skip(skip)
         self.limit(limit)
         self.sort(sort)
