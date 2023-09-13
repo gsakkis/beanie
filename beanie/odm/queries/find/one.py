@@ -74,7 +74,7 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
 
     def update(
         self,
-        *args: Mapping[str, Any],
+        *args: Mapping[FieldExpr, Any],
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
         response_type: Optional[UpdateResponse] = None,
@@ -106,7 +106,7 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
 
     def upsert(
         self,
-        *args: Mapping[str, Any],
+        *args: Mapping[FieldExpr, Any],
         on_insert: "beanie.Document",
         session: Optional[ClientSession] = None,
         response_type: Optional[UpdateResponse] = None,

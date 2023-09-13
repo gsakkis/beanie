@@ -192,7 +192,7 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
 
     def update(
         self,
-        *args: Mapping[str, Any],
+        *args: Mapping[FieldExpr, Any],
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
         **pymongo_kwargs: Any,
@@ -221,7 +221,7 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
 
     def upsert(
         self,
-        *args: Mapping[str, Any],
+        *args: Mapping[FieldExpr, Any],
         on_insert: "beanie.Document",
         session: Optional[ClientSession] = None,
         **pymongo_kwargs: Any,
