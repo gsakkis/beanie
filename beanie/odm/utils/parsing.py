@@ -26,29 +26,29 @@ def parse_obj(
     data: Union[BaseModel, Dict[str, Any]],
     lazy_parse: bool = False,
 ) -> BaseModel:
-    if isinstance(data, BaseModel):
-        if type(data) is model:
-            return data
+    if isinstance(data, dict):
+        if issubclass(model, beanie.UnionDoc):
+            class_name = data[model.get_settings().class_id]
+            return parse_obj(model._children[class_name], data, lazy_parse)
+
+        if issubclass(model, beanie.Document) and model._children:
+            class_name = data[model.get_settings().class_id]
+            if class_name in model._children:
+                return parse_obj(model._children[class_name], data, lazy_parse)
+
+        if issubclass(model, beanie.Document) and lazy_parse:
+            o = model.lazy_parse(data, {"_id"})
+            o._saved_state = {"_id": o.id}
+            return o
+
+        result = model.model_validate(data)
+    elif type(data) is model:
+        result = data
+    else:
         raise TypeError(
             f"Cannot parse {data} of type {type(data)} as {model}. "
             f"Only dict or {model} is allowed."
         )
-
-    if issubclass(model, beanie.UnionDoc):
-        class_name = data[model.get_settings().class_id]
-        return parse_obj(model._children[class_name], data, lazy_parse)
-
-    if issubclass(model, beanie.Document) and model._children:
-        class_name = data[model.get_settings().class_id]
-        if class_name in model._children:
-            return parse_obj(model._children[class_name], data, lazy_parse)
-
-    if issubclass(model, beanie.Document) and lazy_parse:
-        o = model.lazy_parse(data, {"_id"})
-        o._saved_state = {"_id": o.id}
-        return o
-
-    result = model.model_validate(data)
 
     if isinstance(result, beanie.Document):
         result.save_state()
