@@ -1,9 +1,4 @@
-from typing import TYPE_CHECKING
-
-from beanie.odm.operators import BaseFieldOperator
-
-if TYPE_CHECKING:
-    from beanie.odm.fields import FieldExpr
+from beanie.odm.operators import BaseFieldOperator, FieldName
 
 
 class Exists(BaseFieldOperator):
@@ -31,7 +26,7 @@ class Exists(BaseFieldOperator):
 
     operator = "$exists"
 
-    def __init__(self, field: "FieldExpr", value: bool = True):
+    def __init__(self, field: FieldName, value: bool = True):
         super().__init__(field, value)
 
 
@@ -60,5 +55,5 @@ class Type(BaseFieldOperator):
 
     operator = "$type"
 
-    def __init__(self, field: "FieldExpr", *types: str):
+    def __init__(self, field: FieldName, *types: str):
         super().__init__(field, list(types) if len(types) > 1 else types[0])

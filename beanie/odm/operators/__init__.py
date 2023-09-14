@@ -1,7 +1,18 @@
-from typing import TYPE_CHECKING, Any, ClassVar, Iterator, Mapping
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ClassVar,
+    Iterator,
+    Mapping,
+    TypeVar,
+    Union,
+)
 
 if TYPE_CHECKING:
-    from beanie.odm.fields import FieldExpr
+    from beanie.odm.fields import ExpressionField
+
+
+FieldName = TypeVar("FieldName", bound=Union["ExpressionField", str])
 
 
 class BaseOperator(Mapping[str, Any]):
@@ -32,5 +43,5 @@ class BaseNonFieldOperator(BaseOperator):
 class BaseFieldOperator(BaseOperator):
     operator: ClassVar[str]
 
-    def __init__(self, field: "FieldExpr", expression: Any):
+    def __init__(self, field: FieldName, expression: Any):
         super().__init__(str(field), {self.operator: expression})

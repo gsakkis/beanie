@@ -1,9 +1,6 @@
-from typing import TYPE_CHECKING, Any, Mapping, Optional
+from typing import Any, Mapping, Optional
 
-from beanie.odm.operators import BaseFieldOperator
-
-if TYPE_CHECKING:
-    from beanie.odm.fields import FieldExpr
+from beanie.odm.operators import BaseFieldOperator, FieldName
 
 
 class All(BaseFieldOperator):
@@ -59,7 +56,7 @@ class ElemMatch(BaseFieldOperator):
 
     def __init__(
         self,
-        field: "FieldExpr",
+        field: FieldName,
         expression: Optional[Mapping[str, Any]] = None,
         **kwargs: Any,
     ):

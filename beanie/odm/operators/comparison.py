@@ -1,9 +1,6 @@
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from beanie.odm.operators import BaseFieldOperator, BaseOperator
-
-if TYPE_CHECKING:
-    from beanie.odm.fields import FieldExpr
+from beanie.odm.operators import BaseFieldOperator, BaseOperator, FieldName
 
 
 class Eq(BaseOperator):
@@ -14,7 +11,7 @@ class Eq(BaseOperator):
     <https://docs.mongodb.com/manual/reference/operator/query/eq/>
     """
 
-    def __init__(self, field: "FieldExpr", expression: Any):
+    def __init__(self, field: FieldName, expression: Any):
         super().__init__(str(field), expression)
 
 

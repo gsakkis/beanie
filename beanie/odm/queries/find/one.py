@@ -19,8 +19,9 @@ from typing_extensions import Self
 import beanie
 from beanie.exceptions import DocumentNotFound
 from beanie.odm.bulk import BulkWriter, Operation
-from beanie.odm.fields import FieldExpr, convert_field_exprs_to_str
+from beanie.odm.fields import convert_field_exprs_to_str
 from beanie.odm.interfaces.update import UpdateMethods
+from beanie.odm.operators import FieldName
 from beanie.odm.queries.delete import DeleteOne
 from beanie.odm.queries.update import UpdateOne, UpdateResponse
 from beanie.odm.utils.encoder import Encoder
@@ -46,7 +47,7 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
 
     def find(
         self,
-        *args: Mapping[FieldExpr, Any],
+        *args: Mapping[FieldName, Any],
         projection_model: Optional[Type[ParseableModel]] = None,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
@@ -73,7 +74,7 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
 
     def update(
         self,
-        *args: Mapping[FieldExpr, Any],
+        *args: Mapping[FieldName, Any],
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
         response_type: Optional[UpdateResponse] = None,
@@ -105,7 +106,7 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
 
     def upsert(
         self,
-        *args: Mapping[FieldExpr, Any],
+        *args: Mapping[FieldName, Any],
         on_insert: "beanie.Document",
         session: Optional[ClientSession] = None,
         response_type: Optional[UpdateResponse] = None,

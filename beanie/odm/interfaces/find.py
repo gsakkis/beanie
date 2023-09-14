@@ -17,7 +17,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from pymongo.client_session import ClientSession
 from typing_extensions import Self
 
-from beanie.odm.fields import FieldExpr, SortDirection
+from beanie.odm.fields import SortDirection
+from beanie.odm.operators import FieldName
 from beanie.odm.queries.find import AggregationQuery, FindMany, FindOne
 
 
@@ -67,7 +68,7 @@ class FindInterface(ABC):
     @classmethod
     def find_one(
         cls,
-        *args: Mapping[FieldExpr, Any],
+        *args: Mapping[FieldName, Any],
         projection_model: Optional[Type[ModelT]] = None,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
@@ -100,12 +101,12 @@ class FindInterface(ABC):
     @classmethod
     def find_many(
         cls,
-        *args: Mapping[FieldExpr, Any],
+        *args: Mapping[FieldName, Any],
         projection_model: Optional[Type[ModelT]] = None,
         skip: Optional[int] = None,
         limit: Optional[int] = None,
         sort: Union[
-            None, FieldExpr, List[Tuple[FieldExpr, SortDirection]]
+            None, FieldName, List[Tuple[FieldName, SortDirection]]
         ] = None,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
@@ -146,12 +147,12 @@ class FindInterface(ABC):
     @classmethod
     def find(
         cls,
-        *args: Mapping[FieldExpr, Any],
+        *args: Mapping[FieldName, Any],
         projection_model: Optional[Type[ModelT]] = None,
         skip: Optional[int] = None,
         limit: Optional[int] = None,
         sort: Union[
-            None, FieldExpr, List[Tuple[FieldExpr, SortDirection]]
+            None, FieldName, List[Tuple[FieldName, SortDirection]]
         ] = None,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,

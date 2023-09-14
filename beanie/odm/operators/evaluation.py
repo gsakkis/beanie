@@ -1,9 +1,10 @@
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import Any, Dict, Optional
 
-from beanie.odm.operators import BaseFieldOperator, BaseNonFieldOperator
-
-if TYPE_CHECKING:
-    from beanie.odm.fields import FieldExpr
+from beanie.odm.operators import (
+    BaseFieldOperator,
+    BaseNonFieldOperator,
+    FieldName,
+)
 
 
 class Expr(BaseNonFieldOperator):
@@ -69,7 +70,7 @@ class Mod(BaseFieldOperator):
 
     operator = "$mod"
 
-    def __init__(self, field: "FieldExpr", divisor: int, remainder: int):
+    def __init__(self, field: FieldName, divisor: int, remainder: int):
         super().__init__(field, [divisor, remainder])
 
 
@@ -84,7 +85,7 @@ class RegEx(BaseFieldOperator):
     operator = "$regex"
 
     def __init__(
-        self, field: "FieldExpr", pattern: str, options: Optional[str] = None
+        self, field: FieldName, pattern: str, options: Optional[str] = None
     ):
         super().__init__(field, pattern)
         if options:

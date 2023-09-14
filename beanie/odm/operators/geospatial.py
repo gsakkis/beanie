@@ -1,15 +1,12 @@
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
-from beanie.odm.operators import BaseFieldOperator
-
-if TYPE_CHECKING:
-    from beanie.odm.fields import FieldExpr
+from beanie.odm.operators import BaseFieldOperator, FieldName
 
 
 class BaseGeoOperator(BaseFieldOperator):
     def __init__(
-        self, field: "FieldExpr", geo_type: str, coordinates: List[List[float]]
+        self, field: FieldName, geo_type: str, coordinates: List[List[float]]
     ):
         super().__init__(
             field,
@@ -155,7 +152,7 @@ class Box(BaseFieldOperator):
 
     def __init__(
         self,
-        field: "FieldExpr",
+        field: FieldName,
         lower_left: List[float],
         upper_right: List[float],
     ):
@@ -209,7 +206,7 @@ class Near(BaseFieldOperator):
 
     def __init__(
         self,
-        field: "FieldExpr",
+        field: FieldName,
         longitude: float,
         latitude: float,
         max_distance: Optional[float] = None,

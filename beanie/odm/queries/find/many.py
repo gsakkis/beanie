@@ -18,12 +18,9 @@ from typing_extensions import Self
 
 import beanie
 from beanie.odm.bulk import BulkWriter
-from beanie.odm.fields import (
-    FieldExpr,
-    SortDirection,
-    convert_field_exprs_to_str,
-)
+from beanie.odm.fields import SortDirection, convert_field_exprs_to_str
 from beanie.odm.interfaces.update import UpdateMethods
+from beanie.odm.operators import FieldName
 from beanie.odm.queries.cursor import BaseCursorQuery, ProjectionT
 from beanie.odm.queries.delete import DeleteMany
 from beanie.odm.queries.update import UpdateMany
@@ -82,12 +79,12 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
 
     def find(
         self,
-        *args: Mapping[FieldExpr, Any],
+        *args: Mapping[FieldName, Any],
         projection_model: Optional[Type[ParseableModel]] = None,
         skip: Optional[int] = None,
         limit: Optional[int] = None,
         sort: Union[
-            None, FieldExpr, List[Tuple[FieldExpr, SortDirection]]
+            None, FieldName, List[Tuple[FieldName, SortDirection]]
         ] = None,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
@@ -126,9 +123,9 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
         self,
         *args: Union[
             None,
-            FieldExpr,
-            Tuple[FieldExpr, SortDirection],
-            List[Tuple[FieldExpr, SortDirection]],
+            FieldName,
+            Tuple[FieldName, SortDirection],
+            List[Tuple[FieldName, SortDirection]],
         ],
     ) -> Self:
         """
@@ -189,7 +186,7 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
 
     def update(
         self,
-        *args: Mapping[FieldExpr, Any],
+        *args: Mapping[FieldName, Any],
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
         **pymongo_kwargs: Any,
@@ -218,7 +215,7 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
 
     def upsert(
         self,
-        *args: Mapping[FieldExpr, Any],
+        *args: Mapping[FieldName, Any],
         on_insert: "beanie.Document",
         session: Optional[ClientSession] = None,
         **pymongo_kwargs: Any,

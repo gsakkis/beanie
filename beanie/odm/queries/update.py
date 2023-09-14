@@ -20,8 +20,9 @@ from typing_extensions import Self
 
 import beanie
 from beanie.odm.bulk import BulkWriter, Operation
-from beanie.odm.fields import FieldExpr, convert_field_exprs_to_str
+from beanie.odm.fields import convert_field_exprs_to_str
 from beanie.odm.interfaces.update import UpdateMethods
+from beanie.odm.operators import FieldName
 from beanie.odm.queries import BaseQuery
 from beanie.odm.utils.encoder import Encoder
 from beanie.odm.utils.parsing import parse_obj
@@ -60,7 +61,7 @@ class UpdateQuery(BaseQuery, UpdateMethods):
                 query.update(expression)
         return Encoder(custom_encoders=self.encoders).encode(query)
 
-    def _add_update_expressions(self, *args: Mapping[FieldExpr, Any]) -> None:
+    def _add_update_expressions(self, *args: Mapping[FieldName, Any]) -> None:
         for arg in args:
             if not isinstance(arg, Mapping):
                 raise TypeError("Update expression must be a dict")
@@ -72,7 +73,7 @@ class UpdateMany(UpdateQuery):
 
     def update(
         self,
-        *args: Mapping[FieldExpr, Any],
+        *args: Mapping[FieldName, Any],
         on_insert: Optional["beanie.Document"] = None,
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
@@ -140,7 +141,7 @@ class UpdateOne(UpdateQuery):
 
     def update(
         self,
-        *args: Mapping[FieldExpr, Any],
+        *args: Mapping[FieldName, Any],
         on_insert: Optional["beanie.Document"] = None,
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
