@@ -18,7 +18,7 @@ from typing_extensions import Self
 
 import beanie
 from beanie.odm.bulk import BulkWriter
-from beanie.odm.fields import SortDirection, convert_field_exprs_to_str
+from beanie.odm.fields import ExpressionField, SortDirection
 from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.operators import FieldName
 from beanie.odm.queries.cursor import BaseCursorQuery, ProjectionT
@@ -107,7 +107,7 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
         :param **pymongo_kwargs: pymongo native parameters for find operation (if Document class contains links, this parameter must fit the respective parameter of the aggregate MongoDB function)
         :return: FindMany - query instance
         """
-        self.find_expressions.extend(map(convert_field_exprs_to_str, args))
+        self.find_expressions.extend(map(ExpressionField.serialize, args))
         self.skip(skip)
         self.limit(limit)
         self.sort(sort)
@@ -147,7 +147,7 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
                 else:
                     key = arg
                     direction = None
-                self._add_sort(convert_field_exprs_to_str(key), direction)
+                self._add_sort(ExpressionField.serialize(key), direction)
         return self
 
     def _add_sort(self, key: str, direction: Optional[SortDirection]) -> None:

@@ -19,7 +19,7 @@ from typing_extensions import Self
 import beanie
 from beanie.exceptions import DocumentNotFound
 from beanie.odm.bulk import BulkWriter, Operation
-from beanie.odm.fields import convert_field_exprs_to_str
+from beanie.odm.fields import ExpressionField
 from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.operators import FieldName
 from beanie.odm.queries.delete import DeleteOne
@@ -64,7 +64,7 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
         :param **pymongo_kwargs: pymongo native parameters for find operation (if Document class contains links, this parameter must fit the respective parameter of the aggregate MongoDB function)
         :return: FindOne - query instance
         """
-        self.find_expressions.extend(map(convert_field_exprs_to_str, args))
+        self.find_expressions.extend(map(ExpressionField.serialize, args))
         self.project(projection_model)
         self.set_session(session)
         self.ignore_cache = ignore_cache

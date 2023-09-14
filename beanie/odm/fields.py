@@ -96,18 +96,18 @@ class ExpressionField:
     def __deepcopy__(self, memo: dict) -> Self:
         return self
 
-
-def convert_field_exprs_to_str(expression: Any) -> Any:
-    if isinstance(expression, Mapping):
-        return {
-            convert_field_exprs_to_str(k): convert_field_exprs_to_str(v)
-            for k, v in expression.items()
-        }
-    if isinstance(expression, list):
-        return list(map(convert_field_exprs_to_str, expression))
-    if isinstance(expression, ExpressionField):
-        return str(expression)
-    return expression
+    @classmethod
+    def serialize(cls, expression: Any) -> Any:
+        if isinstance(expression, Mapping):
+            return {
+                cls.serialize(k): cls.serialize(v)
+                for k, v in expression.items()
+            }
+        if isinstance(expression, list):
+            return list(map(cls.serialize, expression))
+        if isinstance(expression, ExpressionField):
+            return str(expression)
+        return expression
 
 
 def Indexed(annotation, index_type=pymongo.ASCENDING, **kwargs):

@@ -20,7 +20,7 @@ from typing_extensions import Self
 
 import beanie
 from beanie.odm.bulk import BulkWriter, Operation
-from beanie.odm.fields import convert_field_exprs_to_str
+from beanie.odm.fields import ExpressionField
 from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.operators import FieldName
 from beanie.odm.queries import BaseQuery
@@ -65,7 +65,7 @@ class UpdateQuery(BaseQuery, UpdateMethods):
         for arg in args:
             if not isinstance(arg, Mapping):
                 raise TypeError("Update expression must be a dict")
-            self.update_expressions.append(convert_field_exprs_to_str(arg))
+            self.update_expressions.append(ExpressionField.serialize(arg))
 
 
 class UpdateMany(UpdateQuery):
