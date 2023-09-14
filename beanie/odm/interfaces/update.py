@@ -1,9 +1,10 @@
 from abc import abstractmethod
-from typing import Any, Dict, Mapping, Optional
+from typing import Any, Mapping, Optional
 
 from pymongo.client_session import ClientSession
 
 from beanie.odm.bulk import BulkWriter
+from beanie.odm.fields import FieldExpr
 from beanie.odm.operators.update import CurrentDate, Inc, Set
 
 
@@ -13,7 +14,7 @@ class UpdateMethods:
     @abstractmethod
     def update(
         self,
-        *args: Mapping[str, Any],
+        *expressions: Mapping[FieldExpr, Any],
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
         **pymongo_kwargs: Any,
@@ -22,7 +23,7 @@ class UpdateMethods:
 
     def set(
         self,
-        expression: Dict[str, Any],
+        expression: Mapping[FieldExpr, Any],
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
         **pymongo_kwargs: Any,
@@ -58,7 +59,7 @@ class UpdateMethods:
 
     def current_date(
         self,
-        expression: Dict[str, Any],
+        expression: Mapping[FieldExpr, Any],
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
         **pymongo_kwargs: Any,
@@ -82,7 +83,7 @@ class UpdateMethods:
 
     def inc(
         self,
-        expression: Dict[str, Any],
+        expression: Mapping[FieldExpr, Any],
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
         **pymongo_kwargs: Any,

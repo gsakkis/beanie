@@ -20,8 +20,8 @@ from typing_extensions import Self
 
 import beanie
 from beanie.odm.bulk import BulkWriter, Operation
+from beanie.odm.fields import FieldExpr, convert_field_exprs_to_str
 from beanie.odm.interfaces.update import UpdateMethods
-from beanie.odm.operators.update import SetRevisionId
 from beanie.odm.queries import BaseQuery
 from beanie.odm.utils.encoder import Encoder
 from beanie.odm.utils.parsing import parse_obj
@@ -54,13 +54,17 @@ class UpdateQuery(BaseQuery, UpdateMethods):
     def update_query(self) -> Dict[str, Any]:
         query: Dict[str, Any] = {}
         for expression in self.update_expressions:
-            if isinstance(expression, SetRevisionId):
+            if "$set" in expression and "revision_id" in expression["$set"]:
                 query.setdefault("$set", {}).update(expression["$set"])
-            elif isinstance(expression, dict):
-                query.update(expression)
             else:
-                raise TypeError("Wrong expression type")
+                query.update(expression)
         return Encoder(custom_encoders=self.encoders).encode(query)
+
+    def _add_update_expressions(self, *args: Mapping[FieldExpr, Any]) -> None:
+        for arg in args:
+            if not isinstance(arg, Mapping):
+                raise TypeError("Update expression must be a dict")
+            self.update_expressions.append(convert_field_exprs_to_str(arg))
 
 
 class UpdateMany(UpdateQuery):
@@ -68,7 +72,7 @@ class UpdateMany(UpdateQuery):
 
     def update(
         self,
-        *args: Mapping[str, Any],
+        *args: Mapping[FieldExpr, Any],
         on_insert: Optional["beanie.Document"] = None,
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
@@ -86,7 +90,7 @@ class UpdateMany(UpdateQuery):
         :return: self
         """
         self.set_session(session)
-        self.update_expressions += args
+        self._add_update_expressions(*args)
         if on_insert is not None:
             self.upsert_insert_doc = on_insert
         if bulk_writer:
@@ -136,7 +140,7 @@ class UpdateOne(UpdateQuery):
 
     def update(
         self,
-        *args: Mapping[str, Any],
+        *args: Mapping[FieldExpr, Any],
         on_insert: Optional["beanie.Document"] = None,
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
@@ -156,7 +160,7 @@ class UpdateOne(UpdateQuery):
         :return: self
         """
         self.set_session(session)
-        self.update_expressions += args
+        self._add_update_expressions(*args)
         if on_insert is not None:
             self.upsert_insert_doc = on_insert
         if response_type is not None:

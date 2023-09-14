@@ -18,7 +18,12 @@ from typing_extensions import Self
 
 import beanie
 from beanie.odm.bulk import BulkWriter
-from beanie.odm.fields import SortDirection
+from beanie.odm.fields import (
+    ExpressionField,
+    FieldExpr,
+    SortDirection,
+    convert_field_exprs_to_str,
+)
 from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.queries.cursor import BaseCursorQuery, ProjectionT
 from beanie.odm.queries.delete import DeleteMany
@@ -49,7 +54,7 @@ class AggregationQuery(BaseCursorQuery[ProjectionT]):
             session=session,
             **pymongo_kwargs,
         )
-        self.find_expressions += args  # type: ignore # bool workaround
+        self.find_expressions.extend(args)
         self.aggregation_pipeline = aggregation_pipeline
 
     def _cache_key_dict(self) -> Dict[str, Any]:
@@ -78,11 +83,13 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
 
     def find(
         self,
-        *args: Mapping[str, Any],
+        *args: Mapping[FieldExpr, Any],
         projection_model: Optional[Type[ParseableModel]] = None,
         skip: Optional[int] = None,
         limit: Optional[int] = None,
-        sort: Union[None, str, List[Tuple[str, SortDirection]]] = None,
+        sort: Union[
+            None, FieldExpr, List[Tuple[FieldExpr, SortDirection]]
+        ] = None,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
         fetch_links: bool = False,
@@ -104,7 +111,7 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
         :param **pymongo_kwargs: pymongo native parameters for find operation (if Document class contains links, this parameter must fit the respective parameter of the aggregate MongoDB function)
         :return: FindMany - query instance
         """
-        self.find_expressions += args  # type: ignore # bool workaround
+        self.find_expressions.extend(map(convert_field_exprs_to_str, args))
         self.skip(skip)
         self.limit(limit)
         self.sort(sort)
@@ -120,9 +127,9 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
         self,
         *args: Union[
             None,
-            str,
-            Tuple[str, SortDirection],
-            List[Tuple[str, SortDirection]],
+            FieldExpr,
+            Tuple[FieldExpr, SortDirection],
+            List[Tuple[FieldExpr, SortDirection]],
         ],
     ) -> Self:
         """
@@ -140,13 +147,18 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
                 self.sort(*arg)
             elif isinstance(arg, tuple):
                 self._add_sort(*arg)
-            elif isinstance(arg, str):
-                self._add_sort(arg)
             else:
-                raise TypeError("Wrong argument type")
+                self._add_sort(arg)
         return self
 
-    def _add_sort(self, key: str, direction: Optional[SortDirection] = None):
+    def _add_sort(
+        self, key: FieldExpr, direction: Optional[SortDirection] = None
+    ):
+        if isinstance(key, ExpressionField):
+            key = str(key)
+        elif not isinstance(key, str):
+            raise TypeError(f"Sort key must be a string, not {type(key)}")
+
         if direction is None:
             if key.startswith("-"):
                 direction = SortDirection.DESCENDING
@@ -180,7 +192,7 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
 
     def update(
         self,
-        *args: Mapping[str, Any],
+        *args: Mapping[FieldExpr, Any],
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
         **pymongo_kwargs: Any,
@@ -209,7 +221,7 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
 
     def upsert(
         self,
-        *args: Mapping[str, Any],
+        *args: Mapping[FieldExpr, Any],
         on_insert: "beanie.Document",
         session: Optional[ClientSession] = None,
         **pymongo_kwargs: Any,

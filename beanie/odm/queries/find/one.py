@@ -3,6 +3,7 @@ from typing import (
     Any,
     Generator,
     Generic,
+    List,
     Mapping,
     Optional,
     Type,
@@ -19,6 +20,7 @@ from typing_extensions import Self
 import beanie
 from beanie.exceptions import DocumentNotFound
 from beanie.odm.bulk import BulkWriter, Operation
+from beanie.odm.fields import FieldExpr, convert_field_exprs_to_str
 from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.queries.delete import DeleteOne
 from beanie.odm.queries.update import UpdateOne, UpdateResponse
@@ -45,7 +47,7 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
 
     def find(
         self,
-        *args: Mapping[str, Any],
+        *args: Mapping[FieldExpr, Any],
         projection_model: Optional[Type[ParseableModel]] = None,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
@@ -62,7 +64,7 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
         :param **pymongo_kwargs: pymongo native parameters for find operation (if Document class contains links, this parameter must fit the respective parameter of the aggregate MongoDB function)
         :return: FindOne - query instance
         """
-        self.find_expressions += args  # type: ignore # bool workaround
+        self.find_expressions.extend(map(convert_field_exprs_to_str, args))
         self.project(projection_model)
         self.set_session(session)
         self.ignore_cache = ignore_cache
@@ -72,7 +74,7 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
 
     def update(
         self,
-        *args: Mapping[str, Any],
+        *args: Mapping[FieldExpr, Any],
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
         response_type: Optional[UpdateResponse] = None,
@@ -104,7 +106,7 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
 
     def upsert(
         self,
-        *args: Mapping[str, Any],
+        *args: Mapping[FieldExpr, Any],
         on_insert: "beanie.Document",
         session: Optional[ClientSession] = None,
         response_type: Optional[UpdateResponse] = None,
@@ -200,8 +202,9 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
         :return: int
         """
         if self.fetch_links:
+            args = cast(List[Mapping[FieldExpr, Any]], self.find_expressions)
             return await self.document_model.find_many(
-                *self.find_expressions,
+                *args,
                 session=self.session,
                 fetch_links=self.fetch_links,
                 **self.pymongo_kwargs,
@@ -223,8 +226,9 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
                 doc = await self._find(use_cache=False, parse=False)
                 cache.set(cache_key, doc)
         elif self.fetch_links:
+            args = cast(List[Mapping[FieldExpr, Any]], self.find_expressions)
             doc = await self.document_model.find_many(
-                *self.find_expressions,
+                *args,
                 session=self.session,
                 fetch_links=self.fetch_links,
                 projection_model=self.projection_model,
