@@ -272,14 +272,17 @@ class LinkedModelMixin:
 
     async def fetch_link(self, field: FieldExpr) -> None:
         if isinstance(field, ExpressionField):
-            field = str(field)
-        ref_obj = getattr(self, field, None)
+            attr = str(field)
+        else:
+            assert isinstance(field, str)
+            attr = field
+        ref_obj = getattr(self, attr, None)
         if isinstance(ref_obj, Link):
             value = await ref_obj.fetch(fetch_links=True)
-            setattr(self, field, value)
+            setattr(self, attr, value)
         elif isinstance(ref_obj, list) and ref_obj:
             values = await Link.fetch_list(ref_obj, fetch_links=True)
-            setattr(self, field, values)
+            setattr(self, attr, values)
 
     async def fetch_all_links(self) -> None:
         await asyncio.gather(

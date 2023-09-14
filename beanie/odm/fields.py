@@ -1,6 +1,6 @@
 from enum import Enum
 from functools import cached_property
-from typing import Any, Dict, Iterator, List, Mapping, Tuple, Union
+from typing import Any, Dict, Iterator, List, Mapping, Tuple, TypeVar, Union
 
 import bson
 import pymongo
@@ -97,7 +97,7 @@ class ExpressionField:
         return self
 
 
-FieldExpr = Union[ExpressionField, str]
+FieldExpr = TypeVar("FieldExpr", bound=Union[ExpressionField, str])
 
 
 def convert_field_exprs_to_str(expression: Any) -> Any:

@@ -46,7 +46,7 @@ from beanie.odm.actions import (
     wrap_with_actions,
 )
 from beanie.odm.bulk import BulkWriter, Operation
-from beanie.odm.fields import FieldExpr, IndexModel, PydanticObjectId
+from beanie.odm.fields import IndexModel, PydanticObjectId
 from beanie.odm.interfaces.find import BaseSettings, FindInterface
 from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.links import Link, LinkedModelMixin, LinkInfo, LinkTypes
@@ -417,8 +417,7 @@ class Document(LazyModel, LinkedModelMixin, FindInterface, UpdateMethods):
                                     )
 
         use_revision_id = self._settings.use_revision
-        find_query: Dict[FieldExpr, Any] = {"_id": self.id}
-
+        find_query = {"_id": self.id}
         if use_revision_id and not ignore_revision:
             find_query["revision_id"] = self._previous_revision_id
         try:
@@ -548,7 +547,7 @@ class Document(LazyModel, LinkedModelMixin, FindInterface, UpdateMethods):
         :return: None
         """
         ids_list = [document.id for document in documents]
-        if await cls.find(In(cls.id, ids_list)).count() != len(ids_list):  # type: ignore[arg-type]
+        if await cls.find(In("_id", ids_list)).count() != len(ids_list):
             raise ReplaceError(
                 "Some of the documents are not exist in the collection"
             )
@@ -582,7 +581,7 @@ class Document(LazyModel, LinkedModelMixin, FindInterface, UpdateMethods):
         arguments = list(args)
         use_revision_id = self._settings.use_revision
 
-        find_query: Dict[FieldExpr, Any] = {
+        find_query = {
             "_id": self.id if self.id is not None else PydanticObjectId()
         }
         if use_revision_id and not ignore_revision:

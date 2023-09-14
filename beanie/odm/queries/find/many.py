@@ -19,7 +19,6 @@ from typing_extensions import Self
 import beanie
 from beanie.odm.bulk import BulkWriter
 from beanie.odm.fields import (
-    ExpressionField,
     FieldExpr,
     SortDirection,
     convert_field_exprs_to_str,
@@ -145,20 +144,18 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
                 pass
             elif isinstance(arg, list):
                 self.sort(*arg)
-            elif isinstance(arg, tuple):
-                self._add_sort(*arg)
             else:
-                self._add_sort(arg)
+                if isinstance(arg, tuple):
+                    key, direction = arg
+                else:
+                    key = arg
+                    direction = None
+                self._add_sort(convert_field_exprs_to_str(key), direction)
         return self
 
-    def _add_sort(
-        self, key: FieldExpr, direction: Optional[SortDirection] = None
-    ):
-        if isinstance(key, ExpressionField):
-            key = str(key)
-        elif not isinstance(key, str):
+    def _add_sort(self, key: str, direction: Optional[SortDirection]) -> None:
+        if not isinstance(key, str):
             raise TypeError(f"Sort key must be a string, not {type(key)}")
-
         if direction is None:
             if key.startswith("-"):
                 direction = SortDirection.DESCENDING

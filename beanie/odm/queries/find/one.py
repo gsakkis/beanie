@@ -3,7 +3,6 @@ from typing import (
     Any,
     Generator,
     Generic,
-    List,
     Mapping,
     Optional,
     Type,
@@ -202,9 +201,8 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
         :return: int
         """
         if self.fetch_links:
-            args = cast(List[Mapping[FieldExpr, Any]], self.find_expressions)
             return await self.document_model.find_many(
-                *args,
+                *self.find_expressions,
                 session=self.session,
                 fetch_links=self.fetch_links,
                 **self.pymongo_kwargs,
@@ -226,9 +224,8 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
                 doc = await self._find(use_cache=False, parse=False)
                 cache.set(cache_key, doc)
         elif self.fetch_links:
-            args = cast(List[Mapping[FieldExpr, Any]], self.find_expressions)
             doc = await self.document_model.find_many(
-                *args,
+                *self.find_expressions,
                 session=self.session,
                 fetch_links=self.fetch_links,
                 projection_model=self.projection_model,
