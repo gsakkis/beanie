@@ -76,6 +76,13 @@ class BaseCursorQuery(FindQuery, ABC, Generic[ProjectionT]):
             for i in motor_list
         ]
 
+    async def first_or_none(self) -> Optional[ProjectionT]:
+        """
+        Returns the first found element or None if no elements were found
+        """
+        res = await self.to_list(length=1)
+        return res[0] if res else None
+
     def _build_aggregation_pipeline(
         self, *extra_stages: Mapping[str, Any], project: bool = True
     ) -> List[Mapping[str, Any]]:

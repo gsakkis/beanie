@@ -70,8 +70,8 @@ class FindQuery(BaseQuery):
                 ignore_cache=self.ignore_cache,
                 fetch_links=self.fetch_links,
                 **self.pymongo_kwargs,
-            ).to_list(length=1)
-            return result[0]["count"] if result else 0
+            ).first_or_none()
+            return result["count"] if result else 0
 
         collection = self.document_model.get_motor_collection()
         return await collection.count_documents(self.get_filter_query())

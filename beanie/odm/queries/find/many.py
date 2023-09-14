@@ -279,13 +279,6 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
             *aggregation_pipeline, project=project
         )
 
-    async def first_or_none(self) -> Optional[ProjectionT]:
-        """
-        Returns the first found element or None if no elements were found
-        """
-        res = await self.limit(1).to_list()
-        return res[0] if res else None
-
     @overload
     def aggregate(
         self,
@@ -480,8 +473,8 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
             session=session,
             ignore_cache=ignore_cache,
             **pymongo_kwargs,
-        ).to_list(length=1)
-        return result[0]["value"] if result else None
+        ).first_or_none()
+        return result["value"] if result else None
 
     def _cache_key_dict(self) -> Dict[str, Any]:
         d = super()._cache_key_dict()
