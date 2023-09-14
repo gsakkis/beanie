@@ -196,20 +196,6 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
             )
             return None
 
-    async def count(self) -> int:
-        """
-        Count the number of documents matching the query
-        :return: int
-        """
-        if self.fetch_links:
-            return await self.document_model.find_many(
-                *self.find_expressions,
-                session=self.session,
-                fetch_links=self.fetch_links,
-                **self.pymongo_kwargs,
-            ).count()
-        return await super().count()
-
     def __await__(self) -> Generator[None, None, Optional[ModelT]]:
         return self._find(use_cache=True, parse=True).__await__()
 

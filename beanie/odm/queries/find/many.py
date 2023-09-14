@@ -344,22 +344,6 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
             **pymongo_kwargs,
         )
 
-    async def count(self) -> int:
-        """
-        Number of found documents
-        :return: int
-        """
-        if self.fetch_links:
-            result = await self.aggregate(
-                aggregation_pipeline=[{"$count": "count"}],
-                session=self.session,
-                ignore_cache=self.ignore_cache,
-                **self.pymongo_kwargs,
-            ).to_list(length=1)
-            return result[0]["count"] if result else 0
-
-        return await super().count()
-
     async def sum(
         self,
         field: str,

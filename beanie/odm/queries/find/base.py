@@ -25,8 +25,9 @@ class FindQuery(BaseQuery):
         self,
         document_model: Type["FindInterface"],
         projection_model: Optional[Type[ParseableModel]] = None,
-        ignore_cache: bool = False,
         session: Optional[ClientSession] = None,
+        ignore_cache: bool = False,
+        fetch_links: bool = False,
         **pymongo_kwargs: Any,
     ):
         super().__init__(session, **pymongo_kwargs)
@@ -35,7 +36,7 @@ class FindQuery(BaseQuery):
         self.document_model = document_model
         self.projection_model = projection_model
         self.ignore_cache = ignore_cache
-        self.fetch_links = False
+        self.fetch_links = fetch_links
         self.find_expressions: List[Mapping[str, Any]] = []
 
     def get_filter_query(self) -> Mapping[str, Any]:
@@ -58,6 +59,20 @@ class FindQuery(BaseQuery):
         Number of found documents
         :return: int
         """
+        if self.fetch_links:
+            from .many import AggregationQuery
+
+            result = await AggregationQuery[Dict[str, int]](
+                *self.find_expressions,
+                aggregation_pipeline=[{"$count": "count"}],
+                document_model=self.document_model,
+                session=self.session,
+                ignore_cache=self.ignore_cache,
+                fetch_links=self.fetch_links,
+                **self.pymongo_kwargs,
+            ).to_list(length=1)
+            return result[0]["count"] if result else 0
+
         collection = self.document_model.get_motor_collection()
         return await collection.count_documents(self.get_filter_query())
 
