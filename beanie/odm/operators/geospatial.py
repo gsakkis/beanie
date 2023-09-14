@@ -1,12 +1,15 @@
 from enum import Enum
-from typing import List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from beanie.odm.operators import BaseFieldOperator
+
+if TYPE_CHECKING:
+    from beanie.odm.fields import FieldExpr
 
 
 class BaseGeoOperator(BaseFieldOperator):
     def __init__(
-        self, field: str, geo_type: str, coordinates: List[List[float]]
+        self, field: "FieldExpr", geo_type: str, coordinates: List[List[float]]
     ):
         super().__init__(
             field,
@@ -151,7 +154,10 @@ class Box(BaseFieldOperator):
     operator = "$geoWithin"
 
     def __init__(
-        self, field: str, lower_left: List[float], upper_right: List[float]
+        self,
+        field: "FieldExpr",
+        lower_left: List[float],
+        upper_right: List[float],
     ):
         super().__init__(field, {"$box": [lower_left, upper_right]})
 
@@ -203,25 +209,23 @@ class Near(BaseFieldOperator):
 
     def __init__(
         self,
-        field: str,
+        field: "FieldExpr",
         longitude: float,
         latitude: float,
         max_distance: Optional[float] = None,
         min_distance: Optional[float] = None,
     ):
-        super().__init__(
-            field,
-            {
-                "$geometry": {
-                    "type": "Point",
-                    "coordinates": [longitude, latitude],
-                }
-            },
-        )
+        expression: Dict[str, Any] = {
+            "$geometry": {
+                "type": "Point",
+                "coordinates": [longitude, latitude],
+            }
+        }
         if max_distance:
-            self[field][self.operator]["$maxDistance"] = max_distance
+            expression["$maxDistance"] = max_distance
         if min_distance:
-            self[field][self.operator]["$minDistance"] = min_distance
+            expression["$minDistance"] = min_distance
+        super().__init__(field, expression)
 
 
 class NearSphere(Near):

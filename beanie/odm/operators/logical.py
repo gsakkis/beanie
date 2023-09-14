@@ -1,23 +1,33 @@
-from typing import Any, Mapping
+from typing import Any, ClassVar, Mapping
 
-from beanie.odm.operators import BaseOperator
+from beanie.odm.operators import BaseNonFieldOperator, BaseOperator
 
 
-class LogicalOperatorForListOfExpressions(BaseOperator):
-    operator = ""
-    allow_scalar = True
+class LogicalOperator(BaseOperator):
+    operator: ClassVar[str]
+    allow_scalar: ClassVar[bool] = True
 
-    def __init__(self, *expressions: Mapping[str, Any]):
+    def __new__(cls, *expressions: Mapping[str, Any]) -> Any:
         if not expressions:
             raise AttributeError("At least one expression must be provided")
+        if len(expressions) == 1 and cls.allow_scalar:
+            expression = expressions[0]
+            if isinstance(expression, BaseOperator) or len(expression) != 1:
+                return expression
+        return super().__new__(cls)
 
-        if self.allow_scalar and len(expressions) == 1:
-            self.update(expressions[0])
+    def __init__(self, *expressions: Mapping[str, Any]):
+        if len(expressions) == 1 and self.allow_scalar:
+            expression = expressions[0]
+            assert len(expression) == 1, expression
+            key, value = next(iter(expression.items()))
         else:
-            super().__init__(list(expressions))
+            key = self.operator
+            value = list(expressions)
+        super().__init__(key, value)
 
 
-class Or(LogicalOperatorForListOfExpressions):
+class Or(LogicalOperator):
     """
     `$or` query operator
 
@@ -45,7 +55,7 @@ class Or(LogicalOperatorForListOfExpressions):
     allow_scalar = True
 
 
-class And(LogicalOperatorForListOfExpressions):
+class And(LogicalOperator):
     """
     `$and` query operator
 
@@ -73,7 +83,7 @@ class And(LogicalOperatorForListOfExpressions):
     allow_scalar = True
 
 
-class Nor(LogicalOperatorForListOfExpressions):
+class Nor(LogicalOperator):
     """
     `$nor` query operator
 
@@ -101,7 +111,7 @@ class Nor(LogicalOperatorForListOfExpressions):
     allow_scalar = False
 
 
-class Not(BaseOperator):
+class Not(BaseNonFieldOperator):
     """
     `$not` query operator
 

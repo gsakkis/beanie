@@ -1,9 +1,12 @@
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from beanie.odm.operators import BaseFieldOperator
+from beanie.odm.operators import BaseFieldOperator, BaseOperator
+
+if TYPE_CHECKING:
+    from beanie.odm.fields import FieldExpr
 
 
-class Eq(BaseFieldOperator):
+class Eq(BaseOperator):
     """
     `$eq` query operator
 
@@ -11,11 +14,8 @@ class Eq(BaseFieldOperator):
     <https://docs.mongodb.com/manual/reference/operator/query/eq/>
     """
 
-    operator = "$eq"
-
-    def __init__(self, field: str, expression: Any):
-        super().__init__(field, expression)
-        self[field] = expression
+    def __init__(self, field: "FieldExpr", expression: Any):
+        super().__init__(str(field), expression)
 
 
 class NE(BaseFieldOperator):

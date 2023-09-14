@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Any, Mapping, Optional
+from typing import Any, Mapping, Optional, cast
 
 from pymongo.client_session import ClientSession
 
@@ -51,7 +51,7 @@ class UpdateMethods:
         :return: self
         """
         return self.update(
-            Set(expression),
+            cast(Mapping[FieldExpr, Any], Set(expression)),
             session=session,
             bulk_writer=bulk_writer,
             **pymongo_kwargs,
@@ -75,7 +75,7 @@ class UpdateMethods:
         :return: self
         """
         return self.update(
-            CurrentDate(expression),
+            cast(Mapping[FieldExpr, Any], CurrentDate(expression)),
             session=session,
             bulk_writer=bulk_writer,
             **pymongo_kwargs,
@@ -110,7 +110,7 @@ class UpdateMethods:
         :return: self
         """
         return self.update(
-            Inc(expression),
+            cast(Mapping[FieldExpr, Any], Inc(expression)),
             session=session,
             bulk_writer=bulk_writer,
             **pymongo_kwargs,

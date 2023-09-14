@@ -1,9 +1,12 @@
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
-from beanie.odm.operators import BaseFieldOperator, BaseOperator
+from beanie.odm.operators import BaseFieldOperator, BaseNonFieldOperator
+
+if TYPE_CHECKING:
+    from beanie.odm.fields import FieldExpr
 
 
-class Expr(BaseOperator):
+class Expr(BaseNonFieldOperator):
     """
     `$expr` query operator
 
@@ -30,7 +33,7 @@ class Expr(BaseOperator):
     operator = "$expr"
 
 
-class JsonSchema(BaseOperator):
+class JsonSchema(BaseNonFieldOperator):
     """
     `$jsonSchema` query operator
 
@@ -66,7 +69,7 @@ class Mod(BaseFieldOperator):
 
     operator = "$mod"
 
-    def __init__(self, field: str, divisor: int, remainder: int):
+    def __init__(self, field: "FieldExpr", divisor: int, remainder: int):
         super().__init__(field, [divisor, remainder])
 
 
@@ -81,14 +84,14 @@ class RegEx(BaseFieldOperator):
     operator = "$regex"
 
     def __init__(
-        self, field: str, pattern: str, options: Optional[str] = None
+        self, field: "FieldExpr", pattern: str, options: Optional[str] = None
     ):
         super().__init__(field, pattern)
         if options:
-            self[field]["$options"] = options
+            self._value["$options"] = options
 
 
-class Text(BaseOperator):
+class Text(BaseNonFieldOperator):
     """
     `$text` query operator
 
@@ -136,7 +139,7 @@ class Text(BaseOperator):
         super().__init__(expression)
 
 
-class Where(BaseOperator):
+class Where(BaseNonFieldOperator):
     """
     `$where` query operator
 
