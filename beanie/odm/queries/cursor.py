@@ -15,7 +15,7 @@ from typing import (
 from motor.core import AgnosticBaseCursor
 from pydantic import BaseModel
 
-from beanie.odm.queries.find.base import Cacheable
+from beanie.odm.queries.cacheable import Cacheable
 from beanie.odm.utils.parsing import ParseableModel, parse_obj
 
 ProjectionT = TypeVar("ProjectionT", bound=Union[BaseModel, Dict[str, Any]])

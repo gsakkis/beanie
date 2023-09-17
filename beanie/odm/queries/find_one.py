@@ -23,7 +23,7 @@ from beanie.odm.fields import ExpressionField
 from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.operators import FieldName
 from beanie.odm.queries.delete import DeleteOne
-from beanie.odm.queries.find.base import FindQuery, get_projection
+from beanie.odm.queries.find_query import FindQuery, get_projection
 from beanie.odm.queries.update import UpdateOne, UpdateResponse
 from beanie.odm.utils.encoder import Encoder
 from beanie.odm.utils.parsing import ParseableModel, parse_obj

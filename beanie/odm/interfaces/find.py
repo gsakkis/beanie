@@ -19,7 +19,8 @@ from typing_extensions import Self
 
 from beanie.odm.fields import SortDirection
 from beanie.odm.operators import FieldName
-from beanie.odm.queries.find import AggregationQuery, FindMany, FindOne
+from beanie.odm.queries.aggregation import AggregationQuery
+from beanie.odm.queries.find import FindMany, FindOne
 
 
 class BaseSettings(BaseModel):
