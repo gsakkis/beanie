@@ -1,21 +1,9 @@
 from abc import ABC, abstractmethod
-from typing import (
-    Any,
-    Dict,
-    Generic,
-    List,
-    Mapping,
-    Optional,
-    TypeVar,
-    Union,
-    cast,
-)
+from typing import Any, Dict, Generic, List, Optional, TypeVar, Union, cast
 
 from motor.core import AgnosticBaseCursor
 from pydantic import BaseModel
 
-from beanie.exceptions import NotSupported
-from beanie.odm.links import LinkedModelMixin
 from beanie.odm.queries.find.base import FindQuery
 from beanie.odm.utils.parsing import parse_obj
 
@@ -82,35 +70,6 @@ class BaseCursorQuery(FindQuery, ABC, Generic[ProjectionT]):
         """
         res = await self.to_list(length=1)
         return res[0] if res else None
-
-    def _build_aggregation_pipeline(
-        self, *extra_stages: Mapping[str, Any], project: bool = True
-    ) -> List[Mapping[str, Any]]:
-        pipeline: List[Mapping[str, Any]] = []
-
-        if self.fetch_links:
-            document_model = self.document_model
-            if not issubclass(document_model, LinkedModelMixin):
-                raise NotSupported(
-                    f"{document_model} doesn't support link fetching"
-                )
-            for link_info in document_model.get_link_fields().values():
-                pipeline.extend(link_info.iter_pipeline_stages())
-
-        if filter_query := self.get_filter_query():
-            text_query = filter_query.pop("$text", None)
-            if text_query is not None:
-                pipeline.insert(0, {"$match": {"$text": text_query}})
-            if filter_query:
-                pipeline.append({"$match": filter_query})
-
-        if extra_stages:
-            pipeline.extend(extra_stages)
-
-        if project and (projection := self._get_projection()) is not None:
-            pipeline.append({"$project": projection})
-
-        return pipeline
 
     @property
     @abstractmethod

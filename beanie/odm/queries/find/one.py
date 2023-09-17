@@ -23,11 +23,10 @@ from beanie.odm.fields import ExpressionField
 from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.operators import FieldName
 from beanie.odm.queries.delete import DeleteOne
+from beanie.odm.queries.find.base import FindQuery, get_projection
 from beanie.odm.queries.update import UpdateOne, UpdateResponse
 from beanie.odm.utils.encoder import Encoder
 from beanie.odm.utils.parsing import ParseableModel, parse_obj
-
-from .base import FindQuery
 
 if TYPE_CHECKING:
     from beanie.odm.interfaces.find import FindInterface
@@ -221,7 +220,7 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
         else:
             doc = await self.document_model.get_motor_collection().find_one(
                 filter=self.get_filter_query(),
-                projection=self._get_projection(),
+                projection=get_projection(self.projection_model),
                 session=self.session,
                 **self.pymongo_kwargs,
             )

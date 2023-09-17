@@ -17,12 +17,15 @@ from pymongo.client_session import ClientSession
 from typing_extensions import Self
 
 import beanie
+from beanie.exceptions import NotSupported
 from beanie.odm.bulk import BulkWriter
 from beanie.odm.fields import ExpressionField, SortDirection
 from beanie.odm.interfaces.update import UpdateMethods
+from beanie.odm.links import LinkedModelMixin
 from beanie.odm.operators import FieldName
 from beanie.odm.queries.cursor import BaseCursorQuery, ProjectionT
 from beanie.odm.queries.delete import DeleteMany
+from beanie.odm.queries.find.base import get_projection
 from beanie.odm.queries.update import UpdateMany
 from beanie.odm.utils.parsing import ParseableModel
 
@@ -265,21 +268,39 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
 
     def _build_aggregation_pipeline(
         self,
-        *extra_stages: Mapping[str, Any],
-        project: bool = True,
+        projection_model: Optional[Type[ParseableModel]],
+        *aggregation_expressions: Mapping[str, Any],
     ) -> List[Mapping[str, Any]]:
-        aggregation_pipeline: List[Mapping[str, Any]] = []
+        pipeline: List[Mapping[str, Any]] = []
+
+        if self.fetch_links:
+            document_model = self.document_model
+            if not issubclass(document_model, LinkedModelMixin):
+                raise NotSupported(
+                    f"{document_model} doesn't support link fetching"
+                )
+            for link_info in document_model.get_link_fields().values():
+                pipeline.extend(link_info.iter_pipeline_stages())
+
+        if filter_query := self.get_filter_query():
+            text_query = filter_query.pop("$text", None)
+            if text_query is not None:
+                pipeline.insert(0, {"$match": {"$text": text_query}})
+            if filter_query:
+                pipeline.append({"$match": filter_query})
+
+        if aggregation_expressions:
+            pipeline.extend(aggregation_expressions)
         if self.sort_expressions:
-            aggregation_pipeline.append({"$sort": dict(self.sort_expressions)})
+            pipeline.append({"$sort": dict(self.sort_expressions)})
         if self.skip_number != 0:
-            aggregation_pipeline.append({"$skip": self.skip_number})
+            pipeline.append({"$skip": self.skip_number})
         if self.limit_number != 0:
-            aggregation_pipeline.append({"$limit": self.limit_number})
-        if extra_stages:
-            aggregation_pipeline += extra_stages
-        return super()._build_aggregation_pipeline(
-            *aggregation_pipeline, project=project
-        )
+            pipeline.append({"$limit": self.limit_number})
+        if (projection := get_projection(projection_model)) is not None:
+            pipeline.append({"$project": projection})
+
+        return pipeline
 
     @overload
     def aggregate(
@@ -321,14 +342,15 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
         :param ignore_cache: bool
         :return:[AggregationQuery](query.md#aggregationquery)
         """
+        self.set_session(session)
         return AggregationQuery[Any](
             aggregation_pipeline=self._build_aggregation_pipeline(
-                *aggregation_pipeline, project=False
+                projection_model, *aggregation_pipeline
             ),
             document_model=self.document_model,
             projection_model=projection_model,
             ignore_cache=ignore_cache,
-            session=session,
+            session=self.session,
             **pymongo_kwargs,
         )
 
@@ -484,7 +506,7 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
     def _motor_cursor(self) -> AgnosticBaseCursor:
         if self.fetch_links:
             return self.document_model.get_motor_collection().aggregate(
-                self._build_aggregation_pipeline(),
+                self._build_aggregation_pipeline(self.projection_model),
                 session=self.session,
                 **self.pymongo_kwargs,
             )
@@ -492,7 +514,7 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
         return self.document_model.get_motor_collection().find(
             filter=self.get_filter_query(),
             sort=self.sort_expressions,
-            projection=self._get_projection(),
+            projection=get_projection(self.projection_model),
             skip=self.skip_number,
             limit=self.limit_number,
             session=self.session,
