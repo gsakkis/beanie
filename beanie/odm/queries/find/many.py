@@ -23,9 +23,10 @@ from beanie.odm.fields import ExpressionField, SortDirection
 from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.links import LinkedModelMixin
 from beanie.odm.operators import FieldName
+from beanie.odm.queries import BaseQuery
 from beanie.odm.queries.cursor import BaseCursorQuery, ProjectionT
 from beanie.odm.queries.delete import DeleteMany
-from beanie.odm.queries.find.base import get_projection
+from beanie.odm.queries.find.base import FindQuery, get_projection
 from beanie.odm.queries.update import UpdateMany
 from beanie.odm.utils.parsing import ParseableModel
 
@@ -33,33 +34,30 @@ if TYPE_CHECKING:
     from beanie.odm.interfaces.find import FindInterface, ModelT
 
 
-class AggregationQuery(BaseCursorQuery[ProjectionT]):
+class AggregationQuery(BaseCursorQuery[ProjectionT], BaseQuery):
     """Aggregation Query"""
 
     def __init__(
         self,
         aggregation_pipeline: List[Mapping[str, Any]],
         document_model: Type["FindInterface"],
-        projection_model: Optional[Type[ParseableModel]] = None,
-        session: Optional[ClientSession] = None,
+        projection_model: Optional[Type[ParseableModel]],
+        cache_key_dict: Dict[str, Any],
         ignore_cache: bool = False,
-        fetch_links: bool = False,
+        session: Optional[ClientSession] = None,
         **pymongo_kwargs: Any,
     ):
-        super().__init__(
-            document_model=document_model,
-            projection_model=projection_model,
-            session=session,
-            ignore_cache=ignore_cache,
-            fetch_links=fetch_links,
-            **pymongo_kwargs,
+        BaseQuery.__init__(self, session, **pymongo_kwargs)
+        BaseCursorQuery.__init__(
+            self, document_model, projection_model, ignore_cache
         )
         self.aggregation_pipeline = aggregation_pipeline
+        self.__cache_key_dict = dict(
+            cache_key_dict, pipeline=aggregation_pipeline
+        )
 
     def _cache_key_dict(self) -> Dict[str, Any]:
-        d = super()._cache_key_dict()
-        d.update(pipeline=self.aggregation_pipeline)
-        return d
+        return self.__cache_key_dict
 
     @property
     def _motor_cursor(self) -> AgnosticBaseCursor:
@@ -70,12 +68,13 @@ class AggregationQuery(BaseCursorQuery[ProjectionT]):
         )
 
 
-class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
+class FindMany(FindQuery, BaseCursorQuery[ProjectionT], UpdateMethods):
     """Find Many query class"""
 
     def __init__(self, document_model: Type["FindInterface"]):
         projection_model = cast(Type[ParseableModel], document_model)
-        super().__init__(document_model, projection_model)
+        FindQuery.__init__(self, document_model, projection_model)
+        BaseCursorQuery.__init__(self, document_model, projection_model)
         self.sort_expressions: List[Tuple[str, SortDirection]] = []
         self.skip_number = 0
         self.limit_number = 0
@@ -349,6 +348,7 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
             ),
             document_model=self.document_model,
             projection_model=projection_model,
+            cache_key_dict=self._cache_key_dict(),
             ignore_cache=ignore_cache,
             session=self.session,
             **pymongo_kwargs,

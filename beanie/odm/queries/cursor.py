@@ -1,24 +1,45 @@
-from abc import ABC, abstractmethod
-from typing import Any, Dict, Generic, List, Optional, TypeVar, Union, cast
+from abc import abstractmethod
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Generic,
+    List,
+    Optional,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+)
 
 from motor.core import AgnosticBaseCursor
 from pydantic import BaseModel
 
-from beanie.odm.queries.find.base import FindQuery
-from beanie.odm.utils.parsing import parse_obj
+from beanie.odm.queries.find.base import Cacheable
+from beanie.odm.utils.parsing import ParseableModel, parse_obj
 
 ProjectionT = TypeVar("ProjectionT", bound=Union[BaseModel, Dict[str, Any]])
 
+if TYPE_CHECKING:
+    from beanie.odm.interfaces.find import FindInterface
 
-class BaseCursorQuery(FindQuery, ABC, Generic[ProjectionT]):
+
+class BaseCursorQuery(Cacheable, Generic[ProjectionT]):
     """
     BaseCursorQuery class. Wrapper over AsyncIOMotorCursor,
     which parse result with model
     """
 
-    _cursor: Optional[AgnosticBaseCursor] = None
-
-    lazy_parse: bool = False
+    def __init__(
+        self,
+        document_model: Type["FindInterface"],
+        projection_model: Optional[Type[ParseableModel]] = None,
+        ignore_cache: bool = False,
+    ):
+        super().__init__(document_model, ignore_cache)
+        self._cursor: Optional[AgnosticBaseCursor] = None
+        self.projection_model = projection_model
+        self.lazy_parse = False
 
     def __aiter__(self):
         if self._cursor is None:
