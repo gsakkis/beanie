@@ -1,19 +1,17 @@
-from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Type
+from typing import Any, Dict, List, Mapping, Optional, Type
 
 from pydantic import BaseModel
 from typing_extensions import Self
 
 import beanie
 from beanie.odm.cache import LRUCache
+from beanie.odm.interfaces.settings import SettingsInterface
 from beanie.odm.links import LinkedModelMixin
 from beanie.odm.operators.logical import And
 from beanie.odm.queries import BaseQuery
 from beanie.odm.queries.cacheable import Cacheable
 from beanie.odm.utils.encoder import Encoder
 from beanie.odm.utils.parsing import ParseableModel
-
-if TYPE_CHECKING:
-    from beanie.odm.interfaces.find import FindInterface
 
 
 class FindQuery(Cacheable, BaseQuery):
@@ -23,7 +21,7 @@ class FindQuery(Cacheable, BaseQuery):
 
     def __init__(
         self,
-        document_model: Type["FindInterface"],
+        document_model: Type[SettingsInterface],
         projection_model: Optional[Type[ParseableModel]] = None,
     ):
         BaseQuery.__init__(self)

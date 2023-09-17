@@ -1,5 +1,4 @@
 from typing import (
-    TYPE_CHECKING,
     Any,
     Dict,
     List,
@@ -7,12 +6,14 @@ from typing import (
     Optional,
     Tuple,
     Type,
+    TypeVar,
     Union,
     cast,
     overload,
 )
 
 from motor.core import AgnosticBaseCursor
+from pydantic import BaseModel
 from pymongo.client_session import ClientSession
 from typing_extensions import Self
 
@@ -20,6 +21,7 @@ import beanie
 from beanie.exceptions import NotSupported
 from beanie.odm.bulk import BulkWriter
 from beanie.odm.fields import ExpressionField, SortDirection
+from beanie.odm.interfaces.settings import SettingsInterface
 from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.links import LinkedModelMixin
 from beanie.odm.operators import FieldName
@@ -30,14 +32,13 @@ from beanie.odm.queries.find_query import FindQuery, get_projection
 from beanie.odm.queries.update import UpdateMany
 from beanie.odm.utils.parsing import ParseableModel
 
-if TYPE_CHECKING:
-    from beanie.odm.interfaces.find import FindInterface, ModelT
+ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
 class FindMany(FindQuery, BaseCursorQuery[ProjectionT], UpdateMethods):
     """Find Many query class"""
 
-    def __init__(self, document_model: Type["FindInterface"]):
+    def __init__(self, document_model: Type[SettingsInterface]):
         projection_model = cast(Type[ParseableModel], document_model)
         FindQuery.__init__(self, document_model, projection_model)
         BaseCursorQuery.__init__(self, document_model, projection_model)

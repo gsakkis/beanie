@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Generator, Mapping, Optional, Type
+from typing import Any, Generator, Mapping, Optional, Type
 
 from pymongo import DeleteMany as DeleteManyPyMongo
 from pymongo import DeleteOne as DeleteOnePyMongo
@@ -6,10 +6,8 @@ from pymongo.client_session import ClientSession
 from pymongo.results import DeleteResult
 
 from beanie.odm.bulk import BulkWriter, Operation
+from beanie.odm.interfaces.settings import SettingsInterface
 from beanie.odm.queries import BaseQuery
-
-if TYPE_CHECKING:
-    from beanie.odm.interfaces.find import FindInterface
 
 
 class DeleteQuery(BaseQuery):
@@ -17,7 +15,7 @@ class DeleteQuery(BaseQuery):
 
     def __init__(
         self,
-        document_model: Type["FindInterface"],
+        document_model: Type[SettingsInterface],
         find_query: Mapping[str, Any],
         bulk_writer: Optional[BulkWriter] = None,
         session: Optional[ClientSession] = None,

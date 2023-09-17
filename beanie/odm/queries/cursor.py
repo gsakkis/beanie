@@ -1,6 +1,5 @@
 from abc import abstractmethod
 from typing import (
-    TYPE_CHECKING,
     Any,
     Dict,
     Generic,
@@ -15,13 +14,11 @@ from typing import (
 from motor.core import AgnosticBaseCursor
 from pydantic import BaseModel
 
+from beanie.odm.interfaces.settings import SettingsInterface
 from beanie.odm.queries.cacheable import Cacheable
 from beanie.odm.utils.parsing import ParseableModel, parse_obj
 
 ProjectionT = TypeVar("ProjectionT", bound=Union[BaseModel, Dict[str, Any]])
-
-if TYPE_CHECKING:
-    from beanie.odm.interfaces.find import FindInterface
 
 
 class BaseCursorQuery(Cacheable, Generic[ProjectionT]):
@@ -32,7 +29,7 @@ class BaseCursorQuery(Cacheable, Generic[ProjectionT]):
 
     def __init__(
         self,
-        document_model: Type["FindInterface"],
+        document_model: Type[SettingsInterface],
         projection_model: Optional[Type[ParseableModel]] = None,
         ignore_cache: bool = False,
     ):

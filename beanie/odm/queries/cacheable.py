@@ -1,17 +1,17 @@
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Any, Dict, Optional, Type
+from typing import Any, Dict, Optional, Type
 
 from beanie.odm.cache import LRUCache
-
-if TYPE_CHECKING:
-    from beanie.odm.interfaces.find import FindInterface
+from beanie.odm.interfaces.settings import SettingsInterface
 
 
 class Cacheable:
     _caches: Dict[type, LRUCache] = {}
 
     def __init__(
-        self, document_model: Type["FindInterface"], ignore_cache: bool = False
+        self,
+        document_model: Type[SettingsInterface],
+        ignore_cache: bool = False,
     ):
         self.document_model = document_model
         self.ignore_cache = ignore_cache

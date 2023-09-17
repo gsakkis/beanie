@@ -48,7 +48,8 @@ from beanie.odm.actions import (
 )
 from beanie.odm.bulk import BulkWriter, Operation
 from beanie.odm.fields import IndexModel, PydanticObjectId
-from beanie.odm.interfaces.find import BaseSettings, FindInterface
+from beanie.odm.interfaces.find import FindInterface
+from beanie.odm.interfaces.settings import BaseSettings
 from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.links import Link, LinkedModelMixin, LinkTypes
 from beanie.odm.models import (

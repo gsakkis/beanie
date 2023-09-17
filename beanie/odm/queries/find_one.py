@@ -1,5 +1,4 @@
 from typing import (
-    TYPE_CHECKING,
     Any,
     Generator,
     Generic,
@@ -20,17 +19,15 @@ import beanie
 from beanie.exceptions import DocumentNotFound
 from beanie.odm.bulk import BulkWriter, Operation
 from beanie.odm.fields import ExpressionField
+from beanie.odm.interfaces.settings import SettingsInterface
 from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.operators import FieldName
 from beanie.odm.queries.delete import DeleteOne
+from beanie.odm.queries.find_many import FindMany
 from beanie.odm.queries.find_query import FindQuery, get_projection
 from beanie.odm.queries.update import UpdateOne, UpdateResponse
 from beanie.odm.utils.encoder import Encoder
 from beanie.odm.utils.parsing import ParseableModel, parse_obj
-
-if TYPE_CHECKING:
-    from beanie.odm.interfaces.find import FindInterface
-
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
@@ -40,7 +37,7 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
 
     projection_model: Type[ModelT]
 
-    def __init__(self, document_model: Type["FindInterface"]):
+    def __init__(self, document_model: Type[SettingsInterface]):
         projection_model = cast(Type[ParseableModel], document_model)
         super().__init__(document_model, projection_model)
 
@@ -210,7 +207,8 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
                 doc = await self._find(use_cache=False, parse=False)
                 cache.set(cache_key, doc)
         elif self.fetch_links:
-            doc = await self.document_model.find_many(
+            find_many = FindMany[ModelT](self.document_model).find
+            doc = await find_many(
                 *self.find_expressions,
                 session=self.session,
                 fetch_links=self.fetch_links,

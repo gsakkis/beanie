@@ -1,7 +1,6 @@
 from enum import Enum
 from typing import (
     Any,
-    Callable,
     Dict,
     Generator,
     List,
@@ -51,7 +50,6 @@ class UpdateQuery(BaseQuery, UpdateMethods):
         self.find_query = find_query
         self.update_expressions: List[UpdateExpression] = []
         self.upsert_insert_doc: Optional[beanie.Document] = None
-        self.encoders: Dict[Any, Callable[[Any], Any]] = {}
         self.bulk_writer: Optional[BulkWriter] = None
         self.encoders = self.document_model.get_settings().bson_encoders
 

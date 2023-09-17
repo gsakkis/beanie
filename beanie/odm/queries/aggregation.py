@@ -1,14 +1,12 @@
-from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Type
+from typing import Any, Dict, List, Mapping, Optional, Type
 
 from motor.core import AgnosticBaseCursor
 from pymongo.client_session import ClientSession
 
+from beanie.odm.interfaces.settings import SettingsInterface
 from beanie.odm.queries import BaseQuery
 from beanie.odm.queries.cursor import BaseCursorQuery, ProjectionT
 from beanie.odm.utils.parsing import ParseableModel
-
-if TYPE_CHECKING:
-    from beanie.odm.interfaces.find import FindInterface
 
 
 class AggregationQuery(BaseCursorQuery[ProjectionT], BaseQuery):
@@ -17,7 +15,7 @@ class AggregationQuery(BaseCursorQuery[ProjectionT], BaseQuery):
     def __init__(
         self,
         aggregation_pipeline: List[Mapping[str, Any]],
-        document_model: Type["FindInterface"],
+        document_model: Type[SettingsInterface],
         projection_model: Optional[Type[ParseableModel]],
         cache_key_dict: Dict[str, Any],
         ignore_cache: bool = False,
