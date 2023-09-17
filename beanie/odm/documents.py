@@ -91,18 +91,6 @@ class DocumentSettings(BaseSettings):
     keep_nulls: bool = True
     is_root: bool = False
 
-    @classmethod
-    def from_model_type(
-        cls, model_type: type, database: AsyncIOMotorDatabase
-    ) -> Self:
-        self = super().from_model_type(model_type, database)
-        # register in the Union Doc
-        if union_doc := self.union_doc:
-            union_doc._children[self.name] = model_type
-            self.union_doc_alias = self.name
-            self.name = union_doc.get_collection_name()
-        return self
-
 
 class DeleteRules(str, Enum):
     DO_NOTHING = "DO_NOTHING"
@@ -122,7 +110,9 @@ def _json_schema_extra(schema: Dict[str, Any]) -> None:
     schema["properties"] = props
 
 
-class Document(LazyModel, LinkedModelMixin, FindInterface, UpdateMethods):
+class Document(
+    LazyModel, LinkedModelMixin, UpdateMethods, FindInterface[DocumentSettings]
+):
     """
     Document Mapping class.
 
@@ -155,14 +145,22 @@ class Document(LazyModel, LinkedModelMixin, FindInterface, UpdateMethods):
     _previous_saved_state: Optional[Dict[str, Any]] = PrivateAttr(default=None)
 
     # Other
-    _settings: ClassVar[DocumentSettings]
+    _settings_type = DocumentSettings
     _hidden_fields: ClassVar[Set[str]] = set()
 
     @classmethod
     async def update_from_database(
         cls, database: AsyncIOMotorDatabase
     ) -> None:
-        settings = DocumentSettings.from_model_type(cls, database)
+        cls.set_settings(database)
+        settings = cls.get_settings()
+
+        # register in the Union Doc
+        if union_doc := settings.union_doc:
+            union_doc._children[settings.name] = cls
+            settings.union_doc_alias = settings.name
+            settings.name = union_doc.get_collection_name()
+
         # set up document inheritance
         parent_cls = cls.parent_document_cls()
         if settings.is_root and not (
@@ -190,7 +188,6 @@ class Document(LazyModel, LinkedModelMixin, FindInterface, UpdateMethods):
                 kwargs = settings.timeseries.to_dict()
                 await database.create_collection(settings.name, **kwargs)
 
-        cls._settings = settings
         cls._children = {}
         cls._hidden_fields = set()
         for k, v in cls.model_fields.items():
@@ -201,13 +198,9 @@ class Document(LazyModel, LinkedModelMixin, FindInterface, UpdateMethods):
         ActionRegistry.init_actions(cls)
 
     def swap_revision(self):
-        if self._settings.use_revision:
+        if self.get_settings().use_revision:
             self._previous_revision_id = self.revision_id
             self.revision_id = uuid4()
-
-    @classmethod
-    def get_settings(cls) -> DocumentSettings:
-        return cls._settings
 
     @classmethod
     def parent_document_cls(cls) -> Optional[Type["Document"]]:
@@ -264,7 +257,7 @@ class Document(LazyModel, LinkedModelMixin, FindInterface, UpdateMethods):
         :return: Document
         """
         await self._validate_self(skip_actions=skip_actions)
-        if self._settings.use_revision:
+        if self.get_settings().use_revision:
             self.revision_id = uuid4()
         if link_rule == WriteRules.WRITE:
             link_fields = self.get_link_fields()
@@ -421,7 +414,7 @@ class Document(LazyModel, LinkedModelMixin, FindInterface, UpdateMethods):
                                         session=session,
                                     )
 
-        use_revision_id = self._settings.use_revision
+        use_revision_id = self.get_settings().use_revision
         find_query = {"_id": self.id}
         if use_revision_id and not ignore_revision:
             find_query["revision_id"] = self._previous_revision_id
@@ -487,7 +480,7 @@ class Document(LazyModel, LinkedModelMixin, FindInterface, UpdateMethods):
                                         link_rule=link_rule, session=session
                                     )
 
-        if self._settings.keep_nulls is False:
+        if self.get_settings().keep_nulls is False:
             return await self.update(
                 update_ops.Set(self.get_dict()),
                 update_ops.Unset(self._get_top_level_nones()),
@@ -527,7 +520,7 @@ class Document(LazyModel, LinkedModelMixin, FindInterface, UpdateMethods):
         if not self.is_changed:
             return None
         changes = self.get_changes()
-        if self._settings.keep_nulls is False:
+        if self.get_settings().keep_nulls is False:
             return await self.update(
                 update_ops.Set(changes),
                 update_ops.Unset(self._get_top_level_nones()),
@@ -587,7 +580,7 @@ class Document(LazyModel, LinkedModelMixin, FindInterface, UpdateMethods):
         :return: None
         """
         arguments = list(args)
-        use_revision_id = self._settings.use_revision
+        use_revision_id = self.get_settings().use_revision
 
         find_query = {
             "_id": self.id if self.id is not None else PydanticObjectId()
@@ -715,7 +708,7 @@ class Document(LazyModel, LinkedModelMixin, FindInterface, UpdateMethods):
         Save current document state. Internal method
         :return: None
         """
-        settings = self._settings
+        settings = self.get_settings()
         if settings.use_state_management and self.id is not None:
             if settings.state_management_save_previous:
                 self._previous_saved_state = self._saved_state
@@ -749,7 +742,7 @@ class Document(LazyModel, LinkedModelMixin, FindInterface, UpdateMethods):
         if old_dict.keys() - new_dict.keys():
             return new_dict
         updates = {}
-        replace_objects = self._settings.state_management_replace_objects
+        replace_objects = self.get_settings().state_management_replace_objects
         for name, new_value in new_dict.items():
             old_value = old_dict.get(name)
             if new_value == old_value:
@@ -864,14 +857,15 @@ class Document(LazyModel, LinkedModelMixin, FindInterface, UpdateMethods):
         exclude: Optional[Set[str]] = None,
         keep_nulls: Optional[bool] = None,
     ):
+        settings = self.get_settings()
         if exclude is None:
             exclude = set()
         if self.id is None:
             exclude.add("_id")
-        if not self._settings.use_revision:
+        if not settings.use_revision:
             exclude.add("revision_id")
         if keep_nulls is None:
-            keep_nulls = self._settings.keep_nulls
+            keep_nulls = settings.keep_nulls
         encoder = Encoder(exclude=exclude, to_db=to_db, keep_nulls=keep_nulls)
         return encoder.encode(self)
 
@@ -888,7 +882,7 @@ class Document(LazyModel, LinkedModelMixin, FindInterface, UpdateMethods):
         skip_actions: Optional[List[Union[ActionDirections, str]]] = None,
     ):
         # TODO: it can be sync, but needs some actions controller improvements
-        if self._settings.validate_on_save:
+        if self.get_settings().validate_on_save:
             data = self.model_dump()
             self.__class__.model_validate(data)
 
@@ -923,6 +917,6 @@ class Document(LazyModel, LinkedModelMixin, FindInterface, UpdateMethods):
                 return {"$in": [cls._class_id, *cls._children.keys()]}
             else:
                 return cls._class_id
-        if cls._settings.union_doc:
-            return cls._settings.union_doc_alias
-        return None
+
+        settings = cls.get_settings()
+        return settings.union_doc_alias if settings.union_doc else None

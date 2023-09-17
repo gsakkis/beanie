@@ -1,4 +1,4 @@
-from typing import Any, ClassVar, Dict, List
+from typing import Any, Dict, List
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel, field_validator
@@ -17,15 +17,11 @@ class ViewSettings(BaseSettings):
         return v.get_collection_name() if issubclass(v, FindInterface) else v
 
 
-class View(BaseModel, LinkedModelMixin, FindInterface):
-    _settings: ClassVar[ViewSettings]
+class View(BaseModel, LinkedModelMixin, FindInterface[ViewSettings]):
+    _settings_type = ViewSettings
 
     @classmethod
     async def update_from_database(
         cls, database: AsyncIOMotorDatabase
     ) -> None:
-        cls._settings = ViewSettings.from_model_type(cls, database)
-
-    @classmethod
-    def get_settings(cls) -> ViewSettings:
-        return cls._settings
+        cls.set_settings(database)

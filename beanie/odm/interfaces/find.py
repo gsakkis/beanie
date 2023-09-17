@@ -1,8 +1,9 @@
-from abc import ABC, abstractmethod
 from datetime import timedelta
 from typing import (
     Any,
+    ClassVar,
     Dict,
+    Generic,
     List,
     Mapping,
     Optional,
@@ -10,12 +11,12 @@ from typing import (
     Type,
     TypeVar,
     Union,
+    cast,
 )
 
 from motor.motor_asyncio import AsyncIOMotorCollection, AsyncIOMotorDatabase
 from pydantic import BaseModel, ConfigDict, Field
 from pymongo.client_session import ClientSession
-from typing_extensions import Self
 
 from beanie.odm.fields import SortDirection
 from beanie.odm.operators import FieldName
@@ -39,24 +40,31 @@ class BaseSettings(BaseModel):
     def motor_collection(self) -> AsyncIOMotorCollection:
         return self.database[self.name]
 
-    @classmethod
-    def from_model_type(
-        cls, model_type: type, database: AsyncIOMotorDatabase
-    ) -> Self:
-        settings = dict(name=model_type.__name__, database=database)
-        if hasattr(model_type, "Settings"):
-            settings.update(vars(model_type.Settings))
-        return cls.model_validate(settings)
 
-
+SettingsT = TypeVar("SettingsT", bound=BaseSettings)
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
-class FindInterface(ABC):
+class FindInterface(Generic[SettingsT]):
+    # The concrete type of `SettingsT` to be defined in subclasses. Unfortunately this
+    # need to be duplicated both in the base class and as a ClassVar:
+    # class Foo(FindInterface[FooSettings]):
+    #     _settings_type = FooSettings
+    _settings_type: ClassVar[Type[BaseSettings]]
+
+    # Should be ClassVar[SettingsT] but ClassVars cannot contain type variable
+    _settings: ClassVar[BaseSettings]
+
     @classmethod
-    @abstractmethod
-    def get_settings(cls) -> BaseSettings:
-        ...
+    def set_settings(cls, database: AsyncIOMotorDatabase) -> None:
+        settings = dict(name=cls.__name__, database=database)
+        if hasattr(cls, "Settings"):
+            settings.update(vars(cls.Settings))
+        cls._settings = cls._settings_type.model_validate(settings)
+
+    @classmethod
+    def get_settings(cls) -> SettingsT:
+        return cast(SettingsT, cls._settings)
 
     @classmethod
     def get_motor_collection(cls) -> AsyncIOMotorCollection:
