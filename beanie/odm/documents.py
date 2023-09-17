@@ -37,6 +37,8 @@ from beanie.exceptions import (
     NotSupported,
     ReplaceError,
     RevisionIdWasChanged,
+    StateManagementIsTurnedOff,
+    StateNotSaved,
 )
 from beanie.odm.actions import (
     ActionDirections,
@@ -55,18 +57,13 @@ from beanie.odm.models import (
     InspectionResult,
     InspectionStatuses,
 )
+from beanie.odm.operators import BaseOperator
 from beanie.odm.operators import update as update_ops
 from beanie.odm.operators.comparison import In
 from beanie.odm.queries.update import UpdateMany, UpdateResponse
 from beanie.odm.timeseries import TimeSeriesConfig
 from beanie.odm.utils.encoder import Encoder
 from beanie.odm.utils.parsing import merge_models
-from beanie.odm.utils.state import (
-    previous_saved_state_needed,
-    save_state_after,
-    saved_state_needed,
-    swap_revision_after,
-)
 from beanie.odm.utils.typing import extract_id_class
 
 if TYPE_CHECKING:
@@ -185,11 +182,6 @@ class Document(
         # set up actions
         ActionRegistry.init_actions(cls)
 
-    def swap_revision(self):
-        if self.get_settings().use_revision:
-            self._previous_revision_id = self.revision_id
-            self.revision_id = uuid4()
-
     @classmethod
     def parent_document_cls(cls) -> Optional[Type["Document"]]:
         parent_cls = next(b for b in cls.__bases__ if issubclass(b, Document))
@@ -231,8 +223,6 @@ class Document(
         )
 
     @wrap_with_actions(EventTypes.INSERT)
-    @save_state_after
-    @swap_revision_after
     async def insert(
         self,
         *,
@@ -270,6 +260,8 @@ class Document(
             self.get_dict(), session=session
         )
         self.id = self._parse_document_id(result.inserted_id)
+        self.swap_revision()
+        self.save_state()
         return self
 
     async def create(self, session: Optional[ClientSession] = None) -> Self:
@@ -341,8 +333,6 @@ class Document(
         )
 
     @wrap_with_actions(EventTypes.REPLACE)
-    @save_state_after
-    @swap_revision_after
     async def replace(
         self,
         *,
@@ -417,10 +407,11 @@ class Document(
                 raise RevisionIdWasChanged
             else:
                 raise DocumentNotFound
+        self.swap_revision()
+        self.save_state()
         return self
 
     @wrap_with_actions(EventTypes.SAVE)
-    @save_state_after
     async def save(
         self,
         *,
@@ -429,7 +420,7 @@ class Document(
         ignore_revision: bool = False,
         skip_actions: Optional[List[Union[ActionDirections, str]]] = None,
         **pymongo_kwargs: Any,
-    ) -> None:
+    ) -> Self:
         """
         Update an existing model in the database or
         insert it if it does not yet exist.
@@ -437,7 +428,7 @@ class Document(
         :param session: Optional[ClientSession] - pymongo session.
         :param link_rule: WriteRules - rules how to deal with links on writing
         :param ignore_revision: bool - do force save.
-        :return: None
+        :return: self
         """
         await self._validate_self(skip_actions=skip_actions)
         if link_rule == WriteRules.WRITE:
@@ -468,25 +459,19 @@ class Document(
                                         link_rule=link_rule, session=session
                                     )
 
+        update_args: List[BaseOperator] = [update_ops.Set(self.get_dict())]
         if self.get_settings().keep_nulls is False:
-            return await self.update(
-                update_ops.Set(self.get_dict()),
-                update_ops.Unset(self._get_top_level_nones()),
-                session=session,
-                ignore_revision=ignore_revision,
-                upsert=True,
-                **pymongo_kwargs,
-            )
-        else:
-            return await self.set(
-                self.get_dict(),
-                session=session,
-                ignore_revision=ignore_revision,
-                upsert=True,
-                **pymongo_kwargs,
-            )
+            update_args.append(update_ops.Unset(self._get_top_level_nones()))
+        result = await self.update(
+            *update_args,
+            session=session,
+            ignore_revision=ignore_revision,
+            upsert=True,
+            **pymongo_kwargs,
+        )
+        self.save_state()
+        return result
 
-    @saved_state_needed
     @wrap_with_actions(EventTypes.SAVE_CHANGES)
     async def save_changes(
         self,
@@ -504,6 +489,7 @@ class Document(
         :param bulk_writer: "BulkWriter" - Beanie bulk writer
         :return: None
         """
+        self._check_state()
         await self._validate_self(skip_actions=skip_actions)
         if not self.is_changed:
             return None
@@ -547,7 +533,6 @@ class Document(
                 )
 
     @wrap_with_actions(EventTypes.UPDATE)
-    @save_state_after
     async def update(
         self,
         *args,
@@ -593,6 +578,7 @@ class Document(
                 raise RevisionIdWasChanged
             if result is not None:
                 merge_models(self, result)
+        self.save_state()
         return self
 
     @classmethod
@@ -691,6 +677,11 @@ class Document(
 
     # State management
 
+    def swap_revision(self) -> None:
+        if self.get_settings().use_revision:
+            self._previous_revision_id = self.revision_id
+            self.revision_id = uuid4()
+
     def save_state(self) -> None:
         """
         Save current document state. Internal method
@@ -703,14 +694,13 @@ class Document(
             self._saved_state = self.get_dict()
 
     @property
-    @saved_state_needed
     def is_changed(self) -> bool:
+        self._check_state()
         return self._saved_state != self.get_dict()
 
     @property
-    @saved_state_needed
-    @previous_saved_state_needed
     def has_changed(self) -> bool:
+        self._check_state(previous=True)
         return (
             self._previous_saved_state is not None
             and self._previous_saved_state != self._saved_state
@@ -747,13 +737,12 @@ class Document(
                 updates[name] = new_value
         return updates
 
-    @saved_state_needed
     def get_changes(self) -> Dict[str, Any]:
+        self._check_state()
         return self._collect_updates(self._saved_state, self.get_dict())  # type: ignore
 
-    @saved_state_needed
-    @previous_saved_state_needed
     def get_previous_changes(self) -> Dict[str, Any]:
+        self._check_state(previous=True)
         if self._previous_saved_state is None:
             return {}
 
@@ -761,14 +750,27 @@ class Document(
             self._previous_saved_state, self._saved_state  # type: ignore
         )
 
-    @saved_state_needed
     def rollback(self) -> None:
+        self._check_state()
         if self.is_changed:
             for key, value in self._saved_state.items():  # type: ignore
                 if key == "_id":
                     setattr(self, "id", value)
                 else:
                     setattr(self, key, value)
+
+    def _check_state(self, previous=False):
+        settings = self.get_settings()
+        if not settings.use_state_management:
+            raise StateManagementIsTurnedOff(
+                "State management is turned off for this document"
+            )
+        if self._saved_state is None:
+            raise StateNotSaved("No state was saved")
+        if previous and not settings.state_management_save_previous:
+            raise StateManagementIsTurnedOff(
+                "State management's option to save previous state is turned off for this document"
+            )
 
     # Other
 
@@ -863,7 +865,7 @@ class Document(
         )
         return {k: v for k, v in dictionary.items() if v is None}
 
-    @wrap_with_actions(event_type=EventTypes.VALIDATE_ON_SAVE)
+    @wrap_with_actions(EventTypes.VALIDATE_ON_SAVE)
     async def _validate_self(
         self,
         *,
