@@ -60,17 +60,19 @@ class FindQuery(BaseQuery):
         :return: int
         """
         if self.fetch_links:
-            from .many import AggregationQuery
+            from .many import FindMany
 
-            result = await AggregationQuery[Dict[str, int]](
-                *self.find_expressions,
-                aggregation_pipeline=[{"$count": "count"}],
-                document_model=self.document_model,
-                session=self.session,
-                ignore_cache=self.ignore_cache,
-                fetch_links=self.fetch_links,
-                **self.pymongo_kwargs,
-            ).first_or_none()
+            query = (
+                FindMany(self.document_model)
+                .find(*self.find_expressions, fetch_links=self.fetch_links)
+                .aggregate(
+                    [{"$count": "count"}],
+                    session=self.session,
+                    ignore_cache=self.ignore_cache,
+                    **self.pymongo_kwargs,
+                )
+            )
+            result = await query.first_or_none()
             return result["count"] if result else 0
 
         collection = self.document_model.get_motor_collection()

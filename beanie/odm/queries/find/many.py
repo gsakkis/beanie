@@ -35,22 +35,22 @@ class AggregationQuery(BaseCursorQuery[ProjectionT]):
 
     def __init__(
         self,
-        *args: Mapping[str, Any],
         aggregation_pipeline: List[Mapping[str, Any]],
         document_model: Type["FindInterface"],
         projection_model: Optional[Type[ParseableModel]] = None,
-        ignore_cache: bool = False,
         session: Optional[ClientSession] = None,
+        ignore_cache: bool = False,
+        fetch_links: bool = False,
         **pymongo_kwargs: Any,
     ):
         super().__init__(
             document_model=document_model,
             projection_model=projection_model,
-            ignore_cache=ignore_cache,
             session=session,
+            ignore_cache=ignore_cache,
+            fetch_links=fetch_links,
             **pymongo_kwargs,
         )
-        self.find_expressions.extend(args)
         self.aggregation_pipeline = aggregation_pipeline
 
     def _cache_key_dict(self) -> Dict[str, Any]:
@@ -61,7 +61,7 @@ class AggregationQuery(BaseCursorQuery[ProjectionT]):
     @property
     def _motor_cursor(self) -> AgnosticBaseCursor:
         return self.document_model.get_motor_collection().aggregate(
-            self._build_aggregation_pipeline(*self.aggregation_pipeline),
+            self.aggregation_pipeline,
             session=self.session,
             **self.pymongo_kwargs,
         )
@@ -321,21 +321,14 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
         :param ignore_cache: bool
         :return:[AggregationQuery](query.md#aggregationquery)
         """
-        self.set_session(session)
-        if not self.fetch_links:
-            args = self.find_expressions
-        else:
-            args = []
-            aggregation_pipeline = self._build_aggregation_pipeline(
-                *aggregation_pipeline, project=False
-            )
         return AggregationQuery[Any](
-            *args,
-            aggregation_pipeline=aggregation_pipeline,
+            aggregation_pipeline=self._build_aggregation_pipeline(
+                *aggregation_pipeline, project=False
+            ),
             document_model=self.document_model,
             projection_model=projection_model,
             ignore_cache=ignore_cache,
-            session=self.session,
+            session=session,
             **pymongo_kwargs,
         )
 
