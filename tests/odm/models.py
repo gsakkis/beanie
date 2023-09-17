@@ -8,20 +8,32 @@ from ipaddress import (
     IPv6Network,
 )
 from pathlib import Path
-from typing import ClassVar, Dict, List, Optional, Set, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
 from uuid import UUID, uuid4
 
 import pymongo
 from pydantic import (
     BaseModel,
     ConfigDict,
-    Extra,
     Field,
     PrivateAttr,
+    RootModel,
     SecretBytes,
     SecretStr,
+    validate_call,
 )
-from pydantic_extra_types.color import Color
+from pydantic.fields import FieldInfo
+from pydantic_core import core_schema
 
 from beanie import (
     DecimalAnnotation,
@@ -35,10 +47,54 @@ from beanie import (
     ValidateOnSave,
 )
 from beanie.odm.actions import after_event, before_event
+from beanie.odm.custom_types.bson.binary import BsonBinary
 from beanie.odm.fields import PydanticObjectId
 from beanie.odm.links import BackLink, Link
 from beanie.odm.timeseries import TimeSeriesConfig
 from beanie.odm.union_doc import UnionDoc
+
+
+class Color:
+    def __init__(self, value):
+        self.value = value
+
+    def as_rgb(self):
+        return self.value
+
+    def as_hex(self):
+        return self.value
+
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, value):
+        if isinstance(value, Color):
+            return value
+        if isinstance(value, dict):
+            return Color(value["value"])
+        return Color(value)
+
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls,
+        _source_type: Any,
+        _handler: Callable[[Any], core_schema.CoreSchema],  # type: ignore
+    ) -> core_schema.CoreSchema:  # type: ignore
+        def validate(value, _: FieldInfo) -> Color:
+            if isinstance(value, Color):
+                return value
+            if isinstance(value, dict):
+                return Color(value["value"])
+            return Color(value)
+
+        python_schema = core_schema.general_plain_validator_function(validate)
+
+        return core_schema.json_or_python_schema(
+            json_schema=core_schema.str_schema(),
+            python_schema=python_schema,
+        )
 
 
 class Option2(BaseModel):
@@ -81,9 +137,9 @@ class SubDocument(BaseModel):
 
 class DocumentTestModel(Document):
     test_int: int
-    test_list: List[SubDocument] = Field(hidden=True)
     test_doc: SubDocument
     test_str: str
+    test_list: List[SubDocument] = Field(json_schema_extra={"hidden": True})
 
     class Settings:
         use_cache = True
@@ -157,9 +213,7 @@ class DocumentTestModelWithDroppedIndex(Document):
 
     class Settings:
         name = "docs_with_index"
-        indexes = [
-            "test_int",
-        ]
+        indexes = ["test_int"]
 
 
 class DocumentTestModelStringImport(Document):
@@ -184,6 +238,8 @@ class DocumentWithCustomIdInt(Document):
 
 
 class DocumentWithCustomFiledsTypes(Document):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     color: Color
     decimal: DecimalAnnotation
     secret_bytes: SecretBytes
@@ -201,6 +257,8 @@ class DocumentWithCustomFiledsTypes(Document):
 
 
 class DocumentWithBsonEncodersFiledsTypes(Document):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     color: Color
     timestamp: datetime.datetime
 
@@ -393,7 +451,7 @@ class DocumentWithExtras(Document):
     num_1: int
 
 
-class DocumentWithExtrasKw(Document, extra=Extra.allow):
+class DocumentWithExtrasKw(Document, extra="allow"):
     num_1: int
 
 
@@ -429,8 +487,8 @@ class House(Document):
     door: Link[Door]
     roof: Optional[Link[Roof]] = None
     yards: Optional[List[Link[Yard]]] = None
-    name: Indexed(str) = Field(hidden=True)
     height: Indexed(int) = 2
+    name: Indexed(str) = Field(json_schema_extra={"hidden": True})
 
 
 class DocumentForEncodingTest(Document):
@@ -587,11 +645,11 @@ class MyDocNonRoot(Document):
         use_state_management = True
 
 
-class TestNonRoot(MixinNonRoot, MyDocNonRoot):
+class DocNonRoot(MixinNonRoot, MyDocNonRoot):
     name: str
 
 
-class Test2NonRoot(MyDocNonRoot):
+class Doc2NonRoot(MyDocNonRoot):
     name: str
 
 
@@ -609,9 +667,7 @@ class SampleLazyParsing(Document):
 
     i: int
     s: str
-    lst: List[int] = Field(
-        [],
-    )
+    lst: List[int] = Field([])
 
     class Settings:
         use_state_management = True
@@ -747,7 +803,16 @@ class DocumentWithLink(Document):
 
 
 class DocumentWithBackLink(Document):
-    back_link: BackLink[DocumentWithLink] = Field(original_field="link")
+    back_link: BackLink[DocumentWithLink] = Field(
+        json_schema_extra={"original_field": "link"},
+    )
+    i: int = 1
+
+
+class DocumentWithOptionalBackLink(Document):
+    back_link: Optional[BackLink[DocumentWithLink]] = Field(
+        json_schema_extra={"original_field": "link"},
+    )
     i: int = 1
 
 
@@ -758,7 +823,14 @@ class DocumentWithListLink(Document):
 
 class DocumentWithListBackLink(Document):
     back_link: List[BackLink[DocumentWithListLink]] = Field(
-        original_field="link"
+        json_schema_extra={"original_field": "link"},
+    )
+    i: int = 1
+
+
+class DocumentWithOptionalListBackLink(Document):
+    back_link: Optional[List[BackLink[DocumentWithListLink]]] = Field(
+        json_schema_extra={"original_field": "link"},
     )
     i: int = 1
 
@@ -816,3 +888,37 @@ class DocumentWithCustomInit(Document):
     @classmethod
     async def custom_init(cls):
         cls.s = "TEST2"
+
+
+class LinkDocumentForTextSeacrh(Document):
+    i: int
+
+
+class DocumentWithTextIndexAndLink(Document):
+    s: str
+    link: Link[LinkDocumentForTextSeacrh]
+
+    class Settings:
+        indexes = [
+            pymongo.IndexModel([("s", pymongo.TEXT)], name="text_index")
+        ]
+
+
+class DocumentWithList(Document):
+    list_values: List[str]
+
+
+class DocumentWithBsonBinaryField(Document):
+    binary_field: BsonBinary
+
+
+class DocumentWithRootModelAsAField(Document):
+    pets: RootModel[List[str]]
+
+
+class DocWithCallWrapper(Document):
+    name: str
+
+    @validate_call
+    def foo(self, bar: str) -> None:
+        print(f"foo {bar}")

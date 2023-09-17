@@ -5,6 +5,7 @@ from typing import (
     Any,
     ClassVar,
     Dict,
+    Iterable,
     List,
     Mapping,
     Optional,
@@ -146,7 +147,9 @@ class Document(LazyModel, LinkedModelMixin, FindInterface, UpdateMethods):
     _children: ClassVar[Dict[str, Type["Document"]]]
 
     # State
-    revision_id: Optional[UUID] = Field(default=None, hidden=True)
+    revision_id: Optional[UUID] = Field(
+        default=None, json_schema_extra={"hidden": True}
+    )
     _previous_revision_id: Optional[UUID] = PrivateAttr(default=None)
     _saved_state: Optional[Dict[str, Any]] = PrivateAttr(default=None)
     _previous_saved_state: Optional[Dict[str, Any]] = PrivateAttr(default=None)
@@ -180,7 +183,9 @@ class Document(LazyModel, LinkedModelMixin, FindInterface, UpdateMethods):
                 raise MongoDBVersionError(
                     "Timeseries are supported by MongoDB version 5 and higher"
                 )
-            collections = await database.list_collection_names()
+            collections = await database.list_collection_names(
+                authorizedCollections=True, nameOnly=True
+            )
             if settings.name not in collections:
                 kwargs = settings.timeseries.to_dict()
                 await database.create_collection(settings.name, **kwargs)
@@ -332,7 +337,7 @@ class Document(LazyModel, LinkedModelMixin, FindInterface, UpdateMethods):
     @classmethod
     async def insert_many(
         cls,
-        documents: List[Self],
+        documents: Iterable[Self],
         session: Optional[ClientSession] = None,
         link_rule: WriteRules = WriteRules.DO_NOTHING,
         **pymongo_kwargs: Any,
@@ -437,9 +442,11 @@ class Document(LazyModel, LinkedModelMixin, FindInterface, UpdateMethods):
     @save_state_after
     async def save(
         self,
+        *,
         session: Optional[ClientSession] = None,
         link_rule: WriteRules = WriteRules.DO_NOTHING,
         ignore_revision: bool = False,
+        skip_actions: Optional[List[Union[ActionDirections, str]]] = None,
         **pymongo_kwargs: Any,
     ) -> None:
         """
@@ -451,6 +458,7 @@ class Document(LazyModel, LinkedModelMixin, FindInterface, UpdateMethods):
         :param ignore_revision: bool - do force save.
         :return: None
         """
+        await self._validate_self(skip_actions=skip_actions)
         if link_rule == WriteRules.WRITE:
             link_fields = self.get_link_fields()
             if link_fields is not None:
@@ -809,17 +817,19 @@ class Document(LazyModel, LinkedModelMixin, FindInterface, UpdateMethods):
                 )
         return inspection_result
 
-    def dict(
+    def model_dump(
         self,
         *,
+        mode="python",
         include: Union["AbstractSetIntStr", "MappingIntStrAny"] = None,
         exclude: Union["AbstractSetIntStr", "MappingIntStrAny"] = None,
         by_alias: bool = False,
-        skip_defaults: bool = False,
         exclude_hidden: bool = True,
         exclude_unset: bool = False,
         exclude_defaults: bool = False,
         exclude_none: bool = False,
+        round_trip: bool = False,
+        warnings: bool = True,
     ) -> "DictStrAny":
         """
         Overriding of the respective method from Pydantic
@@ -836,19 +846,17 @@ class Document(LazyModel, LinkedModelMixin, FindInterface, UpdateMethods):
                 exclude = self._hidden_fields
 
         kwargs = {
+            "mode": mode,
             "include": include,
             "exclude": exclude,
             "by_alias": by_alias,
             "exclude_unset": exclude_unset,
             "exclude_defaults": exclude_defaults,
             "exclude_none": exclude_none,
+            "round_trip": round_trip,
+            "warnings": warnings,
         }
-
-        # TODO: Remove this check when skip_defaults are no longer supported
-        if skip_defaults:
-            kwargs["skip_defaults"] = skip_defaults
-
-        return self.model_dump(**kwargs)
+        return super().model_dump(**kwargs)
 
     def get_dict(
         self,

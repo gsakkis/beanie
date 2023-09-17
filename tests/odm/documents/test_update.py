@@ -1,14 +1,13 @@
 import pytest
 
-from beanie.exceptions import (
-    DocumentNotFound,
-    ReplaceError,
-)
+from beanie.exceptions import DocumentNotFound, ReplaceError
 from beanie.odm.fields import PydanticObjectId
 from tests.odm.models import (
     DocumentTestModel,
     DocumentWithKeepNullsFalse,
+    DocumentWithList,
     ModelWithOptionalField,
+    Sample,
 )
 
 # REPLACE
@@ -56,7 +55,7 @@ async def test_replace_many_not_all_the_docs_found(documents):
 
 async def test_replace(document):
     update_data = {"test_str": "REPLACED_VALUE"}
-    new_doc = document.copy(update=update_data)
+    new_doc = document.model_copy(update=update_data)
     # document.test_str = "REPLACED_VALUE"
     await new_doc.replace()
     new_document = await DocumentTestModel.get(document.id)
@@ -77,7 +76,7 @@ async def test_replace_not_found(document_not_inserted):
 # SAVE
 async def test_save(document):
     update_data = {"test_str": "REPLACED_VALUE"}
-    new_doc = document.copy(update=update_data)
+    new_doc = document.model_copy(update=update_data)
     # document.test_str = "REPLACED_VALUE"
     await new_doc.save()
     new_document = await DocumentTestModel.get(document.id)
@@ -277,3 +276,23 @@ async def test_save_changes_keep_nulls_false():
 #         {"test_str": "smth_else"}, session=session
 #     ).to_list()
 #     assert len(smth_else_documetns) == 17
+
+
+async def test_update_list():
+    test_record = DocumentWithList(list_values=["1", "2", "3"])
+    test_record = await test_record.insert()
+    update_data = test_record.model_dump()
+    update_data["list_values"] = ["5", "6", "7"]
+
+    updated_test_record = await test_record.update({"$set": update_data})
+    assert updated_test_record.list_values == update_data["list_values"]
+
+
+async def test_update_using_pipeline(preset_documents):
+    await Sample.all().update(
+        [{"$set": {"integer": 10000}}, {"$set": {"string": "TEST3"}}]
+    )
+    all_docs = await Sample.find_many({}).to_list()
+    for doc in all_docs:
+        assert doc.integer == 10000
+        assert doc.string == "TEST3"

@@ -39,7 +39,7 @@ class FindQuery(BaseQuery):
         self.fetch_links = fetch_links
         self.find_expressions: List[Mapping[str, Any]] = []
 
-    def get_filter_query(self) -> Mapping[str, Any]:
+    def get_filter_query(self) -> Dict[str, Any]:
         """Returns: MongoDB filter query"""
         expressions = self.find_expressions
         for i, expression in enumerate(expressions):

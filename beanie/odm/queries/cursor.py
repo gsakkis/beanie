@@ -87,6 +87,7 @@ class BaseCursorQuery(FindQuery, ABC, Generic[ProjectionT]):
         self, *extra_stages: Mapping[str, Any], project: bool = True
     ) -> List[Mapping[str, Any]]:
         pipeline: List[Mapping[str, Any]] = []
+
         if self.fetch_links:
             document_model = self.document_model
             if not issubclass(document_model, LinkedModelMixin):
@@ -95,12 +96,20 @@ class BaseCursorQuery(FindQuery, ABC, Generic[ProjectionT]):
                 )
             for link_info in document_model.get_link_fields().values():
                 pipeline.extend(link_info.iter_pipeline_stages())
-        if find_query := self.get_filter_query():
-            pipeline.append({"$match": find_query})
+
+        if filter_query := self.get_filter_query():
+            text_query = filter_query.pop("$text", None)
+            if text_query is not None:
+                pipeline.insert(0, {"$match": {"$text": text_query}})
+            if filter_query:
+                pipeline.append({"$match": filter_query})
+
         if extra_stages:
-            pipeline += extra_stages
+            pipeline.extend(extra_stages)
+
         if project and (projection := self._get_projection()) is not None:
             pipeline.append({"$project": projection})
+
         return pipeline
 
     @property

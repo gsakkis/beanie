@@ -51,7 +51,9 @@ async def init_view(
     cls: Type[View], database: AsyncIOMotorDatabase, recreate: bool
 ) -> None:
     settings = cls.get_settings()
-    collection_names = await database.list_collection_names()
+    collection_names = await database.list_collection_names(
+        authorizedCollections=True, nameOnly=True
+    )
     if recreate or settings.name not in collection_names:
         if settings.name in collection_names:
             await settings.motor_collection.drop()

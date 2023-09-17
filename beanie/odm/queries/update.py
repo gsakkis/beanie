@@ -9,6 +9,7 @@ from typing import (
     Optional,
     Type,
     Union,
+    cast,
 )
 
 from pymongo import ReturnDocument
@@ -34,6 +35,9 @@ class UpdateResponse(str, Enum):
     NEW_DOCUMENT = "NEW_DOCUMENT"  # Updated document
 
 
+UpdateExpression = Union[Mapping[FieldName, Any], List[Any]]
+
+
 class UpdateQuery(BaseQuery, UpdateMethods):
     """Update Query base class"""
 
@@ -45,7 +49,7 @@ class UpdateQuery(BaseQuery, UpdateMethods):
         super().__init__()
         self.document_model = document_model
         self.find_query = find_query
-        self.update_expressions: List[Mapping[str, Any]] = []
+        self.update_expressions: List[UpdateExpression] = []
         self.upsert_insert_doc: Optional[beanie.Document] = None
         self.encoders: Dict[Any, Callable[[Any], Any]] = {}
         self.bulk_writer: Optional[BulkWriter] = None
@@ -53,19 +57,40 @@ class UpdateQuery(BaseQuery, UpdateMethods):
 
     @property
     def update_query(self) -> Dict[str, Any]:
-        query: Dict[str, Any] = {}
-        for expression in self.update_expressions:
-            if "$set" in expression and "revision_id" in expression["$set"]:
-                query.setdefault("$set", {}).update(expression["$set"])
-            else:
-                query.update(expression)
+        if not self.update_expressions:
+            raise ValueError("No update expressions provided")
+
+        query: Union[Dict[str, Any], List[Mapping[str, Any]]]
+        if isinstance(self.update_expressions[0], list):
+            query = []
+            for expression in self.update_expressions:
+                query.extend(expression)
+        else:
+            query = {}
+            for expression in self.update_expressions:
+                expression = cast(Dict[str, Any], expression)
+                if (
+                    "$set" in expression
+                    and "revision_id" in expression["$set"]
+                ):
+                    query.setdefault("$set", {}).update(expression["$set"])
+                else:
+                    query.update(expression)
         return Encoder(custom_encoders=self.encoders).encode(query)
 
-    def _add_update_expressions(self, *args: Mapping[FieldName, Any]) -> None:
-        for arg in args:
-            if not isinstance(arg, Mapping):
-                raise TypeError("Update expression must be a dict")
-            self.update_expressions.append(ExpressionField.serialize(arg))
+    def _add_update_expression(self, expression: UpdateExpression) -> None:
+        if not isinstance(expression, (Mapping, list)):
+            raise TypeError("Update expression must be dict or list")
+        if self.update_expressions:
+            expr_type = type(self.update_expressions[0])
+            assert expr_type in (dict, list)
+            if (expr_type is dict and not isinstance(expression, Mapping)) or (
+                expr_type is list and not isinstance(expression, list)
+            ):
+                raise TypeError(
+                    "Update expressions must be all lists or all dicts"
+                )
+        self.update_expressions.append(ExpressionField.serialize(expression))
 
 
 class UpdateMany(UpdateQuery):
@@ -73,7 +98,7 @@ class UpdateMany(UpdateQuery):
 
     def update(
         self,
-        *args: Mapping[FieldName, Any],
+        *args: UpdateExpression,
         on_insert: Optional["beanie.Document"] = None,
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
@@ -91,7 +116,8 @@ class UpdateMany(UpdateQuery):
         :return: self
         """
         self.set_session(session)
-        self._add_update_expressions(*args)
+        for arg in args:
+            self._add_update_expression(arg)
         if on_insert is not None:
             self.upsert_insert_doc = on_insert
         if bulk_writer:
@@ -141,7 +167,7 @@ class UpdateOne(UpdateQuery):
 
     def update(
         self,
-        *args: Mapping[FieldName, Any],
+        *args: UpdateExpression,
         on_insert: Optional["beanie.Document"] = None,
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
@@ -161,7 +187,8 @@ class UpdateOne(UpdateQuery):
         :return: self
         """
         self.set_session(session)
-        self._add_update_expressions(*args)
+        for arg in args:
+            self._add_update_expression(arg)
         if on_insert is not None:
             self.upsert_insert_doc = on_insert
         if response_type is not None:

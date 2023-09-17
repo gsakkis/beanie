@@ -16,8 +16,10 @@ from tests.odm.models import (
     DocumentWithListBackLink,
     DocumentWithListLink,
     DocumentWithListOfLinks,
+    DocumentWithTextIndexAndLink,
     Door,
     House,
+    LinkDocumentForTextSeacrh,
     Lock,
     LoopedLinksA,
     LoopedLinksB,
@@ -168,6 +170,9 @@ class TestInsert:
         for win in house.windows:
             assert isinstance(win, Window)
             assert win.id
+
+    async def test_fetch_after_insert(self, house_not_inserted):
+        await house_not_inserted.fetch_all_links()
 
 
 class TestFind:
@@ -328,6 +333,22 @@ class TestFind:
         for i in range(10):
             assert doc_with_links.links[i].id == docs[i].id
 
+    async def test_text_search(self):
+        doc = DocumentWithTextIndexAndLink(
+            s="hello world", link=LinkDocumentForTextSeacrh(i=1)
+        )
+        await doc.insert(link_rule=WriteRules.WRITE)
+
+        doc2 = DocumentWithTextIndexAndLink(
+            s="hi world", link=LinkDocumentForTextSeacrh(i=2)
+        )
+        await doc2.insert(link_rule=WriteRules.WRITE)
+
+        docs = await DocumentWithTextIndexAndLink.find(
+            {"$text": {"$search": "hello"}}, fetch_links=True
+        ).to_list()
+        assert len(docs) == 1
+
 
 class TestReplace:
     async def test_do_nothing(self, house):
@@ -391,19 +412,19 @@ class TestOther:
     async def test_query_composition(self):
         SYS = {"id", "revision_id"}
 
-        # Simple fields are initialized using the pydantic __fields__ internal property
+        # Simple fields are initialized using the pydantic model_fields internal property
         # such fields are properly isolated when multi inheritance is involved.
-        assert set(RootDocument.__fields__.keys()) == SYS | {
+        assert set(RootDocument.model_fields.keys()) == SYS | {
             "name",
             "link_root",
         }
-        assert set(ADocument.__fields__.keys()) == SYS | {
+        assert set(ADocument.model_fields.keys()) == SYS | {
             "name",
             "link_root",
             "surname",
             "link_a",
         }
-        assert set(BDocument.__fields__.keys()) == SYS | {
+        assert set(BDocument.model_fields.keys()) == SYS | {
             "name",
             "link_root",
             "email",
@@ -493,7 +514,7 @@ class TestOther:
 
     async def test_with_extra_allow(self, houses):
         res = await House.find(fetch_links=True).to_list()
-        assert res[0].__fields__.keys() == {
+        assert res[0].model_fields.keys() == {
             "id",
             "revision_id",
             "windows",
@@ -505,7 +526,7 @@ class TestOther:
         }
 
         res = await House.find_one(fetch_links=True)
-        assert res.__fields__.keys() == {
+        assert res.model_fields.keys() == {
             "id",
             "revision_id",
             "windows",
@@ -666,13 +687,15 @@ class HouseForReversedOrderInit(Document):
 class DoorForReversedOrderInit(Document):
     height: int = 2
     width: int = 1
-    house: BackLink[HouseForReversedOrderInit] = Field(original_field="door")
+    house: BackLink[HouseForReversedOrderInit] = Field(
+        json_schema_extra={"original_field": "door"}
+    )
 
 
 class PersonForReversedOrderInit(Document):
     name: str
     house: List[BackLink[HouseForReversedOrderInit]] = Field(
-        original_field="owners"
+        json_schema_extra={"original_field": "owners"}
     )
 
 

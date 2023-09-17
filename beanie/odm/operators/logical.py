@@ -1,6 +1,6 @@
 from typing import Any, ClassVar, Mapping
 
-from beanie.odm.operators import BaseNonFieldOperator, BaseOperator
+from beanie.odm.operators import BaseFieldOperator, BaseOperator
 
 
 class LogicalOperator(BaseOperator):
@@ -111,7 +111,7 @@ class Nor(LogicalOperator):
     allow_scalar = False
 
 
-class Not(BaseNonFieldOperator):
+class Not(BaseFieldOperator):
     """
     `$not` query operator
 
@@ -136,3 +136,17 @@ class Not(BaseNonFieldOperator):
     """
 
     operator = "$not"
+
+    def __init__(self, expression: Mapping[str, Any]):
+        if len(expression) != 1:
+            raise AttributeError(
+                "Not operator can only be used with one expression"
+            )
+
+        key, value = next(iter(expression.items()))
+        if key.startswith("$"):
+            raise AttributeError("Not operator can not be used with operators")
+
+        if not isinstance(value, Mapping):
+            value = {"$eq": value}
+        super().__init__(key, value)

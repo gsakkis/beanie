@@ -78,15 +78,17 @@ class FindInterface(ABC):
     ) -> FindOne[ModelT]:
         """
         Find one document by criteria.
-        Returns [FindOne](https://roman-right.github.io/beanie/api/queries/#findone) query object.
+        Returns [FindOne](query.md#findone) query object.
         When awaited this will either return a document or None if no document exists for the search criteria.
 
         :param args: *Mapping[str, Any] - search criteria
         :param projection_model: Optional[Type[BaseModel]] - projection model
         :param session: Optional[ClientSession] - pymongo session instance
         :param ignore_cache: bool
-        :param **pymongo_kwargs: pymongo native parameters for find operation (if Document class contains links, this parameter must fit the respective parameter of the aggregate MongoDB function)
-        :return: [FindOne](https://roman-right.github.io/beanie/api/queries/#findone) - find query instance
+        :keyword **pymongo_kwargs: pymongo native parameters for find operation.
+            If Document class contains links, this parameter must fit the respective
+            parameter of the aggregate MongoDB function.
+        :return: [FindOne](query.md#findone) - find query instance
         """
         args = cls._add_class_id_filter(*args, with_children=with_children)
         return FindOne[ModelT](document_model=cls).find(
@@ -117,7 +119,7 @@ class FindInterface(ABC):
     ) -> Union[FindMany[ModelT], FindMany[Dict[str, Any]]]:
         """
         Find many documents by criteria.
-        Returns [FindMany](https://roman-right.github.io/beanie/api/queries/#findmany) query object
+        Returns [FindMany](query.md#findmany) query object
 
         :param args: *Mapping[str, Any] - search criteria
         :param skip: Optional[int] - The number of documents to omit.
@@ -127,8 +129,10 @@ class FindInterface(ABC):
         :param session: Optional[ClientSession] - pymongo session
         :param ignore_cache: bool
         :param lazy_parse: bool
-        :param **pymongo_kwargs: pymongo native parameters for find operation (if Document class contains links, this parameter must fit the respective parameter of the aggregate MongoDB function)
-        :return: [FindMany](https://roman-right.github.io/beanie/api/queries/#findmany) - query instance
+        :keyword **pymongo_kwargs: pymongo native parameters for find operation.
+            If Document class contains links, this parameter must fit the respective
+            parameter of the aggregate MongoDB function.
+        :return: [FindMany](query.md#findmany) - query instance
         """
         args = cls._add_class_id_filter(*args, with_children=with_children)
         return FindMany[Any](document_model=cls).find(
@@ -200,8 +204,10 @@ class FindInterface(ABC):
         :param sort: Union[None, str, List[Tuple[str, SortDirection]]] - A key or a list of (key, direction) pairs specifying the sort order for this query.
         :param projection_model: Optional[Type[BaseModel]] - projection model
         :param session: Optional[ClientSession] - pymongo session
-        :param **pymongo_kwargs: pymongo native parameters for find operation (if Document class contains links, this parameter must fit the respective parameter of the aggregate MongoDB function)
-        :return: [FindMany](https://roman-right.github.io/beanie/api/queries/#findmany) - query instance
+        :keyword **pymongo_kwargs: pymongo native parameters for find operation.
+            If Document class contains links, this parameter must fit the respective
+            parameter of the aggregate MongoDB function.
+        :return: [FindMany](query.md#findmany) - query instance
         """
         kwargs = dict(
             skip=skip,
@@ -266,13 +272,13 @@ class FindInterface(ABC):
     ) -> Union[AggregationQuery[ModelT], AggregationQuery[Dict[str, Any]]]:
         """
         Aggregate over collection.
-        Returns [AggregationQuery](https://roman-right.github.io/beanie/api/queries/#aggregationquery) query object
+        Returns [AggregationQuery](query.md#aggregationquery)
         :param aggregation_pipeline: list - aggregation pipeline
         :param projection_model: Type[BaseModel]
         :param session: Optional[ClientSession]
         :param ignore_cache: bool
-        :param **pymongo_kwargs: pymongo native parameters for aggregate operation
-        :return: [AggregationQuery](https://roman-right.github.io/beanie/api/queries/#aggregationquery)
+        :keyword **pymongo_kwargs: pymongo native parameters for aggregate operation
+        :return: [AggregationQuery](query.md#aggregationquery)
         """
         return cls.find_all(projection_model=projection_model).aggregate(
             aggregation_pipeline=aggregation_pipeline,

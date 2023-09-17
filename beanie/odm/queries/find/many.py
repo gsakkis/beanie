@@ -104,7 +104,9 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
         :param projection_model: Optional[Type[BaseModel]] - projection model
         :param session: Optional[ClientSession] - pymongo session
         :param ignore_cache: bool
-        :param **pymongo_kwargs: pymongo native parameters for find operation (if Document class contains links, this parameter must fit the respective parameter of the aggregate MongoDB function)
+        :keyword **pymongo_kwargs: pymongo native parameters for find operation.
+            If Document class contains links, this parameter must fit the respective
+            parameter of the aggregate MongoDB function.
         :return: FindMany - query instance
         """
         self.find_expressions.extend(map(ExpressionField.serialize, args))
@@ -310,14 +312,14 @@ class FindMany(BaseCursorQuery[ProjectionT], UpdateMethods):
         **pymongo_kwargs: Any,
     ) -> Union[AggregationQuery["ModelT"], AggregationQuery[Dict[str, Any]]]:
         """
-        Provide search criteria to the [AggregationQuery](https://roman-right.github.io/beanie/api/queries/#aggregationquery)
+        Provide search criteria to the [AggregationQuery](query.md#aggregationquery)
 
         :param aggregation_pipeline: list - aggregation pipeline. MongoDB doc:
         <https://docs.mongodb.com/manual/core/aggregation-pipeline/>
         :param projection_model: Type[BaseModel] - Projection Model
         :param session: Optional[ClientSession] - PyMongo session
         :param ignore_cache: bool
-        :return:[AggregationQuery](https://roman-right.github.io/beanie/api/queries/#aggregationquery)
+        :return:[AggregationQuery](query.md#aggregationquery)
         """
         self.set_session(session)
         if not self.fetch_links:

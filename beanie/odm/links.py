@@ -83,7 +83,7 @@ class Link(Generic[T]):
                     )
                 ids_to_fetch.append(link.ref.id)
 
-        if document_class is not None:
+        if ids_to_fetch and document_class is not None:
             fetched_models = await document_class.find(
                 In("_id", ids_to_fetch),
                 with_children=True,

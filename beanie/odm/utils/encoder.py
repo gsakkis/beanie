@@ -47,12 +47,6 @@ DEFAULT_CUSTOM_ENCODERS: Dict[Type, Callable] = {
     uuid.UUID: bson.Binary.from_uuid,
     re.Pattern: bson.Regex.from_native,
 }
-try:
-    from pydantic_extra_types.color import Color
-except ImportError:
-    pass
-else:
-    DEFAULT_CUSTOM_ENCODERS[Color] = str
 
 
 BSON_SCALAR_TYPES = (
@@ -86,12 +80,6 @@ class Encoder:
     custom_encoders: Mapping[Type, Callable] = dc.field(default_factory=dict)
     to_db: bool = False
     keep_nulls: bool = True
-
-    def __post_init__(self):
-        # replace _id alias with id field name
-        if "_id" in self.exclude and "id" not in self.exclude:
-            self.exclude.add("id")
-            self.exclude.remove("_id")
 
     def _encode_document(self, obj: "beanie.Document") -> Mapping[str, Any]:
         obj.parse_store()
@@ -129,11 +117,14 @@ class Encoder:
         return obj_dict
 
     def _iter_model_items(self, obj: pydantic.BaseModel) -> "TupleGenerator":
-        return obj._iter(
-            by_alias=True,
-            exclude=self.exclude,
-            exclude_none=not self.keep_nulls,
-        )
+        for k, v in obj.__iter__():
+            field_info = obj.model_fields.get(k)
+            if field_info is not None:
+                k = field_info.alias or k
+            if k in self.exclude:
+                continue
+            if v is not None or self.keep_nulls is True:
+                yield k, v
 
     def encode(self, obj: Any) -> Any:
         if self.custom_encoders:
@@ -150,6 +141,8 @@ class Encoder:
 
         if isinstance(obj, beanie.Document):
             return self._encode_document(obj)
+        if isinstance(obj, pydantic.RootModel):
+            return self.encode(obj.root)
         if isinstance(obj, pydantic.BaseModel):
             items = self._iter_model_items(obj)
             return {key: self.encode(value) for key, value in items}

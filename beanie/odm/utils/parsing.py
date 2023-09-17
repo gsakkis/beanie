@@ -12,9 +12,18 @@ def merge_models(left: BaseModel, right: BaseModel) -> None:
         left._previous_revision_id = right._previous_revision_id
     for k, rvalue in right:
         lvalue = getattr(left, k)
-        if isinstance(rvalue, BaseModel) and isinstance(lvalue, BaseModel):
+        if (
+            isinstance(rvalue, BaseModel)
+            and isinstance(lvalue, BaseModel)
+            and not lvalue.model_config.get("frozen")
+        ):
             merge_models(lvalue, rvalue)
-        elif not isinstance(rvalue, (beanie.Link, list)):
+        elif isinstance(rvalue, beanie.Link) or (
+            isinstance(rvalue, list)
+            and any(isinstance(item, beanie.Link) for item in rvalue)
+        ):
+            pass
+        else:
             setattr(left, k, rvalue)
 
 

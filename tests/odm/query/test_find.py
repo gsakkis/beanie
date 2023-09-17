@@ -3,10 +3,14 @@ import datetime
 
 import pytest
 from pydantic import BaseModel
-from pydantic_extra_types.color import Color
 
 from beanie.odm.fields import SortDirection
-from tests.odm.models import DocumentWithBsonEncodersFiledsTypes, House, Sample
+from tests.odm.models import (
+    Color,
+    DocumentWithBsonEncodersFiledsTypes,
+    House,
+    Sample,
+)
 
 
 async def test_find_query():
