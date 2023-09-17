@@ -50,7 +50,7 @@ from beanie.odm.bulk import BulkWriter, Operation
 from beanie.odm.fields import IndexModel, PydanticObjectId
 from beanie.odm.interfaces.find import BaseSettings, FindInterface
 from beanie.odm.interfaces.update import UpdateMethods
-from beanie.odm.links import Link, LinkedModelMixin, LinkInfo, LinkTypes
+from beanie.odm.links import Link, LinkedModelMixin, LinkTypes
 from beanie.odm.models import (
     InspectionError,
     InspectionResult,
@@ -926,8 +926,3 @@ class Document(LazyModel, LinkedModelMixin, FindInterface, UpdateMethods):
         if cls._settings.union_doc:
             return cls._settings.union_doc_alias
         return None
-
-
-# Break the cyclic dependency between `Document` and `LinkInfo` to prevent:
-#   `LinkInfo` is not fully defined; you should define `Document`, then call `LinkInfo.model_rebuild()`.
-LinkInfo.model_rebuild()

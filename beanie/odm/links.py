@@ -1,9 +1,9 @@
 import asyncio
 import typing
 from collections import OrderedDict
+from dataclasses import dataclass
 from enum import Enum
 from typing import (
-    TYPE_CHECKING,
     Any,
     ClassVar,
     Dict,
@@ -19,7 +19,7 @@ from typing import (
 )
 
 from bson import DBRef
-from pydantic import BaseModel, TypeAdapter, field_validator, model_validator
+from pydantic import BaseModel, TypeAdapter, model_validator
 from pydantic.fields import FieldInfo
 from pydantic_core import core_schema
 
@@ -28,9 +28,6 @@ from beanie.odm.fields import ExpressionField
 from beanie.odm.operators import FieldName
 from beanie.odm.operators.comparison import In
 from beanie.odm.utils.parsing import parse_obj
-
-if TYPE_CHECKING:
-    from beanie.odm.documents import Document
 
 
 class LinkTypes(str, Enum):
@@ -45,7 +42,7 @@ class LinkTypes(str, Enum):
     OPTIONAL_BACK_LIST = "OPTIONAL_BACK_LIST"
 
 
-T = TypeVar("T", bound="Document")
+T = TypeVar("T", bound="beanie.Document")
 
 
 class Link(Generic[T]):
@@ -62,7 +59,7 @@ class Link(Generic[T]):
     @classmethod
     async def fetch_list(
         cls,
-        links: List[Union["Link", "Document"]],
+        links: List[Union["Link", "beanie.Document"]],
         fetch_links: bool = False,
     ):
         """Fetch list that contains links and documents"""
@@ -168,17 +165,16 @@ class BackLink(Generic[T]):
         return {"collection": self.document_class.get_collection_name()}
 
 
-class LinkInfo(BaseModel):
+@dataclass
+class LinkInfo:
     field_name: str
     lookup_field_name: str
-    document_class: Type["Document"]
+    document_class: Type["beanie.Document"]
     link_type: LinkTypes
     nested_links: Optional[Dict] = None
 
-    @field_validator("document_class", mode="before")
-    @classmethod
-    def _resolve_forward_ref(cls, v: Any) -> Type["Document"]:
-        return LinkedModelMixin.eval_type(v)
+    def __post_init__(self):
+        self.document_class = LinkedModelMixin.eval_type(self.document_class)
 
     def iter_pipeline_stages(self) -> typing.Iterator[Dict[str, Any]]:
         as_field = self.field_name
@@ -268,7 +264,7 @@ class LinkedModelMixin:
             return cls.link_fields
 
     @classmethod
-    def eval_type(cls, t: Any) -> Type["Document"]:
+    def eval_type(cls, t: Any) -> Type["beanie.Document"]:
         return typing._eval_type(t, cls._registry, None)  # type: ignore[attr-defined]
 
     async def fetch_link(self, field: FieldName) -> None:
