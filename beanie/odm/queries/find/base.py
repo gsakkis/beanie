@@ -60,17 +60,19 @@ class FindQuery(BaseQuery):
         :return: int
         """
         if self.fetch_links:
-            from .many import AggregationQuery
+            from .many import FindMany
 
-            result = await AggregationQuery[Dict[str, int]](
-                *self.find_expressions,
-                aggregation_pipeline=[{"$count": "count"}],
-                document_model=self.document_model,
-                session=self.session,
-                ignore_cache=self.ignore_cache,
-                fetch_links=self.fetch_links,
-                **self.pymongo_kwargs,
-            ).first_or_none()
+            query = (
+                FindMany(self.document_model)
+                .find(*self.find_expressions, fetch_links=self.fetch_links)
+                .aggregate(
+                    [{"$count": "count"}],
+                    session=self.session,
+                    ignore_cache=self.ignore_cache,
+                    **self.pymongo_kwargs,
+                )
+            )
+            result = await query.first_or_none()
             return result["count"] if result else 0
 
         collection = self.document_model.get_motor_collection()
@@ -108,16 +110,9 @@ class FindQuery(BaseQuery):
         return dict(
             type=self.__class__.__name__,
             filter=self.get_filter_query(),
-            projection=self._get_projection(),
+            projection=get_projection(self.projection_model),
             fetch_links=self.fetch_links,
         )
-
-    def _get_projection(self) -> Optional[Mapping[str, Any]]:
-        if self.projection_model is None or not issubclass(
-            self.projection_model, BaseModel
-        ):
-            return None
-        return get_projection(self.projection_model)
 
     def _convert_ids(self, expression: Mapping[str, Any]) -> Mapping[str, Any]:
         if not issubclass(self.document_model, LinkedModelMixin):
@@ -137,7 +132,12 @@ class FindQuery(BaseQuery):
         return new_query
 
 
-def get_projection(model: Type[BaseModel]) -> Optional[Mapping[str, Any]]:
+def get_projection(
+    model: Optional[Type[ParseableModel]],
+) -> Optional[Mapping[str, Any]]:
+    if model is None or not issubclass(model, BaseModel):
+        return None
+
     if issubclass(model, beanie.Document) and model._class_id:
         return None
 
