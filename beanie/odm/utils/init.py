@@ -5,12 +5,28 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pydantic import BaseModel
 
 import beanie
+from beanie.exceptions import MongoDBVersionError
 from beanie.odm.documents import Document
 from beanie.odm.fields import ExpressionField, IndexModel
 from beanie.odm.union_doc import UnionDoc
 from beanie.odm.views import View
 
 DocumentLike = Union[Document, View, UnionDoc]
+
+
+async def init_timeseries(cls: Type[Document], database: AsyncIOMotorDatabase):
+    settings = cls.get_settings()
+    if settings.timeseries:
+        if beanie.DATABASE_MAJOR_VERSION < 5:
+            raise MongoDBVersionError(
+                "Timeseries are supported by MongoDB version 5 and higher"
+            )
+        collection_names = await database.list_collection_names(
+            authorizedCollections=True, nameOnly=True
+        )
+        if settings.name not in collection_names:
+            kwargs = settings.timeseries.to_dict()
+            await database.create_collection(settings.name, **kwargs)
 
 
 async def init_indexes(cls: Type[Document], drop_old: bool) -> None:
@@ -145,8 +161,9 @@ async def init_beanie(
             for k, v in model.model_fields.items():
                 setattr(model, k, ExpressionField(v.alias or k))
 
-        await model.update_from_database(database)
+        model.init_from_database(database)
         if issubclass(model, Document):
+            await init_timeseries(model, database)
             await init_indexes(model, allow_index_dropping)
         if issubclass(model, View):
             await init_view(model, database, recreate_views)

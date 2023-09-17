@@ -22,7 +22,5 @@ class View(BaseModel, LinkedModelMixin, FindInterface[ViewSettings]):
     _settings_type = ViewSettings
 
     @classmethod
-    async def update_from_database(
-        cls, database: AsyncIOMotorDatabase
-    ) -> None:
+    def init_from_database(cls, database: AsyncIOMotorDatabase) -> None:
         cls.set_settings(database)

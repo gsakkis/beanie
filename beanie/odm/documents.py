@@ -31,11 +31,9 @@ from pymongo.errors import DuplicateKeyError
 from pymongo.results import DeleteResult, InsertManyResult
 from typing_extensions import Self
 
-import beanie
 from beanie.exceptions import (
     DocumentNotFound,
     DocumentWasNotSaved,
-    MongoDBVersionError,
     NotSupported,
     ReplaceError,
     RevisionIdWasChanged,
@@ -133,10 +131,6 @@ class Document(
         default=None, description="MongoDB document ObjectID"
     )
 
-    # Inheritance
-    _class_id: ClassVar[Optional[str]] = None
-    _children: ClassVar[Dict[str, Type["Document"]]]
-
     # State
     revision_id: Optional[UUID] = Field(
         default=None, json_schema_extra={"hidden": True}
@@ -145,24 +139,27 @@ class Document(
     _saved_state: Optional[Dict[str, Any]] = PrivateAttr(default=None)
     _previous_saved_state: Optional[Dict[str, Any]] = PrivateAttr(default=None)
 
+    # Inheritance
+    _class_id: ClassVar[Optional[str]] = None
+    _children: ClassVar[Dict[str, Type["Document"]]]
+
     # Other
     _settings_type = DocumentSettings
     _hidden_fields: ClassVar[Set[str]] = set()
 
     @classmethod
-    async def update_from_database(
-        cls, database: AsyncIOMotorDatabase
-    ) -> None:
+    def init_from_database(cls, database: AsyncIOMotorDatabase) -> None:
         cls.set_settings(database)
         settings = cls.get_settings()
 
-        # register in the Union Doc
+        # register in the UnionDoc
         if union_doc := settings.union_doc:
             union_doc._children[settings.name] = cls
             settings.union_doc_alias = settings.name
             settings.name = union_doc.get_collection_name()
 
         # set up document inheritance
+        cls._children = {}
         parent_cls = cls.parent_document_cls()
         if settings.is_root and not (
             parent_cls and parent_cls.get_settings().is_root
@@ -177,25 +174,15 @@ class Document(
                 parent_cls._children[class_id] = cls
                 parent_cls = parent_cls.parent_document_cls()
 
-        if settings.timeseries:
-            if beanie.DATABASE_MAJOR_VERSION < 5:
-                raise MongoDBVersionError(
-                    "Timeseries are supported by MongoDB version 5 and higher"
-                )
-            collections = await database.list_collection_names(
-                authorizedCollections=True, nameOnly=True
-            )
-            if settings.name not in collections:
-                kwargs = settings.timeseries.to_dict()
-                await database.create_collection(settings.name, **kwargs)
-
-        cls._children = {}
+        # set up hidden fields
         cls._hidden_fields = set()
         for k, v in cls.model_fields.items():
             if isinstance(
                 v.json_schema_extra, dict
             ) and v.json_schema_extra.get("hidden"):
                 cls._hidden_fields.add(k)
+
+        # set up actions
         ActionRegistry.init_actions(cls)
 
     def swap_revision(self):

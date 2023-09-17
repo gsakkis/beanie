@@ -11,8 +11,6 @@ class UnionDoc(FindInterface[BaseSettings]):
     _children: ClassVar[Dict[str, Type]]
 
     @classmethod
-    async def update_from_database(
-        cls, database: AsyncIOMotorDatabase
-    ) -> None:
+    def init_from_database(cls, database: AsyncIOMotorDatabase) -> None:
         cls._children = {}
         cls.set_settings(database)
