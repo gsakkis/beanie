@@ -37,9 +37,21 @@ class LinkTypes(str, Enum):
     OPTIONAL_LIST = "OPTIONAL_LIST"
 
     BACK_DIRECT = "BACK_DIRECT"
-    BACK_LIST = "BACK_LIST"
     OPTIONAL_BACK_DIRECT = "OPTIONAL_BACK_DIRECT"
+    BACK_LIST = "BACK_LIST"
     OPTIONAL_BACK_LIST = "OPTIONAL_BACK_LIST"
+
+    @property
+    def is_direct(self):
+        return self.value.endswith("DIRECT")
+
+    @property
+    def is_list(self):
+        return self.value.endswith("LIST")
+
+    @property
+    def is_back(self):
+        return "BACK" in self.value
 
 
 T = TypeVar("T", bound="beanie.Document")
@@ -178,7 +190,7 @@ class LinkInfo:
 
     def iter_pipeline_stages(self) -> typing.Iterator[Dict[str, Any]]:
         as_field = self.field_name
-        is_direct = "DIRECT" in self.link_type
+        is_direct = self.link_type.is_direct
         if is_direct:
             as_field = "_link_" + as_field
 
@@ -188,7 +200,7 @@ class LinkInfo:
         }
 
         lookup_field = f"{self.lookup_field_name}.$id"
-        is_backlink = "BACK" in self.link_type
+        is_backlink = self.link_type.is_back
         if beanie.DATABASE_MAJOR_VERSION >= 5 or self.nested_links is None:
             local_field, foreign_field = lookup_field, "_id"
             if is_backlink:
@@ -293,12 +305,12 @@ class LinkedModelMixin:
     @classmethod
     def _fill_back_refs(cls, values):
         for field_name, link_info in cls.get_link_fields().items():
-            if field_name in values:
-                continue
-            if link_info.link_type in ("BACK_DIRECT", "OPTIONAL_BACK_DIRECT"):
-                values[field_name] = BackLink(link_info.document_class)
-            elif link_info.link_type in ("BACK_LIST", "OPTIONAL_BACK_LIST"):
-                values[field_name] = [BackLink(link_info.document_class)]
+            if field_name not in values and link_info.link_type.is_back:
+                backlink = BackLink(link_info.document_class)
+                if link_info.link_type.is_list:
+                    values[field_name] = [backlink]
+                else:
+                    values[field_name] = backlink
         return values
 
 

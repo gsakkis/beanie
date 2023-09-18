@@ -51,7 +51,7 @@ from beanie.odm.fields import IndexModel, PydanticObjectId
 from beanie.odm.interfaces.find import FindInterface
 from beanie.odm.interfaces.settings import BaseSettings
 from beanie.odm.interfaces.update import UpdateMethods
-from beanie.odm.links import Link, LinkedModelMixin, LinkTypes
+from beanie.odm.links import Link, LinkedModelMixin, LinkInfo
 from beanie.odm.models import (
     InspectionError,
     InspectionResult,
@@ -241,21 +241,11 @@ class Document(
             link_fields = self.get_link_fields()
             if link_fields is not None:
                 for field_info in link_fields.values():
-                    value = getattr(self, field_info.field_name)
-                    if field_info.link_type in [
-                        LinkTypes.DIRECT,
-                        LinkTypes.OPTIONAL_DIRECT,
-                    ]:
-                        if isinstance(value, Document):
-                            await value.save(link_rule=WriteRules.WRITE)
-                    if field_info.link_type in [
-                        LinkTypes.LIST,
-                        LinkTypes.OPTIONAL_LIST,
-                    ]:
-                        if isinstance(value, List):
-                            for obj in value:
-                                if isinstance(obj, Document):
-                                    await obj.save(link_rule=WriteRules.WRITE)
+                    if not field_info.link_type.is_back:
+                        for subdoc in self._iter_linked_documents(field_info):
+                            await subdoc.save(
+                                link_rule=WriteRules.WRITE, session=session
+                            )
         result = await self.get_motor_collection().insert_one(
             self.get_dict(), session=session
         )
@@ -362,35 +352,13 @@ class Document(
             link_fields = self.get_link_fields()
             if link_fields is not None:
                 for field_info in link_fields.values():
-                    value = getattr(self, field_info.field_name)
-                    if field_info.link_type in [
-                        LinkTypes.DIRECT,
-                        LinkTypes.OPTIONAL_DIRECT,
-                        LinkTypes.BACK_DIRECT,
-                        LinkTypes.OPTIONAL_BACK_DIRECT,
-                    ]:
-                        if isinstance(value, Document):
-                            await value.replace(
-                                link_rule=link_rule,
-                                bulk_writer=bulk_writer,
-                                ignore_revision=ignore_revision,
-                                session=session,
-                            )
-                    if field_info.link_type in [
-                        LinkTypes.LIST,
-                        LinkTypes.OPTIONAL_LIST,
-                        LinkTypes.BACK_LIST,
-                        LinkTypes.OPTIONAL_BACK_LIST,
-                    ]:
-                        if isinstance(value, List):
-                            for obj in value:
-                                if isinstance(obj, Document):
-                                    await obj.replace(
-                                        link_rule=link_rule,
-                                        bulk_writer=bulk_writer,
-                                        ignore_revision=ignore_revision,
-                                        session=session,
-                                    )
+                    for subdoc in self._iter_linked_documents(field_info):
+                        await subdoc.replace(
+                            link_rule=link_rule,
+                            bulk_writer=bulk_writer,
+                            ignore_revision=ignore_revision,
+                            session=session,
+                        )
 
         use_revision_id = self.get_settings().use_revision
         find_query = {"_id": self.id}
@@ -435,29 +403,8 @@ class Document(
             link_fields = self.get_link_fields()
             if link_fields is not None:
                 for field_info in link_fields.values():
-                    value = getattr(self, field_info.field_name)
-                    if field_info.link_type in [
-                        LinkTypes.DIRECT,
-                        LinkTypes.OPTIONAL_DIRECT,
-                        LinkTypes.BACK_DIRECT,
-                        LinkTypes.OPTIONAL_BACK_DIRECT,
-                    ]:
-                        if isinstance(value, Document):
-                            await value.save(
-                                link_rule=link_rule, session=session
-                            )
-                    if field_info.link_type in [
-                        LinkTypes.LIST,
-                        LinkTypes.OPTIONAL_LIST,
-                        LinkTypes.BACK_LIST,
-                        LinkTypes.OPTIONAL_BACK_LIST,
-                    ]:
-                        if isinstance(value, List):
-                            for obj in value:
-                                if isinstance(obj, Document):
-                                    await obj.save(
-                                        link_rule=link_rule, session=session
-                                    )
+                    for subdoc in self._iter_linked_documents(field_info):
+                        await subdoc.save(link_rule=link_rule, session=session)
 
         update_args: List[BaseOperator] = [update_ops.Set(self.get_dict())]
         if self.get_settings().keep_nulls is False:
@@ -626,31 +573,12 @@ class Document(
             link_fields = self.get_link_fields()
             if link_fields is not None:
                 for field_info in link_fields.values():
-                    value = getattr(self, field_info.field_name)
-                    if field_info.link_type in [
-                        LinkTypes.DIRECT,
-                        LinkTypes.OPTIONAL_DIRECT,
-                        LinkTypes.BACK_DIRECT,
-                        LinkTypes.OPTIONAL_BACK_DIRECT,
-                    ]:
-                        if isinstance(value, Document):
-                            await value.delete(
-                                link_rule=DeleteRules.DELETE_LINKS,
-                                **pymongo_kwargs,
-                            )
-                    if field_info.link_type in [
-                        LinkTypes.LIST,
-                        LinkTypes.OPTIONAL_LIST,
-                        LinkTypes.BACK_LIST,
-                        LinkTypes.OPTIONAL_BACK_LIST,
-                    ]:
-                        if isinstance(value, List):
-                            for obj in value:
-                                if isinstance(obj, Document):
-                                    await obj.delete(
-                                        link_rule=DeleteRules.DELETE_LINKS,
-                                        **pymongo_kwargs,
-                                    )
+                    for subdoc in self._iter_linked_documents(field_info):
+                        await subdoc.delete(
+                            link_rule=DeleteRules.DELETE_LINKS,
+                            session=session,
+                            **pymongo_kwargs,
+                        )
 
         return await self.find_one({"_id": self.id}).delete(
             session=session, bulk_writer=bulk_writer, **pymongo_kwargs
@@ -880,6 +808,19 @@ class Document(
         if self.id is None:
             raise DocumentWasNotSaved("Can not create dbref without id")
         return DBRef(self.get_collection_name(), self.id)
+
+    def _iter_linked_documents(
+        self, link_info: LinkInfo
+    ) -> Iterable["Document"]:
+        objs = []
+        value = getattr(self, link_info.field_name)
+        if not link_info.link_type.is_list:
+            objs.append(value)
+        elif isinstance(value, list):
+            objs.extend(value)
+        for obj in objs:
+            if isinstance(obj, Document):
+                yield obj
 
     @classmethod
     async def distinct(
