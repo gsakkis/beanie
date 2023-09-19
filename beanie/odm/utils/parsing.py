@@ -46,9 +46,7 @@ def parse_obj(
                 return parse_obj(model._children[class_name], data, lazy_parse)
 
         if issubclass(model, beanie.Document) and lazy_parse:
-            o = model.lazy_parse(data, {"_id"})
-            o._saved_state = {"_id": o.id}
-            return o
+            return model.lazy_parse(data)
 
         result = model.model_validate(data)
     elif type(data) is model:
@@ -60,7 +58,7 @@ def parse_obj(
         )
 
     if isinstance(result, beanie.Document):
-        result.save_state()
-        result.swap_revision()
+        result._save_state()
+        result._swap_revision()
 
     return result

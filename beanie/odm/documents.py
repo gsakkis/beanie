@@ -18,13 +18,7 @@ from uuid import UUID, uuid4
 from bson import DBRef
 from lazy_model import LazyModel
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from pydantic import (
-    ConfigDict,
-    Field,
-    PrivateAttr,
-    TypeAdapter,
-    ValidationError,
-)
+from pydantic import ConfigDict, Field, TypeAdapter, ValidationError
 from pymongo import InsertOne
 from pymongo.client_session import ClientSession
 from pymongo.errors import DuplicateKeyError
@@ -37,8 +31,6 @@ from beanie.exceptions import (
     NotSupported,
     ReplaceError,
     RevisionIdWasChanged,
-    StateManagementIsTurnedOff,
-    StateNotSaved,
 )
 from beanie.odm.actions import (
     ActionDirections,
@@ -61,6 +53,11 @@ from beanie.odm.operators import BaseOperator
 from beanie.odm.operators import update as update_ops
 from beanie.odm.operators.comparison import In
 from beanie.odm.queries.update import UpdateMany, UpdateResponse
+from beanie.odm.state import (
+    BaseDocumentState,
+    DocumentState,
+    PreviousDocumentState,
+)
 from beanie.odm.timeseries import TimeSeriesConfig
 from beanie.odm.utils.encoder import Encoder
 from beanie.odm.utils.parsing import merge_models
@@ -132,9 +129,8 @@ class Document(
     revision_id: Optional[UUID] = Field(
         default=None, json_schema_extra={"hidden": True}
     )
-    _previous_revision_id: Optional[UUID] = PrivateAttr(default=None)
-    _saved_state: Optional[Dict[str, Any]] = PrivateAttr(default=None)
-    _previous_saved_state: Optional[Dict[str, Any]] = PrivateAttr(default=None)
+    _previous_revision_id: Optional[UUID] = None
+    __state: BaseDocumentState
 
     # Inheritance
     _class_id: ClassVar[Optional[str]] = None
@@ -186,6 +182,12 @@ class Document(
     def parent_document_cls(cls) -> Optional[Type["Document"]]:
         parent_cls = next(b for b in cls.__bases__ if issubclass(b, Document))
         return parent_cls if parent_cls is not Document else None
+
+    @classmethod
+    def lazy_parse(cls, data: Dict[str, Any]) -> Self:
+        self = super().lazy_parse(data, fields={"_id"})
+        self._state.saved = {"_id": self.id}
+        return self
 
     @classmethod
     def _parse_document_id(cls, document_id: Any) -> Any:
@@ -250,8 +252,8 @@ class Document(
             self.get_dict(), session=session
         )
         self.id = self._parse_document_id(result.inserted_id)
-        self.swap_revision()
-        self.save_state()
+        self._swap_revision()
+        self._save_state()
         return self
 
     async def create(self, session: Optional[ClientSession] = None) -> Self:
@@ -375,8 +377,8 @@ class Document(
                 raise RevisionIdWasChanged
             else:
                 raise DocumentNotFound
-        self.swap_revision()
-        self.save_state()
+        self._swap_revision()
+        self._save_state()
         return self
 
     @wrap_with_actions(EventTypes.SAVE)
@@ -416,7 +418,7 @@ class Document(
             upsert=True,
             **pymongo_kwargs,
         )
-        self.save_state()
+        self._save_state()
         return result
 
     @wrap_with_actions(EventTypes.SAVE_CHANGES)
@@ -436,7 +438,6 @@ class Document(
         :param bulk_writer: "BulkWriter" - Beanie bulk writer
         :return: None
         """
-        self._check_state()
         await self._validate_self(skip_actions=skip_actions)
         if not self.is_changed:
             return None
@@ -525,7 +526,7 @@ class Document(
                 raise RevisionIdWasChanged
             if result is not None:
                 merge_models(self, result)
-        self.save_state()
+        self._save_state()
         return self
 
     @classmethod
@@ -605,100 +606,54 @@ class Document(
 
     # State management
 
-    def swap_revision(self) -> None:
+    @property
+    def _state(self) -> BaseDocumentState:
+        try:
+            return self.__state
+        except AttributeError:
+            pass
+        settings = self.get_settings()
+        if not settings.use_state_management:
+            state = BaseDocumentState()
+        else:
+            if not settings.state_management_save_previous:
+                cls = DocumentState
+            else:
+                cls = PreviousDocumentState
+            replace_objects = settings.state_management_replace_objects
+            state = cls(self.get_dict, replace_objects)
+        self.__state = state
+        return state
+
+    def _save_state(self) -> None:
+        if self.id is not None:
+            self._state.save()
+
+    def _swap_revision(self) -> None:
         if self.get_settings().use_revision:
             self._previous_revision_id = self.revision_id
             self.revision_id = uuid4()
 
-    def save_state(self) -> None:
-        """
-        Save current document state. Internal method
-        :return: None
-        """
-        settings = self.get_settings()
-        if settings.use_state_management and self.id is not None:
-            if settings.state_management_save_previous:
-                self._previous_saved_state = self._saved_state
-            self._saved_state = self.get_dict()
-
     @property
     def is_changed(self) -> bool:
-        self._check_state()
-        return self._saved_state != self.get_dict()
+        return self._state.is_changed
 
     @property
     def has_changed(self) -> bool:
-        self._check_state(previous=True)
-        return (
-            self._previous_saved_state is not None
-            and self._previous_saved_state != self._saved_state
-        )
-
-    def _collect_updates(
-        self, old_dict: Dict[str, Any], new_dict: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """
-        Compares old_dict with new_dict and returns field paths that have been updated
-        Args:
-            old_dict: dict1
-            new_dict: dict2
-
-        Returns: dictionary with updates
-        """
-        if old_dict.keys() - new_dict.keys():
-            return new_dict
-        updates = {}
-        replace_objects = self.get_settings().state_management_replace_objects
-        for name, new_value in new_dict.items():
-            old_value = old_dict.get(name)
-            if new_value == old_value:
-                continue
-            if (
-                not replace_objects
-                and isinstance(new_value, dict)
-                and isinstance(old_value, dict)
-            ):
-                value_updates = self._collect_updates(old_value, new_value)
-                for k, v in value_updates.items():
-                    updates[f"{name}.{k}"] = v
-            else:
-                updates[name] = new_value
-        return updates
+        return self._state.has_changed
 
     def get_changes(self) -> Dict[str, Any]:
-        self._check_state()
-        return self._collect_updates(self._saved_state, self.get_dict())  # type: ignore
+        return self._state.get_changes()
 
     def get_previous_changes(self) -> Dict[str, Any]:
-        self._check_state(previous=True)
-        if self._previous_saved_state is None:
-            return {}
-
-        return self._collect_updates(
-            self._previous_saved_state, self._saved_state  # type: ignore
-        )
+        return self._state.get_previous_changes()
 
     def rollback(self) -> None:
-        self._check_state()
         if self.is_changed:
-            for key, value in self._saved_state.items():  # type: ignore
-                if key == "_id":
-                    setattr(self, "id", value)
-                else:
-                    setattr(self, key, value)
-
-    def _check_state(self, previous=False):
-        settings = self.get_settings()
-        if not settings.use_state_management:
-            raise StateManagementIsTurnedOff(
-                "State management is turned off for this document"
-            )
-        if self._saved_state is None:
-            raise StateNotSaved("No state was saved")
-        if previous and not settings.state_management_save_previous:
-            raise StateManagementIsTurnedOff(
-                "State management's option to save previous state is turned off for this document"
-            )
+            saved = self._state.saved
+            assert saved is not None
+            for key, value in saved.items():
+                setattr(self, key if key != "_id" else "id", value)
 
     # Other
 
@@ -809,9 +764,7 @@ class Document(
             raise DocumentWasNotSaved("Can not create dbref without id")
         return DBRef(self.get_collection_name(), self.id)
 
-    def _iter_linked_documents(
-        self, link_info: LinkInfo
-    ) -> Iterable["Document"]:
+    def _iter_linked_documents(self, link_info: LinkInfo) -> Iterable[Self]:
         objs = []
         value = getattr(self, link_info.field_name)
         if not link_info.link_type.is_list:
