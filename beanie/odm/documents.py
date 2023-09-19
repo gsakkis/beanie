@@ -138,6 +138,8 @@ class Document(
 
     # Other
     _settings_type = DocumentSettings
+    _id_class: ClassVar[type]
+    _id_adapter: ClassVar[TypeAdapter]
     _hidden_fields: ClassVar[Set[str]] = set()
 
     @classmethod
@@ -166,6 +168,11 @@ class Document(
             while parent_cls is not None:
                 parent_cls._children[class_id] = cls
                 parent_cls = parent_cls._parent_document_cls()
+
+        # set up id class and adapter
+        id_annotation = cls.model_fields["id"].annotation
+        cls._id_class = extract_id_class(id_annotation)
+        cls._id_adapter = TypeAdapter(id_annotation)
 
         # set up hidden fields
         cls._hidden_fields = set()
@@ -733,10 +740,9 @@ class Document(
 
     @classmethod
     def _parse_document_id(cls, document_id: Any) -> Any:
-        id_annotation = cls.model_fields["id"].annotation
-        if isinstance(document_id, extract_id_class(id_annotation)):
+        if isinstance(document_id, cls._id_class):
             return document_id
-        return TypeAdapter(id_annotation).validate_python(document_id)
+        return cls._id_adapter.validate_python(document_id)
 
     @classmethod
     def _get_class_id_filter(
