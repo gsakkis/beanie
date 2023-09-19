@@ -134,7 +134,7 @@ class Document(
 
     # Inheritance
     _class_id: ClassVar[Optional[str]] = None
-    _children: ClassVar[Dict[str, Type["Document"]]]
+    _children: ClassVar[Dict[str, Type[Self]]]
 
     # Other
     _settings_type = DocumentSettings
@@ -153,7 +153,7 @@ class Document(
 
         # set up document inheritance
         cls._children = {}
-        parent_cls = cls.parent_document_cls()
+        parent_cls = cls._parent_document_cls()
         if settings.is_root and not (
             parent_cls and parent_cls.get_settings().is_root
         ):
@@ -165,7 +165,7 @@ class Document(
             cls._class_id = class_id = f"{parent_cls._class_id}.{cls.__name__}"
             while parent_cls is not None:
                 parent_cls._children[class_id] = cls
-                parent_cls = parent_cls.parent_document_cls()
+                parent_cls = parent_cls._parent_document_cls()
 
         # set up hidden fields
         cls._hidden_fields = set()
@@ -179,22 +179,10 @@ class Document(
         ActionRegistry.init_actions(cls)
 
     @classmethod
-    def parent_document_cls(cls) -> Optional[Type["Document"]]:
-        parent_cls = next(b for b in cls.__bases__ if issubclass(b, Document))
-        return parent_cls if parent_cls is not Document else None
-
-    @classmethod
     def lazy_parse(cls, data: Dict[str, Any]) -> Self:
         self = super().lazy_parse(data, fields={"_id"})
         self._state.saved = {"_id": self.id}
         return self
-
-    @classmethod
-    def _parse_document_id(cls, document_id: Any) -> Any:
-        id_annotation = cls.model_fields["id"].annotation
-        if isinstance(document_id, extract_id_class(id_annotation)):
-            return document_id
-        return TypeAdapter(id_annotation).validate_python(document_id)
 
     @classmethod
     async def get(
@@ -381,6 +369,28 @@ class Document(
         self._save_state()
         return self
 
+    @classmethod
+    async def replace_many(
+        cls, documents: List[Self], session: Optional[ClientSession] = None
+    ) -> None:
+        """
+        Replace list of documents
+
+        :param documents: List["Document"]
+        :param session: Optional[ClientSession] - pymongo session.
+        :return: None
+        """
+        ids_list = [document.id for document in documents]
+        if await cls.find(In("_id", ids_list)).count() != len(ids_list):
+            raise ReplaceError(
+                "Some of the documents are not exist in the collection"
+            )
+        async with BulkWriter(session=session) as bulk_writer:
+            for document in documents:
+                await document.replace(
+                    bulk_writer=bulk_writer, session=session
+                )
+
     @wrap_with_actions(EventTypes.SAVE)
     async def save(
         self,
@@ -457,28 +467,6 @@ class Document(
                 session=session,
                 bulk_writer=bulk_writer,
             )
-
-    @classmethod
-    async def replace_many(
-        cls, documents: List[Self], session: Optional[ClientSession] = None
-    ) -> None:
-        """
-        Replace list of documents
-
-        :param documents: List["Document"]
-        :param session: Optional[ClientSession] - pymongo session.
-        :return: None
-        """
-        ids_list = [document.id for document in documents]
-        if await cls.find(In("_id", ids_list)).count() != len(ids_list):
-            raise ReplaceError(
-                "Some of the documents are not exist in the collection"
-            )
-        async with BulkWriter(session=session) as bulk_writer:
-            for document in documents:
-                await document.replace(
-                    bulk_writer=bulk_writer, session=session
-                )
 
     @wrap_with_actions(EventTypes.UPDATE)
     async def update(
@@ -607,34 +595,6 @@ class Document(
     # State management
 
     @property
-    def _state(self) -> BaseDocumentState:
-        try:
-            return self.__state
-        except AttributeError:
-            pass
-        settings = self.get_settings()
-        if not settings.use_state_management:
-            state = BaseDocumentState()
-        else:
-            if not settings.state_management_save_previous:
-                cls = DocumentState
-            else:
-                cls = PreviousDocumentState
-            replace_objects = settings.state_management_replace_objects
-            state = cls(self.get_dict, replace_objects)
-        self.__state = state
-        return state
-
-    def _save_state(self) -> None:
-        if self.id is not None:
-            self._state.save()
-
-    def _swap_revision(self) -> None:
-        if self.get_settings().use_revision:
-            self._previous_revision_id = self.revision_id
-            self.revision_id = uuid4()
-
-    @property
     def is_changed(self) -> bool:
         return self._state.is_changed
 
@@ -656,6 +616,18 @@ class Document(
                 setattr(self, key if key != "_id" else "id", value)
 
     # Other
+
+    @classmethod
+    async def distinct(
+        cls,
+        key: str,
+        filter: Optional[Mapping[str, Any]] = None,
+        session: Optional[ClientSession] = None,
+        **pymongo_kwargs: Any,
+    ) -> list:
+        return await cls.get_motor_collection().distinct(
+            key, filter, session, **pymongo_kwargs
+        )
 
     @classmethod
     async def inspect_collection(
@@ -742,6 +714,54 @@ class Document(
         encoder = Encoder(exclude=exclude, to_db=to_db, keep_nulls=keep_nulls)
         return encoder.encode(self)
 
+    def to_ref(self):
+        if self.id is None:
+            raise DocumentWasNotSaved("Can not create dbref without id")
+        return DBRef(self.get_collection_name(), self.id)
+
+    @classmethod
+    def link_from_id(cls, id: Any):
+        ref = DBRef(id=id, collection=cls.get_collection_name())
+        return Link(ref, document_class=cls)
+
+    # internal
+
+    @classmethod
+    def _parent_document_cls(cls) -> Optional[Type[Self]]:
+        parent_cls = next(b for b in cls.__bases__ if issubclass(b, Document))
+        return parent_cls if parent_cls is not Document else None
+
+    @classmethod
+    def _parse_document_id(cls, document_id: Any) -> Any:
+        id_annotation = cls.model_fields["id"].annotation
+        if isinstance(document_id, extract_id_class(id_annotation)):
+            return document_id
+        return TypeAdapter(id_annotation).validate_python(document_id)
+
+    @classmethod
+    def _get_class_id_filter(
+        cls, with_children: bool = False
+    ) -> Optional[Any]:
+        if cls._class_id:
+            if with_children:
+                return {"$in": [cls._class_id, *cls._children.keys()]}
+            else:
+                return cls._class_id
+
+        settings = cls.get_settings()
+        return settings.union_doc_alias if settings.union_doc else None
+
+    def _iter_linked_documents(self, link_info: LinkInfo) -> Iterable[Self]:
+        objs = []
+        value = getattr(self, link_info.field_name)
+        if not link_info.link_type.is_list:
+            objs.append(value)
+        elif isinstance(value, list):
+            objs.extend(value)
+        for obj in objs:
+            if isinstance(obj, Document):
+                yield obj
+
     def _get_top_level_nones(self, exclude: Optional[Set[str]] = None):
         dictionary = self.get_dict(
             exclude=exclude, to_db=False, keep_nulls=True
@@ -759,48 +779,30 @@ class Document(
             data = self.model_dump()
             self.__class__.model_validate(data)
 
-    def to_ref(self):
-        if self.id is None:
-            raise DocumentWasNotSaved("Can not create dbref without id")
-        return DBRef(self.get_collection_name(), self.id)
-
-    def _iter_linked_documents(self, link_info: LinkInfo) -> Iterable[Self]:
-        objs = []
-        value = getattr(self, link_info.field_name)
-        if not link_info.link_type.is_list:
-            objs.append(value)
-        elif isinstance(value, list):
-            objs.extend(value)
-        for obj in objs:
-            if isinstance(obj, Document):
-                yield obj
-
-    @classmethod
-    async def distinct(
-        cls,
-        key: str,
-        filter: Optional[Mapping[str, Any]] = None,
-        session: Optional[ClientSession] = None,
-        **pymongo_kwargs: Any,
-    ) -> list:
-        return await cls.get_motor_collection().distinct(
-            key, filter, session, **pymongo_kwargs
-        )
-
-    @classmethod
-    def link_from_id(cls, id: Any):
-        ref = DBRef(id=id, collection=cls.get_collection_name())
-        return Link(ref, document_class=cls)
-
-    @classmethod
-    def _get_class_id_filter(
-        cls, with_children: bool = False
-    ) -> Optional[Any]:
-        if cls._class_id:
-            if with_children:
-                return {"$in": [cls._class_id, *cls._children.keys()]}
+    @property
+    def _state(self) -> BaseDocumentState:
+        try:
+            return self.__state
+        except AttributeError:
+            pass
+        settings = self.get_settings()
+        if not settings.use_state_management:
+            state = BaseDocumentState()
+        else:
+            if not settings.state_management_save_previous:
+                cls = DocumentState
             else:
-                return cls._class_id
+                cls = PreviousDocumentState
+            replace_objects = settings.state_management_replace_objects
+            state = cls(self.get_dict, replace_objects)
+        self.__state = state
+        return state
 
-        settings = cls.get_settings()
-        return settings.union_doc_alias if settings.union_doc else None
+    def _save_state(self) -> None:
+        if self.id is not None:
+            self._state.save()
+
+    def _swap_revision(self) -> None:
+        if self.get_settings().use_revision:
+            self._previous_revision_id = self.revision_id
+            self.revision_id = uuid4()
