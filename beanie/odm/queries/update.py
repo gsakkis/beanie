@@ -11,9 +11,7 @@ from typing import (
     cast,
 )
 
-from pymongo import ReturnDocument
-from pymongo import UpdateMany as UpdateManyPyMongo
-from pymongo import UpdateOne as UpdateOnePyMongo
+import pymongo
 from pymongo.client_session import ClientSession
 from pymongo.results import UpdateResult
 from typing_extensions import Self
@@ -132,13 +130,14 @@ class UpdateMany(UpdateQuery):
         if self.bulk_writer is not None:
             return self.bulk_writer.add_operation(
                 Operation(
-                    operation=UpdateManyPyMongo,
+                    operation_class=pymongo.UpdateMany,
                     first_query=self.find_query,
                     second_query=self.update_query,
                     object_class=self.document_model,
                     pymongo_kwargs=self.pymongo_kwargs,
                 )
             )
+        result: Union[UpdateResult, beanie.Document, None]
         result = await self.document_model.get_motor_collection().update_many(
             self.find_query,
             self.update_query,
@@ -205,7 +204,7 @@ class UpdateOne(UpdateQuery):
         if self.bulk_writer:
             return self.bulk_writer.add_operation(
                 Operation(
-                    operation=UpdateOnePyMongo,
+                    operation_class=pymongo.UpdateOne,
                     first_query=self.find_query,
                     second_query=self.update_query,
                     object_class=self.document_model,
@@ -213,6 +212,7 @@ class UpdateOne(UpdateQuery):
                 )
             )
 
+        result: Union[UpdateResult, beanie.Document, None] = None
         collection = self.document_model.get_motor_collection()
         if self.response_type == UpdateResponse.UPDATE_RESULT:
             result = await collection.update_one(
@@ -222,19 +222,21 @@ class UpdateOne(UpdateQuery):
                 **self.pymongo_kwargs,
             )
         else:
-            result = await collection.find_one_and_update(
+            r_dict = await collection.find_one_and_update(
                 self.find_query,
                 self.update_query,
                 session=self.session,
                 return_document=(
-                    ReturnDocument.BEFORE
+                    pymongo.ReturnDocument.BEFORE
                     if self.response_type == UpdateResponse.OLD_DOCUMENT
-                    else ReturnDocument.AFTER
+                    else pymongo.ReturnDocument.AFTER
                 ),
                 **self.pymongo_kwargs,
             )
-            if result is not None:
-                result = parse_obj(self.document_model, result)
+            if r_dict is not None:
+                result = cast(
+                    beanie.Document, parse_obj(self.document_model, r_dict)
+                )
 
         if (
             self.upsert_insert_doc is not None

@@ -12,14 +12,15 @@ from typing import (
     Set,
     Type,
     Union,
+    cast,
 )
 from uuid import UUID, uuid4
 
+import pymongo
 from bson import DBRef
 from lazy_model import LazyModel
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import ConfigDict, Field, TypeAdapter, ValidationError
-from pymongo import InsertOne
 from pymongo.client_session import ClientSession
 from pymongo.errors import DuplicateKeyError
 from pymongo.results import DeleteResult, InsertManyResult
@@ -186,7 +187,7 @@ class Document(
         ActionRegistry.init_actions(cls)
 
     @classmethod
-    def lazy_parse(cls, data: Dict[str, Any]) -> Self:
+    def lazy_parse(cls, data: Mapping[str, Any]) -> Self:
         self = super().lazy_parse(data, fields={"_id"})
         self._state.saved = {"_id": self.id}
         return self
@@ -287,7 +288,7 @@ class Document(
                 )
             bulk_writer.add_operation(
                 Operation(
-                    operation=InsertOne,
+                    operation_class=pymongo.InsertOne,
                     first_query=document.get_dict(),
                     object_class=type(document),
                 )
@@ -358,7 +359,7 @@ class Document(
                         )
 
         use_revision_id = self.get_settings().use_revision
-        find_query = {"_id": self.id}
+        find_query: Dict[str, Any] = {"_id": self.id}
         if use_revision_id and not ignore_revision:
             find_query["revision_id"] = self._previous_revision_id
         try:
@@ -498,7 +499,7 @@ class Document(
         arguments = list(args)
         use_revision_id = self.get_settings().use_revision
 
-        find_query = {
+        find_query: Dict[str, Any] = {
             "_id": self.id if self.id is not None else PydanticObjectId()
         }
         if use_revision_id and not ignore_revision:
@@ -520,7 +521,7 @@ class Document(
             if use_revision_id and not ignore_revision and result is None:
                 raise RevisionIdWasChanged
             if result is not None:
-                merge_models(self, result)
+                merge_models(self, cast(Document, result))
         self._save_state()
         return self
 

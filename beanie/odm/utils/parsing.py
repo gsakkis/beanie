@@ -1,4 +1,4 @@
-from typing import Any, Dict, Type, Union
+from typing import Any, Mapping, Type, Union
 
 from pydantic import BaseModel
 
@@ -32,10 +32,10 @@ ParseableModel = Union[BaseModel, "beanie.UnionDoc"]
 
 def parse_obj(
     model: Type[ParseableModel],
-    data: Union[BaseModel, Dict[str, Any]],
+    data: Union[BaseModel, Mapping[str, Any]],
     lazy_parse: bool = False,
 ) -> BaseModel:
-    if isinstance(data, dict):
+    if isinstance(data, Mapping):
         if issubclass(model, beanie.UnionDoc):
             class_name = data[model.get_settings().class_id]
             return parse_obj(model._children[class_name], data, lazy_parse)

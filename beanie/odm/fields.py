@@ -1,6 +1,6 @@
 from enum import Enum
 from functools import cached_property
-from typing import Any, Dict, Iterator, List, Mapping, Tuple, Union
+from typing import Any, Iterator, List, Mapping, Tuple, Union
 
 import bson
 import pymongo
@@ -139,7 +139,7 @@ class IndexModel(pymongo.IndexModel):
         return tuple(sorted(self.document["key"]))
 
     @cached_property
-    def options(self) -> Dict[str, Any]:
+    def options(self) -> Mapping[str, Any]:
         return {
             k: v for k, v in self.document.items() if k not in ("key", "v")
         }
@@ -150,7 +150,7 @@ class IndexModel(pymongo.IndexModel):
         return self.keys == other.keys and self.options == other.options
 
     @classmethod
-    def iter_indexes(cls, index_info: Dict[str, Any]) -> Iterator[Self]:
+    def iter_indexes(cls, index_info: Mapping[str, Any]) -> Iterator[Self]:
         for name, details in index_info.items():
             keys = details.pop("key")
             if ("_id", 1) in keys:

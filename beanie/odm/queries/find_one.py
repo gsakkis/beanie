@@ -9,8 +9,8 @@ from typing import (
     cast,
 )
 
+import pymongo
 from pydantic import BaseModel
-from pymongo import ReplaceOne
 from pymongo.client_session import ClientSession
 from pymongo.results import UpdateResult
 from typing_extensions import Self
@@ -169,21 +169,20 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
         """
         self.set_session(session)
         if bulk_writer is None:
-            result: UpdateResult = (
+            result = (
                 await self.document_model.get_motor_collection().replace_one(
                     self.get_filter_query(),
                     document.get_dict(exclude={"_id"}),
                     session=self.session,
                 )
             )
-
-            if not result.raw_result["updatedExisting"]:
+            if result.raw_result and not result.raw_result["updatedExisting"]:
                 raise DocumentNotFound
             return result
         else:
             bulk_writer.add_operation(
                 Operation(
-                    operation=ReplaceOne,
+                    operation_class=pymongo.ReplaceOne,
                     first_query=self.get_filter_query(),
                     second_query=Encoder(exclude={"_id"}).encode(document),
                     object_class=self.document_model,

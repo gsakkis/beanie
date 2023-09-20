@@ -1,29 +1,26 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Mapping, Optional, Type, Union
 
-from pymongo import (
-    DeleteMany,
-    DeleteOne,
-    InsertOne,
-    ReplaceOne,
-    UpdateMany,
-    UpdateOne,
-)
+import pymongo
 from pymongo.client_session import ClientSession
 from pymongo.results import BulkWriteResult
+
+from beanie.odm.interfaces.settings import SettingsInterface
+
+PyMongoOperation = Union[
+    pymongo.InsertOne,
+    pymongo.DeleteOne,
+    pymongo.DeleteMany,
+    pymongo.ReplaceOne,
+    pymongo.UpdateOne,
+    pymongo.UpdateMany,
+]
 
 
 @dataclass
 class Operation:
-    operation: Union[
-        Type[InsertOne],
-        Type[DeleteOne],
-        Type[DeleteMany],
-        Type[ReplaceOne],
-        Type[UpdateOne],
-        Type[UpdateMany],
-    ]
-    object_class: Type
+    operation_class: Type[PyMongoOperation]
+    object_class: Type[SettingsInterface]
     first_query: Mapping[str, Any]
     second_query: Optional[Dict[str, Any]] = None
     pymongo_kwargs: Dict[str, Any] = field(default_factory=dict)
@@ -45,24 +42,35 @@ class BulkWriter:
         Commit all the operations to the database
         :return:
         """
+        if not self.operations:
+            return None
+
         requests = []
-        if self.operations:
-            obj_class = self.operations[0].object_class
-            for op in self.operations:
-                if obj_class != op.object_class:
-                    raise ValueError(
-                        "All the operations should be for a single document model"
-                    )
+        obj_class = self.operations[0].object_class
+        for op in self.operations:
+            if obj_class != op.object_class:
+                raise ValueError(
+                    "All the operations should be for a single document model"
+                )
+            request: PyMongoOperation
+            op_class = op.operation_class
+            if (
+                issubclass(op_class, pymongo.InsertOne)
+                or issubclass(op_class, pymongo.DeleteOne)
+                or issubclass(op_class, pymongo.DeleteMany)
+            ):
+                assert op.second_query is None
+                request = op_class(op.first_query, **op.pymongo_kwargs)
+            else:
+                assert op.second_query is not None
+                request = op_class(
+                    op.first_query, op.second_query, **op.pymongo_kwargs
+                )
+            requests.append(request)
 
-                args = [op.first_query]
-                if op.second_query is not None:
-                    args.append(op.second_query)
-                requests.append(op.operation(*args, **op.pymongo_kwargs))
-
-            return await obj_class.get_motor_collection().bulk_write(
-                requests, session=self.session
-            )
-        return None
+        return await obj_class.get_motor_collection().bulk_write(
+            requests, session=self.session
+        )
 
     def add_operation(self, operation: Operation):
         self.operations.append(operation)

@@ -1,7 +1,6 @@
 from typing import Any, Generator, Mapping, Optional, Type
 
-from pymongo import DeleteMany as DeleteManyPyMongo
-from pymongo import DeleteOne as DeleteOnePyMongo
+import pymongo
 from pymongo.client_session import ClientSession
 from pymongo.results import DeleteResult
 
@@ -30,7 +29,9 @@ class DeleteQuery(BaseQuery):
         if self.bulk_writer is not None:
             return self.bulk_writer.add_operation(
                 Operation(
-                    operation=DeleteManyPyMongo if many else DeleteOnePyMongo,
+                    operation_class=(
+                        pymongo.DeleteMany if many else pymongo.DeleteOne
+                    ),
                     first_query=self.find_query,
                     object_class=self.document_model,
                     pymongo_kwargs=self.pymongo_kwargs,

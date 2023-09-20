@@ -1,9 +1,9 @@
 from abc import abstractmethod
 from typing import (
     Any,
-    Dict,
     Generic,
     List,
+    Mapping,
     Optional,
     Type,
     TypeVar,
@@ -18,7 +18,7 @@ from beanie.odm.interfaces.settings import SettingsInterface
 from beanie.odm.queries.cacheable import Cacheable
 from beanie.odm.utils.parsing import ParseableModel, parse_obj
 
-ProjectionT = TypeVar("ProjectionT", bound=Union[BaseModel, Dict[str, Any]])
+ProjectionT = TypeVar("ProjectionT", bound=Union[BaseModel, Mapping[str, Any]])
 
 
 class BaseCursorQuery(Cacheable, Generic[ProjectionT]):
@@ -46,13 +46,14 @@ class BaseCursorQuery(Cacheable, Generic[ProjectionT]):
     async def __anext__(self) -> ProjectionT:
         if self._cursor is None:
             raise RuntimeError("cursor was not set")
+
+        next_item: Union[BaseModel, Mapping[str, Any]]
         next_item = await self._cursor.__anext__()
-        if self.projection_model is None:
-            return next_item
-        parsed_item = parse_obj(
-            self.projection_model, next_item, lazy_parse=self.lazy_parse
-        )
-        return cast(ProjectionT, parsed_item)
+        if self.projection_model is not None:
+            next_item = parse_obj(
+                self.projection_model, next_item, lazy_parse=self.lazy_parse
+            )
+        return cast(ProjectionT, next_item)
 
     async def to_list(self, length: Optional[int] = None) -> List[ProjectionT]:
         """
@@ -62,25 +63,23 @@ class BaseCursorQuery(Cacheable, Generic[ProjectionT]):
         :return: Union[List[BaseModel], List[Dict[str, Any]]]
         """
         cache = self._cache
+        items: Union[List[BaseModel], List[Mapping[str, Any]]]
         if cache is None:
-            motor_list = await self._motor_cursor.to_list(length)
+            items = await self._motor_cursor.to_list(length)
         else:
             cache_key = self._cache_key
-            motor_list = cache.get(cache_key)
-            if motor_list is None:
-                motor_list = await self._motor_cursor.to_list(length)
-            cache.set(cache_key, motor_list)
+            items = cache.get(cache_key)
+            if items is None:
+                items = await self._motor_cursor.to_list(length)
+            cache.set(cache_key, items)
 
         projection_model = self.projection_model
-        if projection_model is None:
-            return motor_list
-        return [
-            cast(
-                ProjectionT,
-                parse_obj(projection_model, i, lazy_parse=self.lazy_parse),
-            )
-            for i in motor_list
-        ]
+        if projection_model is not None:
+            items = [
+                parse_obj(projection_model, i, lazy_parse=self.lazy_parse)
+                for i in items
+            ]
+        return cast(List[ProjectionT], items)
 
     async def first_or_none(self) -> Optional[ProjectionT]:
         """
