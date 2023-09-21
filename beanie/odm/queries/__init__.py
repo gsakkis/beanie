@@ -1,4 +1,5 @@
-from typing import Any, Optional
+from abc import ABC, abstractmethod
+from typing import Any, Dict, Optional
 
 from pymongo.client_session import ClientSession
 from typing_extensions import Self
@@ -22,3 +23,13 @@ class BaseQuery:
         if session is not None:
             self.session = session
         return self
+
+
+class Cacheable(ABC):
+    @property
+    def _cache_key(self) -> str:
+        return str(self._cache_key_dict())
+
+    @abstractmethod
+    def _cache_key_dict(self) -> Dict[str, Any]:
+        ...

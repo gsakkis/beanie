@@ -1,3 +1,4 @@
+from functools import partial
 from typing import (
     Any,
     Generator,
@@ -196,15 +197,13 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
 
     async def _find(self, use_cache: bool, parse: bool) -> Optional[ModelT]:
         if use_cache:
-            cache = self._cache
-            if cache is None:
+            cache = self.document_model.get_cache()
+            if cache is None or self.ignore_cache:
                 return await self._find(use_cache=False, parse=parse)
-
-            cache_key = self._cache_key
-            doc = cache.get(cache_key)
-            if doc is None:
-                doc = await self._find(use_cache=False, parse=False)
-                cache.set(cache_key, doc)
+            doc = await cache.get(
+                self._cache_key,
+                partial(self._find, use_cache=False, parse=False),
+            )
         elif self.fetch_links:
             find_many = FindMany[ModelT](self.document_model).find
             doc = await find_many(

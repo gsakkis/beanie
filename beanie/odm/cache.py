@@ -1,27 +1,29 @@
 from collections import OrderedDict
 from datetime import datetime, timedelta
+from typing import Awaitable, Callable, Generic, Tuple, TypeVar
+
+K = TypeVar("K")
+V = TypeVar("V")
 
 
-class LRUCache:
+class LRUCache(Generic[K, V]):
     def __init__(self, capacity: int, expiration_time: timedelta):
-        self.capacity: int = capacity
-        self.expiration_time: timedelta = expiration_time
-        self.cache: OrderedDict = OrderedDict()
+        self._capacity = capacity
+        self._expiration_time = expiration_time
+        self._cache: OrderedDict[K, Tuple[V, datetime]] = OrderedDict()
 
-    def get(self, key):
+    async def get(self, key: K, get_value: Callable[[], Awaitable[V]]) -> V:
+        cache = self._cache
         try:
-            item = self.cache.pop(key)
-            if datetime.utcnow() - item[1] > self.expiration_time:
-                return None
-            self.cache[key] = item
-            return item[0]
+            cached_entry = cache.pop(key)
+            if datetime.utcnow() - cached_entry[1] <= self._expiration_time:
+                cache[key] = cached_entry
+                return cached_entry[0]
         except KeyError:
-            return None
+            pass
 
-    def set(self, key, value):
-        try:
-            self.cache.pop(key)
-        except KeyError:
-            if len(self.cache) >= self.capacity:
-                self.cache.popitem(last=False)
-        self.cache[key] = (value, datetime.utcnow())
+        value = await get_value()
+        if len(cache) >= self._capacity:
+            cache.popitem(last=False)
+        cache[key] = (value, datetime.utcnow())
+        return value

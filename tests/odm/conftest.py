@@ -4,7 +4,6 @@ from typing import List
 
 import pytest
 
-from beanie.odm.queries.find_query import FindQuery
 from beanie.odm.utils.init import init_beanie
 from tests.odm.models import (
     ADocument,
@@ -186,7 +185,6 @@ async def session(cli):
 
 @pytest.fixture(autouse=True)
 async def init(db):
-    FindQuery._caches.clear()
     models = [
         DocumentWithExtras,
         DocumentWithPydanticConfig,

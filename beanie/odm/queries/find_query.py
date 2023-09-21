@@ -4,20 +4,16 @@ from pydantic import BaseModel
 from typing_extensions import Self
 
 import beanie
-from beanie.odm.cache import LRUCache
 from beanie.odm.interfaces.settings import SettingsInterface
 from beanie.odm.links import LinkedModelMixin
 from beanie.odm.operators.logical import And
-from beanie.odm.queries import BaseQuery
-from beanie.odm.queries.cacheable import Cacheable
+from beanie.odm.queries import BaseQuery, Cacheable
 from beanie.odm.utils.encoder import Encoder
 from beanie.odm.utils.parsing import ParseableModel
 
 
-class FindQuery(Cacheable, BaseQuery):
+class FindQuery(BaseQuery, Cacheable):
     """Find Query base class"""
-
-    _caches: Dict[type, LRUCache] = {}
 
     def __init__(
         self,
@@ -25,11 +21,12 @@ class FindQuery(Cacheable, BaseQuery):
         projection_model: Optional[Type[ParseableModel]] = None,
     ):
         BaseQuery.__init__(self)
-        Cacheable.__init__(self, document_model)
         bson_encoders = document_model.get_settings().bson_encoders
         self.encoder = Encoder(custom_encoders=bson_encoders)
+        self.document_model = document_model
         self.projection_model = projection_model
         self.fetch_links = False
+        self.ignore_cache = False
         self.find_expressions: List[Mapping[str, Any]] = []
 
     def get_filter_query(self) -> Dict[str, Any]:

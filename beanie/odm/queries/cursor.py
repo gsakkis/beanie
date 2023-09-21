@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from functools import partial
 from typing import (
     Any,
     Generic,
@@ -13,9 +14,10 @@ from typing import (
 
 from motor.core import AgnosticBaseCursor
 from pydantic import BaseModel
+from typing_extensions import Self
 
 from beanie.odm.interfaces.settings import SettingsInterface
-from beanie.odm.queries.cacheable import Cacheable
+from beanie.odm.queries import Cacheable
 from beanie.odm.utils.parsing import ParseableModel, parse_obj
 
 ProjectionT = TypeVar("ProjectionT", bound=Union[BaseModel, Mapping[str, Any]])
@@ -33,12 +35,13 @@ class BaseCursorQuery(Cacheable, Generic[ProjectionT]):
         projection_model: Optional[Type[ParseableModel]] = None,
         ignore_cache: bool = False,
     ):
-        super().__init__(document_model, ignore_cache)
-        self._cursor: Optional[AgnosticBaseCursor] = None
+        self.document_model = document_model
         self.projection_model = projection_model
+        self.ignore_cache = ignore_cache
         self.lazy_parse = False
+        self._cursor: Optional[AgnosticBaseCursor] = None
 
-    def __aiter__(self):
+    def __aiter__(self) -> Self:
         if self._cursor is None:
             self._cursor = self._motor_cursor
         return self
@@ -62,17 +65,14 @@ class BaseCursorQuery(Cacheable, Generic[ProjectionT]):
         :param length: Optional[int] - length of the list
         :return: Union[List[BaseModel], List[Dict[str, Any]]]
         """
-        cache = self._cache
         items: Union[List[BaseModel], List[Mapping[str, Any]]]
-        if cache is None:
+        cache = self.document_model.get_cache()
+        if cache is None or self.ignore_cache:
             items = await self._motor_cursor.to_list(length)
         else:
-            cache_key = self._cache_key
-            items = cache.get(cache_key)
-            if items is None:
-                items = await self._motor_cursor.to_list(length)
-            cache.set(cache_key, items)
-
+            items = await cache.get(
+                self._cache_key, partial(self._motor_cursor.to_list, length)
+            )
         projection_model = self.projection_model
         if projection_model is not None:
             items = [

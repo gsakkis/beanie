@@ -4,13 +4,17 @@ from typing import (
     ClassVar,
     Generic,
     Mapping,
+    Optional,
     Type,
     TypeVar,
     cast,
 )
 
 from motor.motor_asyncio import AsyncIOMotorCollection, AsyncIOMotorDatabase
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+from typing_extensions import Self
+
+from beanie.odm.cache import LRUCache
 
 
 class BaseSettings(BaseModel):
@@ -20,6 +24,7 @@ class BaseSettings(BaseModel):
     database: AsyncIOMotorDatabase
     class_id: str = "_class_id"
 
+    cache: Optional[LRUCache] = None
     use_cache: bool = False
     cache_capacity: int = 32
     cache_expiration_time: timedelta = timedelta(minutes=10)
@@ -28,6 +33,15 @@ class BaseSettings(BaseModel):
     @property
     def motor_collection(self) -> AsyncIOMotorCollection:
         return self.database[self.name]
+
+    @model_validator(mode="after")
+    def _init_cache(self) -> Self:
+        if self.use_cache:
+            self.cache = LRUCache(
+                capacity=self.cache_capacity,
+                expiration_time=self.cache_expiration_time,
+            )
+        return self
 
 
 SettingsT = TypeVar("SettingsT", bound=BaseSettings)
@@ -61,3 +75,7 @@ class SettingsInterface(Generic[SettingsT]):
     @classmethod
     def get_collection_name(cls) -> str:
         return cls.get_settings().name
+
+    @classmethod
+    def get_cache(cls) -> Optional[LRUCache]:
+        return cls.get_settings().cache
