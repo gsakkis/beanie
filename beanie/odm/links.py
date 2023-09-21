@@ -14,6 +14,7 @@ from typing import (
     Type,
     TypeVar,
     Union,
+    cast,
     get_args,
     get_origin,
 )
@@ -42,15 +43,15 @@ class LinkTypes(str, Enum):
     OPTIONAL_BACK_LIST = "OPTIONAL_BACK_LIST"
 
     @property
-    def is_direct(self):
+    def is_direct(self) -> bool:
         return self.value.endswith("DIRECT")
 
     @property
-    def is_list(self):
+    def is_list(self) -> bool:
         return self.value.endswith("LIST")
 
     @property
-    def is_back(self):
+    def is_back(self) -> bool:
         return "BACK" in self.value
 
 
@@ -62,7 +63,7 @@ class Link(Generic[T]):
         self.ref = ref
         self.document_class = document_class
 
-    async def fetch(self, fetch_links: bool = False) -> Union[T, "Link"]:
+    async def fetch(self, fetch_links: bool = False) -> Union[T, "Link[T]"]:
         result = await self.document_class.get(
             self.ref.id, with_children=True, fetch_links=fetch_links
         )
@@ -71,9 +72,9 @@ class Link(Generic[T]):
     @classmethod
     async def fetch_list(
         cls,
-        links: List[Union["Link", "beanie.Document"]],
+        links: List[Union["Link[T]", "beanie.Document"]],
         fetch_links: bool = False,
-    ):
+    ) -> List[Union["Link[T]", "beanie.Document"]]:
         """Fetch list that contains links and documents"""
         data = OrderedDict()
         for link in links:
@@ -81,7 +82,7 @@ class Link(Generic[T]):
             data[key] = link
 
         ids_to_fetch = []
-        document_class = None
+        document_class: Optional[Type[T]] = None
         for link in data.values():
             if isinstance(link, Link):
                 if document_class is None:
@@ -93,7 +94,7 @@ class Link(Generic[T]):
                 ids_to_fetch.append(link.ref.id)
 
         if ids_to_fetch and document_class is not None:
-            fetched_models = await document_class.find(
+            fetched_models: list[T] = await document_class.find_many(
                 In("_id", ids_to_fetch),
                 with_children=True,
                 fetch_links=fetch_links,
@@ -109,14 +110,14 @@ class Link(Generic[T]):
     ) -> core_schema.CoreSchema:
         document_annotation = get_args(source_type)[0]
 
-        def validate(v: Union[DBRef, T], _):
+        def validate(v: Union[DBRef, T]) -> Union[Link[T], T]:
             document_class = LinkedModelMixin.eval_type(document_annotation)
             if isinstance(v, DBRef):
                 return cls(v, document_class)
             if isinstance(v, Link):
                 return v
             if isinstance(v, (dict, BaseModel)):
-                return parse_obj(document_class, v)
+                return cast(T, parse_obj(document_class, v))
 
             id_type = document_class.model_fields["id"].annotation
             ref = DBRef(
@@ -126,7 +127,7 @@ class Link(Generic[T]):
             return cls(ref, document_class)
 
         return core_schema.json_or_python_schema(
-            python_schema=core_schema.general_plain_validator_function(
+            python_schema=core_schema.no_info_plain_validator_function(
                 validate
             ),
             json_schema=core_schema.typed_dict_schema(
@@ -146,10 +147,10 @@ class Link(Generic[T]):
             ),
         )
 
-    def to_ref(self):
+    def to_ref(self) -> DBRef:
         return self.ref
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, str]:
         return {"id": str(self.ref.id), "collection": self.ref.collection}
 
 
@@ -165,15 +166,15 @@ class BackLink(Generic[T]):
     ) -> core_schema.CoreSchema:
         document_annotation = get_args(source_type)[0]
 
-        def validate(v: Union[DBRef, T], _):
+        def validate(v: Union[DBRef, T]) -> Union[BackLink[T], T]:
             document_class = LinkedModelMixin.eval_type(document_annotation)
             if isinstance(v, (dict, BaseModel)):
-                return parse_obj(document_class, v)
+                return cast(T, parse_obj(document_class, v))
             return cls(document_class)
 
-        return core_schema.general_plain_validator_function(validate)
+        return core_schema.no_info_plain_validator_function(validate)
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, str]:
         return {"collection": self.document_class.get_collection_name()}
 
 
@@ -183,9 +184,9 @@ class LinkInfo:
     lookup_field_name: str
     document_class: Type["beanie.Document"]
     link_type: LinkTypes
-    nested_links: Optional[Dict] = None
+    nested_links: Optional[Dict[str, "LinkInfo"]] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.document_class = LinkedModelMixin.eval_type(self.document_class)
 
     def iter_pipeline_stages(self) -> typing.Iterator[Dict[str, Any]]:
@@ -261,23 +262,23 @@ class LinkedModelMixin:
     def get_link_fields(cls) -> Dict[str, LinkInfo]:
         try:
             # link_fields is not inheritable
-            return cls.__dict__["link_fields"]
+            link_fields: Dict[str, LinkInfo] = cls.__dict__["link_fields"]
         except KeyError:
             if not issubclass(cls, BaseModel):
                 raise TypeError("LinkedModelMixin must be used with BaseModel")
             # this can't be done in __init_subclass__ because there may forward
             # references to models that are not registered yet
-            cls.link_fields = {}
+            cls.link_fields = link_fields = {}
             for k, v in cls.model_fields.items():
                 link_info = detect_link(v, k)
                 if link_info is not None:
-                    cls.link_fields[k] = link_info
+                    link_fields[k] = link_info
                     check_nested_links(link_info)
-            return cls.link_fields
+        return link_fields
 
     @classmethod
     def eval_type(cls, t: Any) -> Type["beanie.Document"]:
-        return typing._eval_type(t, cls._registry, None)  # type: ignore[attr-defined]
+        return typing._eval_type(t, cls._registry, None)  # type: ignore
 
     async def fetch_link(self, field: FieldName) -> None:
         if isinstance(field, ExpressionField):
@@ -303,7 +304,7 @@ class LinkedModelMixin:
 
     @model_validator(mode="before")
     @classmethod
-    def _fill_back_refs(cls, values):
+    def _fill_back_refs(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         for field_name, link_info in cls.get_link_fields().items():
             if field_name not in values and link_info.link_type.is_back:
                 backlink = BackLink(link_info.document_class)
@@ -389,7 +390,7 @@ def detect_link(field_info: FieldInfo, field_name: str) -> Optional[LinkInfo]:
 
 def check_nested_links(
     link_info: LinkInfo, checked: Optional[Set[Type[BaseModel]]] = None
-):
+) -> None:
     if checked is None:
         checked = set()
     document_class = link_info.document_class

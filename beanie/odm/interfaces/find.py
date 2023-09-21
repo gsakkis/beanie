@@ -9,10 +9,12 @@ from typing import (
     TypeVar,
     Union,
     cast,
+    overload,
 )
 
 from pydantic import BaseModel
 from pymongo.client_session import ClientSession
+from typing_extensions import Self
 
 from beanie.odm.fields import SortDirection
 from beanie.odm.interfaces.settings import SettingsInterface, SettingsT
@@ -59,6 +61,46 @@ class FindInterface(SettingsInterface[SettingsT]):
             **pymongo_kwargs,
         )
 
+    @overload
+    @classmethod
+    def find_many(
+        cls,
+        *args: Mapping[FieldName, Any],
+        projection_model: None = None,
+        skip: Optional[int] = None,
+        limit: Optional[int] = None,
+        sort: Union[
+            None, FieldName, List[Tuple[FieldName, SortDirection]]
+        ] = None,
+        session: Optional[ClientSession] = None,
+        ignore_cache: bool = False,
+        fetch_links: bool = False,
+        with_children: bool = False,
+        lazy_parse: bool = False,
+        **pymongo_kwargs: Any,
+    ) -> FindMany[Self]:
+        ...
+
+    @overload
+    @classmethod
+    def find_many(
+        cls,
+        *args: Mapping[FieldName, Any],
+        projection_model: Type[ModelT],
+        skip: Optional[int] = None,
+        limit: Optional[int] = None,
+        sort: Union[
+            None, FieldName, List[Tuple[FieldName, SortDirection]]
+        ] = None,
+        session: Optional[ClientSession] = None,
+        ignore_cache: bool = False,
+        fetch_links: bool = False,
+        with_children: bool = False,
+        lazy_parse: bool = False,
+        **pymongo_kwargs: Any,
+    ) -> FindMany[ModelT]:
+        ...
+
     @classmethod
     def find_many(
         cls,
@@ -75,7 +117,7 @@ class FindInterface(SettingsInterface[SettingsT]):
         with_children: bool = False,
         lazy_parse: bool = False,
         **pymongo_kwargs: Any,
-    ) -> Union[FindMany[ModelT], FindMany[Dict[str, Any]]]:
+    ) -> FindMany[Any]:
         """
         Find many documents by criteria.
         Returns [FindMany](query.md#findmany) query object
@@ -94,7 +136,7 @@ class FindInterface(SettingsInterface[SettingsT]):
         :return: [FindMany](query.md#findmany) - query instance
         """
         args = cls._add_class_id_filter(*args, with_children=with_children)
-        return FindMany[Any](document_model=cls).find(
+        return FindMany(document_model=cls).find(
             *args,
             sort=sort,
             skip=skip,
@@ -107,39 +149,7 @@ class FindInterface(SettingsInterface[SettingsT]):
             **pymongo_kwargs,
         )
 
-    @classmethod
-    def find(
-        cls,
-        *args: Mapping[FieldName, Any],
-        projection_model: Optional[Type[ModelT]] = None,
-        skip: Optional[int] = None,
-        limit: Optional[int] = None,
-        sort: Union[
-            None, FieldName, List[Tuple[FieldName, SortDirection]]
-        ] = None,
-        session: Optional[ClientSession] = None,
-        ignore_cache: bool = False,
-        fetch_links: bool = False,
-        with_children: bool = False,
-        lazy_parse: bool = False,
-        **pymongo_kwargs: Any,
-    ) -> Union[FindMany[ModelT], FindMany[Dict[str, Any]]]:
-        """
-        The same as find_many
-        """
-        return cls.find_many(
-            *args,
-            skip=skip,
-            limit=limit,
-            sort=sort,
-            projection_model=projection_model,
-            session=session,
-            ignore_cache=ignore_cache,
-            fetch_links=fetch_links,
-            with_children=with_children,
-            lazy_parse=lazy_parse,
-            **pymongo_kwargs,
-        )
+    find = find_many
 
     @classmethod
     def find_all(
