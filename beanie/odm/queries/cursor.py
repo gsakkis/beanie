@@ -20,7 +20,7 @@ from typing_extensions import Self
 from beanie.odm.queries import CacheableQuery
 from beanie.odm.utils.parsing import ParseableModel, parse_obj
 
-ProjectionT = TypeVar("ProjectionT")
+ProjectionT = TypeVar("ProjectionT", bound=Union[BaseModel, Mapping[str, Any]])
 
 
 @dataclass

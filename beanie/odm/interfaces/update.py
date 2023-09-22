@@ -1,11 +1,14 @@
 from abc import abstractmethod
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from pymongo.client_session import ClientSession
 
 from beanie.odm.bulk import BulkWriter
 from beanie.odm.operators import FieldNameMapping
 from beanie.odm.operators.update import CurrentDate, Inc, Set
+
+if TYPE_CHECKING:
+    from beanie.odm.queries.update import UpdateQuery
 
 
 class UpdateMethods:
@@ -18,7 +21,7 @@ class UpdateMethods:
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
         **pymongo_kwargs: Any,
-    ):
+    ) -> "UpdateQuery":
         ...
 
     def set(
@@ -27,7 +30,7 @@ class UpdateMethods:
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
         **pymongo_kwargs: Any,
-    ):
+    ) -> "UpdateQuery":
         """
         Set values
 
@@ -63,7 +66,7 @@ class UpdateMethods:
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
         **pymongo_kwargs: Any,
-    ):
+    ) -> "UpdateQuery":
         """
         Set current date
 
@@ -87,7 +90,7 @@ class UpdateMethods:
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
         **pymongo_kwargs: Any,
-    ):
+    ) -> "UpdateQuery":
         """
         Increment
 

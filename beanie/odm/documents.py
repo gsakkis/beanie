@@ -463,21 +463,16 @@ class Document(
         if not self.is_changed:
             return None
         changes = self.get_changes()
+
+        update_args: List[BaseOperator] = [update_ops.Set(changes)]
         if self.get_settings().keep_nulls is False:
-            return await self.update(
-                update_ops.Set(changes),
-                update_ops.Unset(self._get_top_level_nones()),
-                ignore_revision=ignore_revision,
-                session=session,
-                bulk_writer=bulk_writer,
-            )
-        else:
-            return await self.set(
-                changes,
-                ignore_revision=ignore_revision,
-                session=session,
-                bulk_writer=bulk_writer,
-            )
+            update_args.append(update_ops.Unset(self._get_top_level_nones()))
+        return await self.update(
+            *update_args,
+            ignore_revision=ignore_revision,
+            session=session,
+            bulk_writer=bulk_writer,
+        )
 
     @wrap_with_actions(EventTypes.UPDATE)
     async def update(

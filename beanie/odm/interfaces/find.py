@@ -1,6 +1,5 @@
 from typing import (
     Any,
-    Dict,
     List,
     Mapping,
     Optional,
@@ -8,7 +7,6 @@ from typing import (
     Type,
     TypeVar,
     Union,
-    cast,
     overload,
 )
 
@@ -16,16 +14,46 @@ from pydantic import BaseModel
 from pymongo.client_session import ClientSession
 from typing_extensions import Self
 
+import beanie
 from beanie.odm.fields import SortDirection
 from beanie.odm.interfaces.settings import SettingsInterface, SettingsT
 from beanie.odm.operators import FieldName, FieldNameMapping
 from beanie.odm.queries.aggregation import AggregationQuery
 from beanie.odm.queries.find import FindMany, FindOne
+from beanie.odm.utils.parsing import ParseableModel
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
 class FindInterface(SettingsInterface[SettingsT]):
+    @overload
+    @classmethod
+    def find_one(
+        cls,
+        *args: FieldNameMapping,
+        projection_model: None = None,
+        session: Optional[ClientSession] = None,
+        ignore_cache: bool = False,
+        fetch_links: bool = False,
+        with_children: bool = False,
+        **pymongo_kwargs: Any,
+    ) -> FindOne[Self]:  # type: ignore[type-var]
+        ...
+
+    @overload
+    @classmethod
+    def find_one(
+        cls,
+        *args: FieldNameMapping,
+        projection_model: Type[ModelT],
+        session: Optional[ClientSession] = None,
+        ignore_cache: bool = False,
+        fetch_links: bool = False,
+        with_children: bool = False,
+        **pymongo_kwargs: Any,
+    ) -> FindOne[ModelT]:
+        ...
+
     @classmethod
     def find_one(
         cls,
@@ -36,7 +64,7 @@ class FindInterface(SettingsInterface[SettingsT]):
         fetch_links: bool = False,
         with_children: bool = False,
         **pymongo_kwargs: Any,
-    ) -> FindOne[ModelT]:
+    ) -> FindOne[Any]:
         """
         Find one document by criteria.
         Returns [FindOne](query.md#findone) query object.
@@ -52,9 +80,9 @@ class FindInterface(SettingsInterface[SettingsT]):
         :return: [FindOne](query.md#findone) - find query instance
         """
         args = cls._add_class_id_filter(*args, with_children=with_children)
-        return FindOne[ModelT](document_model=cls).find(
+        return FindOne(document_model=cls).find(
             *args,
-            projection_model=projection_model or cast(Type[ModelT], cls),
+            projection_model=cls._get_parseable_model(projection_model),
             session=session,
             ignore_cache=ignore_cache,
             fetch_links=fetch_links,
@@ -78,7 +106,7 @@ class FindInterface(SettingsInterface[SettingsT]):
         with_children: bool = False,
         lazy_parse: bool = False,
         **pymongo_kwargs: Any,
-    ) -> FindMany[Self]:
+    ) -> FindMany[Self]:  # type: ignore[type-var]
         ...
 
     @overload
@@ -141,7 +169,7 @@ class FindInterface(SettingsInterface[SettingsT]):
             sort=sort,
             skip=skip,
             limit=limit,
-            projection_model=projection_model or cast(Type[ModelT], cls),
+            projection_model=cls._get_parseable_model(projection_model),
             session=session,
             ignore_cache=ignore_cache,
             fetch_links=fetch_links,
@@ -209,12 +237,12 @@ class FindInterface(SettingsInterface[SettingsT]):
     @classmethod
     def aggregate(
         cls,
-        aggregation_pipeline: list,
+        aggregation_pipeline: List[Mapping[str, Any]],
         projection_model: Optional[Type[ModelT]] = None,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
         **pymongo_kwargs: Any,
-    ) -> Union[AggregationQuery[ModelT], AggregationQuery[Dict[str, Any]]]:
+    ) -> Union[AggregationQuery[ModelT], AggregationQuery[Mapping[str, Any]]]:
         """
         Aggregate over collection.
         Returns [AggregationQuery](query.md#aggregationquery)
@@ -225,13 +253,23 @@ class FindInterface(SettingsInterface[SettingsT]):
         :keyword **pymongo_kwargs: pymongo native parameters for aggregate operation
         :return: [AggregationQuery](query.md#aggregationquery)
         """
-        return cls.find_all(projection_model=projection_model).aggregate(
+        return cls.find_all().aggregate(
             aggregation_pipeline=aggregation_pipeline,
             projection_model=projection_model,
             session=session,
             ignore_cache=ignore_cache,
             **pymongo_kwargs,
         )
+
+    @classmethod
+    def _get_parseable_model(cls, t: Optional[type]) -> Type[ParseableModel]:
+        parseable_model = t or cls
+        if not (
+            issubclass(parseable_model, BaseModel)
+            or issubclass(parseable_model, beanie.UnionDoc)
+        ):
+            raise TypeError("projection_model must be BaseModel or UnionDoc")
+        return parseable_model
 
     @classmethod
     def _add_class_id_filter(

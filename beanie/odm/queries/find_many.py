@@ -25,7 +25,7 @@ from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.links import LinkedModelMixin
 from beanie.odm.operators import FieldName, FieldNameMapping
 from beanie.odm.queries.aggregation import AggregationQuery
-from beanie.odm.queries.cursor import BaseCursorQuery, ProjectionT
+from beanie.odm.queries.cursor import BaseCursorQuery
 from beanie.odm.queries.delete import DeleteMany
 from beanie.odm.queries.find_query import FindQuery, get_projection
 from beanie.odm.queries.update import UpdateMany
@@ -35,7 +35,7 @@ ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
 @dataclass
-class FindMany(FindQuery, BaseCursorQuery[ProjectionT], UpdateMethods):
+class FindMany(FindQuery, BaseCursorQuery[ModelT], UpdateMethods):
     """Find Many query class"""
 
     sort_expressions: List[Tuple[str, SortDirection]] = field(
@@ -269,33 +269,33 @@ class FindMany(FindQuery, BaseCursorQuery[ProjectionT], UpdateMethods):
     @overload
     def aggregate(
         self,
-        aggregation_pipeline: List[Any],
-        projection_model: Type["ModelT"],
+        aggregation_pipeline: List[Mapping[str, Any]],
+        projection_model: Type[ParseableModel],
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
         **pymongo_kwargs: Any,
-    ) -> AggregationQuery["ModelT"]:
+    ) -> AggregationQuery[ModelT]:
         ...
 
     @overload
     def aggregate(
         self,
-        aggregation_pipeline: List[Any],
+        aggregation_pipeline: List[Mapping[str, Any]],
         projection_model: None = None,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
         **pymongo_kwargs: Any,
-    ) -> AggregationQuery[Dict[str, Any]]:
+    ) -> AggregationQuery[Mapping[str, Any]]:
         ...
 
     def aggregate(
         self,
-        aggregation_pipeline: List[Any],
+        aggregation_pipeline: List[Mapping[str, Any]],
         projection_model: Optional[Type[ParseableModel]] = None,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
         **pymongo_kwargs: Any,
-    ) -> Union[AggregationQuery["ModelT"], AggregationQuery[Dict[str, Any]]]:
+    ) -> AggregationQuery[Any]:
         """
         Provide search criteria to the [AggregationQuery](query.md#aggregationquery)
 
@@ -307,7 +307,7 @@ class FindMany(FindQuery, BaseCursorQuery[ProjectionT], UpdateMethods):
         :return:[AggregationQuery](query.md#aggregationquery)
         """
         self.set_session(session)
-        return AggregationQuery[Any](
+        return AggregationQuery(
             aggregation_pipeline=self._build_aggregation_pipeline(
                 projection_model, *aggregation_pipeline
             ),
@@ -446,7 +446,7 @@ class FindMany(FindQuery, BaseCursorQuery[ProjectionT], UpdateMethods):
         ignore_cache: bool = False,
         **pymongo_kwargs: Any,
     ) -> Optional[float]:
-        pipeline = [
+        pipeline: List[Mapping[str, Any]] = [
             {"$group": {"_id": None, "value": {f"${operator}": f"${field}"}}},
             {"$project": {"_id": 0, "value": 1}},
         ]

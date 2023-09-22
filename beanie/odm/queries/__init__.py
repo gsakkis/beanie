@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional, Type
 from pymongo.client_session import ClientSession
 from typing_extensions import Self
 
-from beanie.odm.interfaces.settings import SettingsInterface
+from beanie.odm.interfaces.settings import BaseSettings, SettingsInterface
 from beanie.odm.utils.encoder import Encoder
 
 
@@ -13,11 +13,11 @@ from beanie.odm.utils.encoder import Encoder
 class BaseQuery:
     """Base class of all queries"""
 
-    document_model: Type[SettingsInterface]
+    document_model: Type[SettingsInterface[BaseSettings]]
     session: Optional[ClientSession] = None
     pymongo_kwargs: Dict[str, Any] = field(default_factory=dict)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         bson_encoders = self.document_model.get_settings().bson_encoders
         self.encoder = Encoder(custom_encoders=bson_encoders)
 

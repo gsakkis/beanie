@@ -17,7 +17,7 @@ class DeleteQuery(BaseQuery):
 
     async def _delete(self, many: bool) -> Optional[DeleteResult]:
         if self.bulk_writer is not None:
-            return self.bulk_writer.add_operation(
+            self.bulk_writer.add_operation(
                 Operation(
                     operation_class=(
                         pymongo.DeleteMany if many else pymongo.DeleteOne
@@ -27,6 +27,8 @@ class DeleteQuery(BaseQuery):
                     pymongo_kwargs=self.pymongo_kwargs,
                 )
             )
+            return None
+
         collection = self.document_model.get_motor_collection()
         method = collection.delete_many if many else collection.delete_one
         return await method(

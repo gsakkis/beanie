@@ -24,7 +24,7 @@ class BaseSettings(BaseModel):
     database: AsyncIOMotorDatabase
     class_id: str = "_class_id"
 
-    cache: Optional[LRUCache] = None
+    cache: Optional[LRUCache[str, Any]] = None
     use_cache: bool = False
     cache_capacity: int = 32
     cache_expiration_time: timedelta = timedelta(minutes=10)
@@ -44,7 +44,7 @@ class BaseSettings(BaseModel):
         return self
 
 
-SettingsT = TypeVar("SettingsT", bound=BaseSettings)
+SettingsT = TypeVar("SettingsT", bound=BaseSettings, covariant=True)
 
 
 class SettingsInterface(Generic[SettingsT]):
@@ -77,5 +77,5 @@ class SettingsInterface(Generic[SettingsT]):
         return cls.get_settings().name
 
     @classmethod
-    def get_cache(cls) -> Optional[LRUCache]:
+    def get_cache(cls) -> Optional[LRUCache[str, Any]]:
         return cls.get_settings().cache

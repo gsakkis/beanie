@@ -26,7 +26,7 @@ ModelT = TypeVar("ModelT", bound=BaseModel)
 class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
     """Find One query class"""
 
-    projection_model: Type[ModelT]
+    projection_model: Type[ParseableModel]
 
     def find(
         self,
@@ -185,8 +185,8 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
                 self._cache_key, partial(self._find, use_cache=False)
             )
         elif self.fetch_links:
-            find_many = FindMany[ModelT](self.document_model).find
-            doc = await find_many(
+            find_many = FindMany[ModelT](self.document_model)
+            doc = await find_many.find(
                 *self.find_expressions,
                 session=self.session,
                 fetch_links=self.fetch_links,

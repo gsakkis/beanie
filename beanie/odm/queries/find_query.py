@@ -22,9 +22,12 @@ class FindQuery(CacheableQuery):
     def get_filter_query(self) -> Dict[str, Any]:
         """Returns: MongoDB filter query"""
         expressions = self.find_expressions
+        if not expressions:
+            return {}
         for i, expression in enumerate(expressions):
             expressions[i] = self._convert_ids(expression)
-        return self.encoder.encode(And(*expressions)) if expressions else {}
+        expression = And(*expressions)
+        return {k: self.encoder.encode(v) for k, v in expression.items()}
 
     def project(
         self, projection_model: Optional[Type[ParseableModel]] = None
@@ -52,7 +55,7 @@ class FindQuery(CacheableQuery):
                     **self.pymongo_kwargs,
                 )
             )
-            result = await query.first_or_none()
+            result: Optional[Dict[str, int]] = await query.first_or_none()
             return result["count"] if result else 0
 
         collection = self.document_model.get_motor_collection()
@@ -103,8 +106,9 @@ def get_projection(
 
     if hasattr(model, "Settings"):  # MyPy checks
         settings = getattr(model, "Settings")
-        if hasattr(settings, "projection"):
-            return getattr(settings, "projection")
+        projection = getattr(settings, "projection", None)
+        if isinstance(projection, dict):
+            return projection
 
     if model.model_config.get("extra") == "allow":
         return None

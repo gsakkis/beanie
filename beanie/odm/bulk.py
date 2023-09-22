@@ -4,8 +4,9 @@ from typing import Any, Dict, List, Mapping, Optional, Type, Union
 import pymongo
 from pymongo.client_session import ClientSession
 from pymongo.results import BulkWriteResult
+from typing_extensions import Self
 
-from beanie.odm.interfaces.settings import SettingsInterface
+from beanie.odm.interfaces.settings import BaseSettings, SettingsInterface
 
 PyMongoOperation = Union[
     pymongo.InsertOne,
@@ -20,7 +21,7 @@ PyMongoOperation = Union[
 @dataclass
 class Operation:
     operation_class: Type[PyMongoOperation]
-    object_class: Type[SettingsInterface]
+    object_class: Type[SettingsInterface[BaseSettings]]
     first_query: Mapping[str, Any]
     second_query: Union[
         Mapping[str, Any], List[Mapping[str, Any]], None
@@ -33,10 +34,10 @@ class BulkWriter:
         self.operations: List[Operation] = []
         self.session = session
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> Self:
         return self
 
-    async def __aexit__(self, exc_type, exc, tb):
+    async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
         await self.commit()
 
     async def commit(self) -> Optional[BulkWriteResult]:
@@ -74,5 +75,5 @@ class BulkWriter:
             requests, session=self.session
         )
 
-    def add_operation(self, operation: Operation):
+    def add_operation(self, operation: Operation) -> None:
         self.operations.append(operation)
