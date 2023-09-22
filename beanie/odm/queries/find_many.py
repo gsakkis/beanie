@@ -1,3 +1,4 @@
+from dataclasses import dataclass, field
 from typing import (
     Any,
     Dict,
@@ -8,7 +9,6 @@ from typing import (
     Type,
     TypeVar,
     Union,
-    cast,
     overload,
 )
 
@@ -21,7 +21,6 @@ import beanie
 from beanie.exceptions import NotSupported
 from beanie.odm.bulk import BulkWriter
 from beanie.odm.fields import ExpressionField, SortDirection
-from beanie.odm.interfaces.settings import SettingsInterface
 from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.links import LinkedModelMixin
 from beanie.odm.operators import FieldName
@@ -35,16 +34,15 @@ from beanie.odm.utils.parsing import ParseableModel
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
+@dataclass
 class FindMany(FindQuery, BaseCursorQuery[ProjectionT], UpdateMethods):
     """Find Many query class"""
 
-    def __init__(self, document_model: Type[SettingsInterface]):
-        projection_model = cast(Type[ParseableModel], document_model)
-        FindQuery.__init__(self, document_model, projection_model)
-        BaseCursorQuery.__init__(self, document_model, projection_model)
-        self.sort_expressions: List[Tuple[str, SortDirection]] = []
-        self.skip_number = 0
-        self.limit_number = 0
+    sort_expressions: List[Tuple[str, SortDirection]] = field(
+        default_factory=list
+    )
+    skip_number: int = 0
+    limit_number: int = 0
 
     def find(
         self,
@@ -213,8 +211,8 @@ class FindMany(FindQuery, BaseCursorQuery[ProjectionT], UpdateMethods):
 
     def delete(
         self,
-        session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
+        session: Optional[ClientSession] = None,
         **pymongo_kwargs: Any,
     ) -> DeleteMany:
         """
@@ -227,9 +225,9 @@ class FindMany(FindQuery, BaseCursorQuery[ProjectionT], UpdateMethods):
         return DeleteMany(
             document_model=self.document_model,
             find_query=self.get_filter_query(),
-            session=self.session,
             bulk_writer=bulk_writer,
-            **pymongo_kwargs,
+            session=self.session,
+            pymongo_kwargs=pymongo_kwargs,
         )
 
     def _build_aggregation_pipeline(

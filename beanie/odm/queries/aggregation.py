@@ -1,38 +1,20 @@
-from typing import Any, Dict, List, Mapping, Optional, Type
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Mapping
 
 from motor.core import AgnosticBaseCursor
-from pymongo.client_session import ClientSession
 
-from beanie.odm.interfaces.settings import SettingsInterface
-from beanie.odm.queries import BaseQuery
 from beanie.odm.queries.cursor import BaseCursorQuery, ProjectionT
-from beanie.odm.utils.parsing import ParseableModel
 
 
-class AggregationQuery(BaseCursorQuery[ProjectionT], BaseQuery):
+@dataclass
+class AggregationQuery(BaseCursorQuery[ProjectionT]):
     """Aggregation Query"""
 
-    def __init__(
-        self,
-        aggregation_pipeline: List[Mapping[str, Any]],
-        document_model: Type[SettingsInterface],
-        projection_model: Optional[Type[ParseableModel]],
-        cache_key_dict: Dict[str, Any],
-        ignore_cache: bool = False,
-        session: Optional[ClientSession] = None,
-        **pymongo_kwargs: Any,
-    ):
-        BaseQuery.__init__(self, session, **pymongo_kwargs)
-        BaseCursorQuery.__init__(
-            self, document_model, projection_model, ignore_cache
-        )
-        self.aggregation_pipeline = aggregation_pipeline
-        self.__cache_key_dict = dict(
-            cache_key_dict, pipeline=aggregation_pipeline
-        )
+    aggregation_pipeline: List[Mapping[str, Any]] = field(default_factory=list)
+    cache_key_dict: Dict[str, Any] = field(default_factory=dict)
 
     def _cache_key_dict(self) -> Dict[str, Any]:
-        return self.__cache_key_dict
+        return dict(self.cache_key_dict, pipeline=self.aggregation_pipeline)
 
     @property
     def _motor_cursor(self) -> AgnosticBaseCursor:

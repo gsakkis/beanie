@@ -1,3 +1,4 @@
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import (
     Any,
@@ -22,7 +23,6 @@ from beanie.odm.fields import ExpressionField
 from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.operators import FieldName
 from beanie.odm.queries import BaseQuery
-from beanie.odm.utils.encoder import Encoder
 from beanie.odm.utils.parsing import parse_obj
 
 
@@ -35,21 +35,16 @@ class UpdateResponse(str, Enum):
 UpdateExpression = Union[Mapping[FieldName, Any], List[Any]]
 
 
+@dataclass
 class UpdateQuery(BaseQuery, UpdateMethods):
     """Update Query base class"""
 
-    def __init__(
-        self,
-        document_model: Type["beanie.Document"],
-        find_query: Mapping[str, Any],
-    ):
-        super().__init__()
-        self.document_model = document_model
-        self.find_query = find_query
-        self.update_expressions: List[UpdateExpression] = []
-        self.upsert_insert_doc: Optional[beanie.Document] = None
-        self.bulk_writer: Optional[BulkWriter] = None
-        self.encoders = self.document_model.get_settings().bson_encoders
+    find_query: Mapping[str, Any] = field(default_factory=dict)
+    bulk_writer: Optional[BulkWriter] = None
+    on_insert: Optional["beanie.Document"] = None
+    update_expressions: List[UpdateExpression] = field(
+        default_factory=list, init=False
+    )
 
     @property
     def update_query(self) -> Dict[str, Any]:
@@ -72,7 +67,7 @@ class UpdateQuery(BaseQuery, UpdateMethods):
                     query.setdefault("$set", {}).update(expression["$set"])
                 else:
                     query.update(expression)
-        return Encoder(custom_encoders=self.encoders).encode(query)
+        return self.encoder.encode(query)
 
     def _add_update_expression(self, expression: UpdateExpression) -> None:
         if not isinstance(expression, (Mapping, list)):
@@ -96,8 +91,8 @@ class UpdateMany(UpdateQuery):
         self,
         *args: UpdateExpression,
         on_insert: Optional["beanie.Document"] = None,
-        session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
+        session: Optional[ClientSession] = None,
         **pymongo_kwargs: Any,
     ) -> Self:
         """
@@ -115,7 +110,7 @@ class UpdateMany(UpdateQuery):
         for arg in args:
             self._add_update_expression(arg)
         if on_insert is not None:
-            self.upsert_insert_doc = on_insert
+            self.on_insert = on_insert
         if bulk_writer:
             self.bulk_writer = bulk_writer
         self.pymongo_kwargs.update(pymongo_kwargs)
@@ -127,36 +122,38 @@ class UpdateMany(UpdateQuery):
         return self._update().__await__()
 
     async def _update(self) -> Union[UpdateResult, "beanie.Document", None]:
+        document_model = cast(Type[beanie.Document], self.document_model)
         if self.bulk_writer is not None:
             return self.bulk_writer.add_operation(
                 Operation(
                     operation_class=pymongo.UpdateMany,
                     first_query=self.find_query,
                     second_query=self.update_query,
-                    object_class=self.document_model,
+                    object_class=document_model,
                     pymongo_kwargs=self.pymongo_kwargs,
                 )
             )
         result: Union[UpdateResult, beanie.Document, None]
-        result = await self.document_model.get_motor_collection().update_many(
+        result = await document_model.get_motor_collection().update_many(
             self.find_query,
             self.update_query,
             session=self.session,
             **self.pymongo_kwargs,
         )
         if (
-            self.upsert_insert_doc is not None
+            self.on_insert is not None
             and result is not None
             and result.matched_count == 0
         ):
-            result = await self.document_model.insert_one(
-                document=self.upsert_insert_doc,
+            result = await document_model.insert_one(
+                document=self.on_insert,
                 session=self.session,
                 bulk_writer=self.bulk_writer,
             )
         return result
 
 
+@dataclass
 class UpdateOne(UpdateQuery):
     """Update One query class"""
 
@@ -166,9 +163,9 @@ class UpdateOne(UpdateQuery):
         self,
         *args: UpdateExpression,
         on_insert: Optional["beanie.Document"] = None,
-        session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
         response_type: Optional[UpdateResponse] = None,
+        session: Optional[ClientSession] = None,
         **pymongo_kwargs: Any,
     ) -> Self:
         """
@@ -187,7 +184,7 @@ class UpdateOne(UpdateQuery):
         for arg in args:
             self._add_update_expression(arg)
         if on_insert is not None:
-            self.upsert_insert_doc = on_insert
+            self.on_insert = on_insert
         if response_type is not None:
             self.response_type = response_type
         if bulk_writer:
@@ -201,19 +198,20 @@ class UpdateOne(UpdateQuery):
         return self._update().__await__()
 
     async def _update(self) -> Union[UpdateResult, "beanie.Document", None]:
+        document_model = cast(Type[beanie.Document], self.document_model)
         if self.bulk_writer:
             return self.bulk_writer.add_operation(
                 Operation(
                     operation_class=pymongo.UpdateOne,
                     first_query=self.find_query,
                     second_query=self.update_query,
-                    object_class=self.document_model,
+                    object_class=document_model,
                     pymongo_kwargs=self.pymongo_kwargs,
                 )
             )
 
         result: Union[UpdateResult, beanie.Document, None] = None
-        collection = self.document_model.get_motor_collection()
+        collection = document_model.get_motor_collection()
         if self.response_type == UpdateResponse.UPDATE_RESULT:
             result = await collection.update_one(
                 self.find_query,
@@ -235,21 +233,21 @@ class UpdateOne(UpdateQuery):
             )
             if r_dict is not None:
                 result = cast(
-                    beanie.Document, parse_obj(self.document_model, r_dict)
+                    beanie.Document, parse_obj(document_model, r_dict)
                 )
 
         if (
-            self.upsert_insert_doc is not None
+            self.on_insert is not None
             and self.response_type == UpdateResponse.UPDATE_RESULT
             and result is not None
             and result.matched_count == 0
         ) or (
-            self.upsert_insert_doc is not None
+            self.on_insert is not None
             and self.response_type != UpdateResponse.UPDATE_RESULT
             and result is None
         ):
-            result = await self.document_model.insert_one(
-                document=self.upsert_insert_doc,
+            result = await document_model.insert_one(
+                document=self.on_insert,
                 session=self.session,
                 bulk_writer=self.bulk_writer,
             )

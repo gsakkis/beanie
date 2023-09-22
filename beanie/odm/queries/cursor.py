@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from dataclasses import dataclass
 from functools import partial
 from typing import (
     Any,
@@ -16,30 +17,22 @@ from motor.core import AgnosticBaseCursor
 from pydantic import BaseModel
 from typing_extensions import Self
 
-from beanie.odm.interfaces.settings import SettingsInterface
-from beanie.odm.queries import Cacheable
+from beanie.odm.queries import CacheableQuery
 from beanie.odm.utils.parsing import ParseableModel, parse_obj
 
 ProjectionT = TypeVar("ProjectionT", bound=Union[BaseModel, Mapping[str, Any]])
 
 
-class BaseCursorQuery(Cacheable, Generic[ProjectionT]):
+@dataclass
+class BaseCursorQuery(CacheableQuery, Generic[ProjectionT]):
     """
     BaseCursorQuery class. Wrapper over AsyncIOMotorCursor,
     which parse result with model
     """
 
-    def __init__(
-        self,
-        document_model: Type[SettingsInterface],
-        projection_model: Optional[Type[ParseableModel]] = None,
-        ignore_cache: bool = False,
-    ):
-        self.document_model = document_model
-        self.projection_model = projection_model
-        self.ignore_cache = ignore_cache
-        self.lazy_parse = False
-        self._cursor: Optional[AgnosticBaseCursor] = None
+    projection_model: Optional[Type[ParseableModel]] = None
+    lazy_parse: bool = False
+    _cursor: Optional[AgnosticBaseCursor] = None
 
     def __aiter__(self) -> Self:
         if self._cursor is None:

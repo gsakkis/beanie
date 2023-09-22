@@ -1,33 +1,23 @@
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Mapping, Optional, Type
 
 from pydantic import BaseModel
 from typing_extensions import Self
 
 import beanie
-from beanie.odm.interfaces.settings import SettingsInterface
 from beanie.odm.links import LinkedModelMixin
 from beanie.odm.operators.logical import And
-from beanie.odm.queries import BaseQuery, Cacheable
-from beanie.odm.utils.encoder import Encoder
+from beanie.odm.queries import CacheableQuery
 from beanie.odm.utils.parsing import ParseableModel
 
 
-class FindQuery(BaseQuery, Cacheable):
+@dataclass
+class FindQuery(CacheableQuery):
     """Find Query base class"""
 
-    def __init__(
-        self,
-        document_model: Type[SettingsInterface],
-        projection_model: Optional[Type[ParseableModel]] = None,
-    ):
-        BaseQuery.__init__(self)
-        bson_encoders = document_model.get_settings().bson_encoders
-        self.encoder = Encoder(custom_encoders=bson_encoders)
-        self.document_model = document_model
-        self.projection_model = projection_model
-        self.fetch_links = False
-        self.ignore_cache = False
-        self.find_expressions: List[Mapping[str, Any]] = []
+    projection_model: Optional[Type[ParseableModel]] = None
+    fetch_links: bool = False
+    find_expressions: List[Mapping[str, Any]] = field(default_factory=list)
 
     def get_filter_query(self) -> Dict[str, Any]:
         """Returns: MongoDB filter query"""

@@ -20,7 +20,6 @@ import beanie
 from beanie.exceptions import DocumentNotFound
 from beanie.odm.bulk import BulkWriter, Operation
 from beanie.odm.fields import ExpressionField
-from beanie.odm.interfaces.settings import SettingsInterface
 from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.operators import FieldName
 from beanie.odm.queries.delete import DeleteOne
@@ -37,10 +36,6 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
     """Find One query class"""
 
     projection_model: Type[ModelT]
-
-    def __init__(self, document_model: Type[SettingsInterface]):
-        projection_model = cast(Type[ParseableModel], document_model)
-        super().__init__(document_model, projection_model)
 
     def find(
         self,
@@ -93,13 +88,10 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
         return UpdateOne(
             document_model=self.document_model,
             find_query=self.get_filter_query(),
-        ).update(
-            *args,
-            session=self.session,
             bulk_writer=bulk_writer,
-            response_type=response_type,
-            **pymongo_kwargs,
-        )
+            session=self.session,
+            pymongo_kwargs=pymongo_kwargs,
+        ).update(*args, response_type=response_type)
 
     def upsert(
         self,
@@ -126,18 +118,15 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
         return UpdateOne(
             document_model=self.document_model,
             find_query=self.get_filter_query(),
-        ).update(
-            *args,
             on_insert=on_insert,
             session=self.session,
-            response_type=response_type,
-            **pymongo_kwargs,
-        )
+            pymongo_kwargs=pymongo_kwargs,
+        ).update(*args, response_type=response_type)
 
     def delete(
         self,
-        session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
+        session: Optional[ClientSession] = None,
         **pymongo_kwargs: Any,
     ) -> DeleteOne:
         """
@@ -150,9 +139,9 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
         return DeleteOne(
             document_model=self.document_model,
             find_query=self.get_filter_query(),
-            session=self.session,
             bulk_writer=bulk_writer,
-            **pymongo_kwargs,
+            session=self.session,
+            pymongo_kwargs=pymongo_kwargs,
         )
 
     async def replace(

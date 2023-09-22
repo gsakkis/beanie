@@ -1,29 +1,19 @@
-from typing import Any, Generator, Mapping, Optional, Type
+from dataclasses import dataclass, field
+from typing import Any, Generator, Mapping, Optional
 
 import pymongo
-from pymongo.client_session import ClientSession
 from pymongo.results import DeleteResult
 
 from beanie.odm.bulk import BulkWriter, Operation
-from beanie.odm.interfaces.settings import SettingsInterface
 from beanie.odm.queries import BaseQuery
 
 
+@dataclass
 class DeleteQuery(BaseQuery):
     """Deletion Query"""
 
-    def __init__(
-        self,
-        document_model: Type[SettingsInterface],
-        find_query: Mapping[str, Any],
-        bulk_writer: Optional[BulkWriter] = None,
-        session: Optional[ClientSession] = None,
-        **pymongo_kwargs: Any,
-    ):
-        super().__init__(session, **pymongo_kwargs)
-        self.document_model = document_model
-        self.find_query = find_query
-        self.bulk_writer = bulk_writer
+    find_query: Mapping[str, Any] = field(default_factory=dict)
+    bulk_writer: Optional[BulkWriter] = None
 
     async def _delete(self, many: bool) -> Optional[DeleteResult]:
         if self.bulk_writer is not None:

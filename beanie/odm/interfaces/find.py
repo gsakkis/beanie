@@ -8,6 +8,7 @@ from typing import (
     Type,
     TypeVar,
     Union,
+    cast,
 )
 
 from pydantic import BaseModel
@@ -51,7 +52,7 @@ class FindInterface(SettingsInterface[SettingsT]):
         args = cls._add_class_id_filter(*args, with_children=with_children)
         return FindOne[ModelT](document_model=cls).find(
             *args,
-            projection_model=projection_model,
+            projection_model=projection_model or cast(Type[ModelT], cls),
             session=session,
             ignore_cache=ignore_cache,
             fetch_links=fetch_links,
@@ -98,7 +99,7 @@ class FindInterface(SettingsInterface[SettingsT]):
             sort=sort,
             skip=skip,
             limit=limit,
-            projection_model=projection_model,
+            projection_model=projection_model or cast(Type[ModelT], cls),
             session=session,
             ignore_cache=ignore_cache,
             fetch_links=fetch_links,
