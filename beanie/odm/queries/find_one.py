@@ -7,7 +7,6 @@ from typing import (
     Optional,
     Type,
     TypeVar,
-    cast,
 )
 
 import pymongo
@@ -182,16 +181,16 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
             return None
 
     def __await__(self) -> Generator[None, None, Optional[ModelT]]:
-        return self._find(use_cache=True, parse=True).__await__()
+        return self._find().__await__()
 
-    async def _find(self, use_cache: bool, parse: bool) -> Optional[ModelT]:
+    async def _find(self, use_cache: bool = True) -> Any:
+        projection_model = self.projection_model
         if use_cache:
             cache = self.document_model.get_cache()
             if cache is None or self.ignore_cache:
-                return await self._find(use_cache=False, parse=parse)
+                return await self._find(use_cache=False)
             doc = await cache.get(
-                self._cache_key,
-                partial(self._find, use_cache=False, parse=False),
+                self._cache_key, partial(self._find, use_cache=False)
             )
         elif self.fetch_links:
             find_many = FindMany[ModelT](self.document_model).find
@@ -199,17 +198,17 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
                 *self.find_expressions,
                 session=self.session,
                 fetch_links=self.fetch_links,
-                projection_model=self.projection_model,
+                projection_model=projection_model,
                 **self.pymongo_kwargs,
             ).first_or_none()
         else:
             doc = await self.document_model.get_motor_collection().find_one(
                 filter=self.get_filter_query(),
-                projection=get_projection(self.projection_model),
+                projection=get_projection(projection_model),
                 session=self.session,
                 **self.pymongo_kwargs,
             )
 
-        if not parse or doc is None or isinstance(doc, self.projection_model):
-            return doc
-        return cast(ModelT, parse_obj(self.projection_model, doc))
+        if doc is not None and not isinstance(doc, projection_model):
+            doc = parse_obj(projection_model, doc)
+        return doc
