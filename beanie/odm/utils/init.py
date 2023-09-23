@@ -14,7 +14,9 @@ from beanie.odm.views import View
 DocumentLike = Union[Document, View, UnionDoc]
 
 
-async def init_timeseries(cls: Type[Document], database: AsyncIOMotorDatabase):
+async def init_timeseries(
+    cls: Type[Document], database: AsyncIOMotorDatabase
+) -> None:
     settings = cls.get_settings()
     if settings.timeseries:
         if beanie.DATABASE_MAJOR_VERSION < 5:
@@ -90,7 +92,10 @@ def resolve_name(name: str) -> Type[DocumentLike]:
             f"'{name}' doesn't have '.' path, eg. path.to.model.class"
         )
     module = importlib.import_module(module_name)
-    return getattr(module, class_name)
+    cls = getattr(module, class_name)
+    if not isinstance(cls, type):
+        raise TypeError(f"'{name}' is not a class")
+    return cls
 
 
 def type_sort_key(doctype: Type[DocumentLike]) -> int:
@@ -109,7 +114,7 @@ async def init_beanie(
     document_models: Optional[List[Union[Type[DocumentLike], str]]] = None,
     allow_index_dropping: bool = False,
     recreate_views: bool = False,
-):
+) -> None:
     """
     Beanie initialization
 
@@ -124,7 +129,7 @@ async def init_beanie(
     if document_models is None:
         raise ValueError("document_models parameter must be set")
 
-    if connection_string is database is None:
+    if connection_string is None and database is None:
         raise ValueError("Either connection_string or database must be set")
 
     if connection_string is not None and database is not None:

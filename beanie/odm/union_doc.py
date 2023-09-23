@@ -1,4 +1,4 @@
-from typing import ClassVar, Dict, Type
+from typing import ClassVar, Dict
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
@@ -8,7 +8,7 @@ from beanie.odm.interfaces.settings import BaseSettings
 
 class UnionDoc(FindInterface[BaseSettings]):
     _settings_type = BaseSettings
-    _children: ClassVar[Dict[str, Type]]
+    _children: ClassVar[Dict[str, type]]
 
     @classmethod
     def init_from_database(cls, database: AsyncIOMotorDatabase) -> None:

@@ -1,8 +1,11 @@
 import inspect
-from typing import get_args
+from typing import TYPE_CHECKING, Union, get_args
+
+if TYPE_CHECKING:
+    from types import GenericAlias
 
 
-def extract_id_class(annotation) -> type:
+def extract_id_class(annotation: Union[type, "GenericAlias"]) -> type:
     if inspect.isclass(annotation):
         return annotation
 
