@@ -22,7 +22,9 @@ class Operation:
     operation_class: Type[PyMongoOperation]
     object_class: Type[SettingsInterface]
     first_query: Mapping[str, Any]
-    second_query: Optional[Dict[str, Any]] = None
+    second_query: Union[
+        Mapping[str, Any], List[Mapping[str, Any]], None
+    ] = None
     pymongo_kwargs: Dict[str, Any] = field(default_factory=dict)
 
 

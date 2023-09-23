@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import (
@@ -36,56 +37,29 @@ UpdateExpression = Union[Mapping[FieldName, Any], List[Any]]
 
 
 @dataclass
-class UpdateQuery(BaseQuery, UpdateMethods):
+class UpdateQuery(BaseQuery, UpdateMethods, ABC):
     """Update Query base class"""
 
     find_query: Mapping[str, Any] = field(default_factory=dict)
     bulk_writer: Optional[BulkWriter] = None
     on_insert: Optional["beanie.Document"] = None
-    update_expressions: List[UpdateExpression] = field(
+    _dict_updates: Dict[str, Any] = field(default_factory=dict, init=False)
+    _list_updates: List[Mapping[str, Any]] = field(
         default_factory=list, init=False
     )
 
     @property
-    def update_query(self) -> Dict[str, Any]:
-        if not self.update_expressions:
-            raise ValueError("No update expressions provided")
-
-        query: Union[Dict[str, Any], List[Mapping[str, Any]]]
-        if isinstance(self.update_expressions[0], list):
-            query = []
-            for expression in self.update_expressions:
-                query.extend(expression)
-        else:
-            query = {}
-            for expression in self.update_expressions:
-                expression = cast(Dict[str, Any], expression)
-                if (
-                    "$set" in expression
-                    and "revision_id" in expression["$set"]
-                ):
-                    query.setdefault("$set", {}).update(expression["$set"])
-                else:
-                    query.update(expression)
-        return self.encoder.encode(query)
-
-    def _add_update_expression(self, expression: UpdateExpression) -> None:
-        if not isinstance(expression, (Mapping, list)):
-            raise TypeError("Update expression must be dict or list")
-        if self.update_expressions:
-            expr_type = type(self.update_expressions[0])
-            assert expr_type in (dict, list)
-            if (expr_type is dict and not isinstance(expression, Mapping)) or (
-                expr_type is list and not isinstance(expression, list)
-            ):
-                raise TypeError(
-                    "Update expressions must be all lists or all dicts"
-                )
-        self.update_expressions.append(ExpressionField.serialize(expression))
-
-
-class UpdateMany(UpdateQuery):
-    """Update Many query class"""
+    def update_query(
+        self,
+    ) -> Union[Mapping[str, Any], List[Mapping[str, Any]]]:
+        encode = self.encoder.encode
+        if self._dict_updates:
+            assert not self._list_updates
+            return {k: encode(v) for k, v in self._dict_updates.items()}
+        if self._list_updates:
+            assert not self._dict_updates
+            return [encode(v) for v in self._list_updates]
+        raise ValueError("No update expressions provided")
 
     def update(
         self,
@@ -121,10 +95,33 @@ class UpdateMany(UpdateQuery):
     ) -> Generator[None, None, Union[UpdateResult, "beanie.Document", None]]:
         return self._update().__await__()
 
+    @abstractmethod
+    async def _update(self) -> Union[UpdateResult, "beanie.Document", None]:
+        ...
+
+    def _add_update_expression(self, expression: UpdateExpression) -> None:
+        serialized = ExpressionField.serialize(expression)
+        if isinstance(serialized, Mapping) and not self._list_updates:
+            if "$set" in serialized and "revision_id" in serialized["$set"]:
+                current_set = self._dict_updates.setdefault("$set", {})
+                current_set.update(serialized["$set"])
+            else:
+                self._dict_updates.update(serialized)
+        elif isinstance(serialized, list) and not self._dict_updates:
+            self._list_updates.extend(serialized)
+        else:
+            raise TypeError(
+                "Update expressions must be all lists or all dicts"
+            )
+
+
+class UpdateMany(UpdateQuery):
+    """Update Many query class"""
+
     async def _update(self) -> Union[UpdateResult, "beanie.Document", None]:
         document_model = cast(Type[beanie.Document], self.document_model)
         if self.bulk_writer is not None:
-            return self.bulk_writer.add_operation(
+            self.bulk_writer.add_operation(
                 Operation(
                     operation_class=pymongo.UpdateMany,
                     first_query=self.find_query,
@@ -133,6 +130,8 @@ class UpdateMany(UpdateQuery):
                     pymongo_kwargs=self.pymongo_kwargs,
                 )
             )
+            return None
+
         result: Union[UpdateResult, beanie.Document, None]
         result = await document_model.get_motor_collection().update_many(
             self.find_query,
@@ -168,39 +167,21 @@ class UpdateOne(UpdateQuery):
         session: Optional[ClientSession] = None,
         **pymongo_kwargs: Any,
     ) -> Self:
-        """
-        Provide modifications to the update query.
-
-        :param args: *Union[dict, Mapping] - the modifications to apply.
-        :param on_insert: Document - document to insert if there is no matched
-        document in the collection
-        :param session: Optional[ClientSession]
-        :param bulk_writer: Optional[BulkWriter]
-        :param response_type: UpdateResponse
-        :param pymongo_kwargs: pymongo native parameters for update operation
-        :return: self
-        """
-        self.set_session(session)
-        for arg in args:
-            self._add_update_expression(arg)
-        if on_insert is not None:
-            self.on_insert = on_insert
+        super().update(
+            *args,
+            on_insert=on_insert,
+            bulk_writer=bulk_writer,
+            session=session,
+            **pymongo_kwargs,
+        )
         if response_type is not None:
             self.response_type = response_type
-        if bulk_writer:
-            self.bulk_writer = bulk_writer
-        self.pymongo_kwargs.update(pymongo_kwargs)
         return self
-
-    def __await__(
-        self,
-    ) -> Generator[None, None, Union[UpdateResult, "beanie.Document", None]]:
-        return self._update().__await__()
 
     async def _update(self) -> Union[UpdateResult, "beanie.Document", None]:
         document_model = cast(Type[beanie.Document], self.document_model)
-        if self.bulk_writer:
-            return self.bulk_writer.add_operation(
+        if self.bulk_writer is not None:
+            self.bulk_writer.add_operation(
                 Operation(
                     operation_class=pymongo.UpdateOne,
                     first_query=self.find_query,
@@ -209,6 +190,7 @@ class UpdateOne(UpdateQuery):
                     pymongo_kwargs=self.pymongo_kwargs,
                 )
             )
+            return None
 
         result: Union[UpdateResult, beanie.Document, None] = None
         collection = document_model.get_motor_collection()
