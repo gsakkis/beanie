@@ -1,6 +1,15 @@
 from enum import Enum
 from functools import cached_property
-from typing import Any, Iterator, List, Mapping, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Iterator,
+    List,
+    Mapping,
+    Tuple,
+    Union,
+    cast,
+)
 
 import bson
 import pymongo
@@ -15,6 +24,11 @@ from pydantic_core import core_schema
 from typing_extensions import Annotated, Self
 
 from beanie.odm.operators import BaseOperator, comparison
+
+if TYPE_CHECKING:
+    from types import GenericAlias
+else:
+    GenericAlias = Any
 
 
 def _validate_objectid(v: Any) -> bson.ObjectId:
@@ -93,7 +107,7 @@ class ExpressionField:
     def __copy__(self) -> Self:
         return self
 
-    def __deepcopy__(self, memo: dict) -> Self:
+    def __deepcopy__(self, memo: Mapping[int, Any]) -> Self:
         return self
 
     @classmethod
@@ -110,17 +124,22 @@ class ExpressionField:
         return expression
 
 
-def Indexed(annotation, index_type=pymongo.ASCENDING, **kwargs):
+def Indexed(
+    annotation: Union[type, "GenericAlias"],
+    index_type: int = pymongo.ASCENDING,
+    **kwargs: Any,
+) -> "GenericAlias":
     """
     Returns an Annotated type with a `{"get_index_model" : f}` dict metadata, where
     f is a function `f(key) -> IndexModel` that generates a pymongo Index instance
     for the given key.
     """
 
-    def get_index_model(key):
+    def get_index_model(key: str) -> IndexModel:
         return IndexModel([(key, index_type)], **kwargs)
 
-    return Annotated[annotation, {"get_index_model": get_index_model}]
+    metadata = {"get_index_model": get_index_model}
+    return cast(GenericAlias, Annotated[annotation, metadata])
 
 
 class IndexModel(pymongo.IndexModel):
@@ -132,7 +151,7 @@ class IndexModel(pymongo.IndexModel):
 
     @cached_property
     def name(self) -> str:
-        return self.document["name"]
+        return cast(str, self.document["name"])
 
     @cached_property
     def keys(self) -> Tuple[Tuple[str, int], ...]:
@@ -168,7 +187,7 @@ class IndexModel(pymongo.IndexModel):
     def __get_pydantic_core_schema__(
         cls, source_type: Any, handler: GetCoreSchemaHandler
     ) -> core_schema.CoreSchema:
-        def validate(v):
+        def validate(v: Any) -> IndexModel:
             if isinstance(v, cls):
                 return v
             if isinstance(v, pymongo.IndexModel):
