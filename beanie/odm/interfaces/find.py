@@ -18,7 +18,7 @@ from typing_extensions import Self
 
 from beanie.odm.fields import SortDirection
 from beanie.odm.interfaces.settings import SettingsInterface, SettingsT
-from beanie.odm.operators import FieldName
+from beanie.odm.operators import FieldName, FieldNameMapping
 from beanie.odm.queries.aggregation import AggregationQuery
 from beanie.odm.queries.find import FindMany, FindOne
 
@@ -29,7 +29,7 @@ class FindInterface(SettingsInterface[SettingsT]):
     @classmethod
     def find_one(
         cls,
-        *args: Mapping[FieldName, Any],
+        *args: FieldNameMapping,
         projection_model: Optional[Type[ModelT]] = None,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
@@ -65,7 +65,7 @@ class FindInterface(SettingsInterface[SettingsT]):
     @classmethod
     def find_many(
         cls,
-        *args: Mapping[FieldName, Any],
+        *args: FieldNameMapping,
         projection_model: None = None,
         skip: Optional[int] = None,
         limit: Optional[int] = None,
@@ -85,7 +85,7 @@ class FindInterface(SettingsInterface[SettingsT]):
     @classmethod
     def find_many(
         cls,
-        *args: Mapping[FieldName, Any],
+        *args: FieldNameMapping,
         projection_model: Type[ModelT],
         skip: Optional[int] = None,
         limit: Optional[int] = None,
@@ -104,7 +104,7 @@ class FindInterface(SettingsInterface[SettingsT]):
     @classmethod
     def find_many(
         cls,
-        *args: Mapping[FieldName, Any],
+        *args: FieldNameMapping,
         projection_model: Optional[Type[ModelT]] = None,
         skip: Optional[int] = None,
         limit: Optional[int] = None,
@@ -149,6 +149,7 @@ class FindInterface(SettingsInterface[SettingsT]):
             **pymongo_kwargs,
         )
 
+    # alias for find_many
     find = find_many
 
     @classmethod
@@ -164,7 +165,7 @@ class FindInterface(SettingsInterface[SettingsT]):
         with_children: bool = False,
         lazy_parse: bool = False,
         **pymongo_kwargs: Any,
-    ) -> Union[FindMany[ModelT], FindMany[Dict[str, Any]]]:
+    ) -> FindMany[Any]:
         """
         Get all the documents
 
@@ -189,36 +190,11 @@ class FindInterface(SettingsInterface[SettingsT]):
             **pymongo_kwargs,
         )
         if projection_model is None:
-            return cls.find_many({}, **kwargs)
-        return cls.find_many({}, projection_model=projection_model, **kwargs)
+            return cls.find_many(**kwargs)
+        return cls.find_many(projection_model=projection_model, **kwargs)
 
-    @classmethod
-    def all(
-        cls,
-        projection_model: Optional[Type[ModelT]] = None,
-        skip: Optional[int] = None,
-        limit: Optional[int] = None,
-        sort: Union[None, str, List[Tuple[str, SortDirection]]] = None,
-        session: Optional[ClientSession] = None,
-        ignore_cache: bool = False,
-        with_children: bool = False,
-        lazy_parse: bool = False,
-        **pymongo_kwargs: Any,
-    ) -> Union[FindMany[ModelT], FindMany[Dict[str, Any]]]:
-        """
-        the same as find_all
-        """
-        return cls.find_all(
-            skip=skip,
-            limit=limit,
-            sort=sort,
-            projection_model=projection_model,
-            session=session,
-            ignore_cache=ignore_cache,
-            with_children=with_children,
-            lazy_parse=lazy_parse,
-            **pymongo_kwargs,
-        )
+    # alias for find_all
+    all = find_all
 
     @classmethod
     async def count(cls) -> int:
@@ -259,8 +235,8 @@ class FindInterface(SettingsInterface[SettingsT]):
 
     @classmethod
     def _add_class_id_filter(
-        cls, *args: Mapping, with_children: bool
-    ) -> Tuple[Mapping, ...]:
+        cls, *args: FieldNameMapping, with_children: bool
+    ) -> Tuple[FieldNameMapping, ...]:
         class_id = cls.get_settings().class_id
         # skip if _class_id is already added
         if any(class_id in a for a in args):

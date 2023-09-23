@@ -1,13 +1,5 @@
 from functools import partial
-from typing import (
-    Any,
-    Generator,
-    Generic,
-    Mapping,
-    Optional,
-    Type,
-    TypeVar,
-)
+from typing import Any, Generator, Generic, Optional, Type, TypeVar
 
 import pymongo
 from pydantic import BaseModel
@@ -20,7 +12,7 @@ from beanie.exceptions import DocumentNotFound
 from beanie.odm.bulk import BulkWriter, Operation
 from beanie.odm.fields import ExpressionField
 from beanie.odm.interfaces.update import UpdateMethods
-from beanie.odm.operators import FieldName
+from beanie.odm.operators import FieldNameMapping
 from beanie.odm.queries.delete import DeleteOne
 from beanie.odm.queries.find_many import FindMany
 from beanie.odm.queries.find_query import FindQuery, get_projection
@@ -38,7 +30,7 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
 
     def find(
         self,
-        *args: Mapping[FieldName, Any],
+        *args: FieldNameMapping,
         projection_model: Optional[Type[ParseableModel]] = None,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
@@ -65,7 +57,7 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
 
     def update(
         self,
-        *args: Mapping[FieldName, Any],
+        *args: FieldNameMapping,
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
         response_type: Optional[UpdateResponse] = None,
@@ -94,7 +86,7 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
 
     def upsert(
         self,
-        *args: Mapping[FieldName, Any],
+        *args: FieldNameMapping,
         on_insert: "beanie.Document",
         session: Optional[ClientSession] = None,
         response_type: Optional[UpdateResponse] = None,

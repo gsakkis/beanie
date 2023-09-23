@@ -23,7 +23,7 @@ from beanie.odm.bulk import BulkWriter
 from beanie.odm.fields import ExpressionField, SortDirection
 from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.links import LinkedModelMixin
-from beanie.odm.operators import FieldName
+from beanie.odm.operators import FieldName, FieldNameMapping
 from beanie.odm.queries.aggregation import AggregationQuery
 from beanie.odm.queries.cursor import BaseCursorQuery, ProjectionT
 from beanie.odm.queries.delete import DeleteMany
@@ -46,7 +46,7 @@ class FindMany(FindQuery, BaseCursorQuery[ProjectionT], UpdateMethods):
 
     def find(
         self,
-        *args: Mapping[FieldName, Any],
+        *args: FieldNameMapping,
         projection_model: Optional[Type[ParseableModel]] = None,
         skip: Optional[int] = None,
         limit: Optional[int] = None,
@@ -155,7 +155,7 @@ class FindMany(FindQuery, BaseCursorQuery[ProjectionT], UpdateMethods):
 
     def update(
         self,
-        *args: Mapping[FieldName, Any],
+        *args: FieldNameMapping,
         session: Optional[ClientSession] = None,
         bulk_writer: Optional[BulkWriter] = None,
         **pymongo_kwargs: Any,
@@ -184,7 +184,7 @@ class FindMany(FindQuery, BaseCursorQuery[ProjectionT], UpdateMethods):
 
     def upsert(
         self,
-        *args: Mapping[FieldName, Any],
+        *args: FieldNameMapping,
         on_insert: "beanie.Document",
         session: Optional[ClientSession] = None,
         **pymongo_kwargs: Any,

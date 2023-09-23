@@ -4,7 +4,6 @@ from typing import (
     ClassVar,
     Iterator,
     Mapping,
-    TypeVar,
     Union,
 )
 
@@ -12,7 +11,12 @@ if TYPE_CHECKING:
     from beanie.odm.fields import ExpressionField
 
 
-FieldName = TypeVar("FieldName", bound=Union["ExpressionField", str])
+FieldName = Union["ExpressionField", str]
+
+# Mappings are invariant in the key type (https://github.com/python/typing/issues/445,
+# https://github.com/python/typing/pull/273) so we can't pass a Mapping[str, Any] to
+# a function expecting a Mapping[FieldName, Any]. As a workaround, we use a Union
+FieldNameMapping = Union[Mapping[str, Any], Mapping[FieldName, Any]]
 
 
 class BaseOperator(Mapping[str, Any]):

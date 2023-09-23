@@ -22,7 +22,7 @@ import beanie
 from beanie.odm.bulk import BulkWriter, Operation
 from beanie.odm.fields import ExpressionField
 from beanie.odm.interfaces.update import UpdateMethods
-from beanie.odm.operators import FieldName
+from beanie.odm.operators import FieldNameMapping
 from beanie.odm.queries import BaseQuery
 from beanie.odm.utils.parsing import parse_obj
 
@@ -33,7 +33,7 @@ class UpdateResponse(str, Enum):
     NEW_DOCUMENT = "NEW_DOCUMENT"  # Updated document
 
 
-UpdateExpression = Union[Mapping[FieldName, Any], List[Any]]
+UpdateExpression = Union[FieldNameMapping, List[FieldNameMapping]]
 
 
 @dataclass
