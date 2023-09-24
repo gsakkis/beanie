@@ -7,17 +7,7 @@ import operator
 import pathlib
 import re
 import uuid
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Dict,
-    Iterable,
-    Mapping,
-    Optional,
-    Set,
-    Type,
-)
+from typing import Any, Callable, Container, Iterable, Mapping, Optional, Tuple
 
 import bson
 import pydantic
@@ -25,11 +15,8 @@ import pydantic
 import beanie
 from beanie.odm.links import Link, LinkTypes
 
-if TYPE_CHECKING:
-    from pydantic.typing import TupleGenerator
-
-
-DEFAULT_CUSTOM_ENCODERS: Dict[Type, Callable] = {
+SingleArgCallable = Callable[[Any], Any]
+DEFAULT_CUSTOM_ENCODERS: Mapping[type, SingleArgCallable] = {
     ipaddress.IPv4Address: str,
     ipaddress.IPv4Interface: str,
     ipaddress.IPv4Network: str,
@@ -47,8 +34,6 @@ DEFAULT_CUSTOM_ENCODERS: Dict[Type, Callable] = {
     uuid.UUID: bson.Binary.from_uuid,
     re.Pattern: bson.Regex.from_native,
 }
-
-
 BSON_SCALAR_TYPES = (
     type(None),
     str,
@@ -60,14 +45,6 @@ BSON_SCALAR_TYPES = (
     bson.Decimal128,
     bson.ObjectId,
 )
-BACK_LINK_TYPES = frozenset(
-    [
-        LinkTypes.BACK_DIRECT,
-        LinkTypes.BACK_LIST,
-        LinkTypes.OPTIONAL_BACK_DIRECT,
-        LinkTypes.OPTIONAL_BACK_LIST,
-    ]
-)
 
 
 @dc.dataclass
@@ -76,15 +53,17 @@ class Encoder:
     BSON encoding class
     """
 
-    exclude: Set[str] = dc.field(default_factory=set)
-    custom_encoders: Mapping[Type, Callable] = dc.field(default_factory=dict)
+    exclude: Container[str] = frozenset()
+    custom_encoders: Mapping[type, SingleArgCallable] = dc.field(
+        default_factory=dict
+    )
     to_db: bool = False
     keep_nulls: bool = True
 
     def _encode_document(self, obj: "beanie.Document") -> Mapping[str, Any]:
         obj.parse_store()
         settings = obj.get_settings()
-        obj_dict: Dict[str, Any] = {}
+        obj_dict = {}
         if settings.union_doc is not None:
             obj_dict[settings.class_id] = (
                 settings.union_doc_alias or obj.__class__.__name__
@@ -102,29 +81,16 @@ class Encoder:
         for key, value in self._iter_model_items(obj):
             if key in link_fields:
                 link_type = link_fields[key].link_type
-                if link_type is LinkTypes.DIRECT or (
-                    link_type is LinkTypes.OPTIONAL_DIRECT
-                    and value is not None
-                ):
-                    value = value.to_ref()
-                elif link_type is LinkTypes.LIST or (
-                    link_type is LinkTypes.OPTIONAL_LIST and value is not None
-                ):
-                    value = [link.to_ref() for link in value]
-                elif link_type in BACK_LINK_TYPES and self.to_db:
+                if link_type in (LinkTypes.DIRECT, LinkTypes.OPTIONAL_DIRECT):
+                    if value is not None:
+                        value = value.to_ref()
+                elif link_type in (LinkTypes.LIST, LinkTypes.OPTIONAL_LIST):
+                    if value is not None:
+                        value = [link.to_ref() for link in value]
+                elif self.to_db:
                     continue
             obj_dict[key] = sub_encoder.encode(value)
         return obj_dict
-
-    def _iter_model_items(self, obj: pydantic.BaseModel) -> "TupleGenerator":
-        for k, v in obj.__iter__():
-            field_info = obj.model_fields.get(k)
-            if field_info is not None:
-                k = field_info.alias or k
-            if k in self.exclude:
-                continue
-            if v is not None or self.keep_nulls is True:
-                yield k, v
 
     def encode(self, obj: Any) -> Any:
         if self.custom_encoders:
@@ -163,10 +129,22 @@ class Encoder:
                 raise ValueError(errors)
         return self.encode(data)
 
+    def _iter_model_items(
+        self, obj: pydantic.BaseModel
+    ) -> Iterable[Tuple[str, Any]]:
+        exclude, keep_nulls = self.exclude, self.keep_nulls
+        get_model_field = obj.model_fields.get
+        for key, value in obj.__iter__():
+            field_info = get_model_field(key)
+            if field_info is not None:
+                key = field_info.alias or key
+            if key not in exclude and (value is not None or keep_nulls):
+                yield key, value
+
 
 def _get_encoder(
-    obj: Any, custom_encoders: Mapping[Type, Callable]
-) -> Optional[Callable]:
+    obj: Any, custom_encoders: Mapping[type, SingleArgCallable]
+) -> Optional[SingleArgCallable]:
     encoder = custom_encoders.get(type(obj))
     if encoder is not None:
         return encoder
