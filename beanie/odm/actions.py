@@ -88,7 +88,9 @@ class ActionRegistry:
                 cls._type_actions[key].append(action)
 
     @classmethod
-    def wrap_with_actions(cls, event_type: EventTypes):
+    def wrap_with_actions(
+        cls, event_type: EventTypes
+    ) -> Callable[[AsyncFunc[P, R]], AsyncFunc[P, R]]:
         def decorator(f: AsyncFunc[P, R]) -> AsyncFunc[P, R]:
             @wraps(f)
             async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
