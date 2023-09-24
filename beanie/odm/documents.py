@@ -33,12 +33,7 @@ from beanie.exceptions import (
     ReplaceError,
     RevisionIdWasChanged,
 )
-from beanie.odm.actions import (
-    ActionDirections,
-    ActionRegistry,
-    EventTypes,
-    wrap_with_actions,
-)
+from beanie.odm.actions import ActionDirections, ActionRegistry, EventTypes
 from beanie.odm.bulk import BulkWriter, Operation
 from beanie.odm.fields import IndexModel, PydanticObjectId
 from beanie.odm.interfaces.find import FindInterface
@@ -187,7 +182,7 @@ class Document(
                 cls._hidden_fields.add(k)
 
         # set up actions
-        ActionRegistry.init_actions(cls)
+        ActionRegistry.register_type(cls)
 
     @classmethod
     def lazy_parse(cls, data: Mapping[str, Any]) -> Self:
@@ -223,7 +218,7 @@ class Document(
             **pymongo_kwargs,
         )
 
-    @wrap_with_actions(EventTypes.INSERT)
+    @ActionRegistry.wrap_with_actions(EventTypes.INSERT)
     async def insert(
         self,
         *,
@@ -323,7 +318,7 @@ class Document(
             documents_list, session=session, **pymongo_kwargs
         )
 
-    @wrap_with_actions(EventTypes.REPLACE)
+    @ActionRegistry.wrap_with_actions(EventTypes.REPLACE)
     async def replace(
         self,
         *,
@@ -402,7 +397,7 @@ class Document(
                     bulk_writer=bulk_writer, session=session
                 )
 
-    @wrap_with_actions(EventTypes.SAVE)
+    @ActionRegistry.wrap_with_actions(EventTypes.SAVE)
     async def save(
         self,
         *,
@@ -442,7 +437,7 @@ class Document(
         self._save_state()
         return result
 
-    @wrap_with_actions(EventTypes.SAVE_CHANGES)
+    @ActionRegistry.wrap_with_actions(EventTypes.SAVE_CHANGES)
     async def save_changes(
         self,
         *,
@@ -474,7 +469,7 @@ class Document(
             bulk_writer=bulk_writer,
         )
 
-    @wrap_with_actions(EventTypes.UPDATE)
+    @ActionRegistry.wrap_with_actions(EventTypes.UPDATE)
     async def update(
         self,
         *args,
@@ -544,7 +539,7 @@ class Document(
             *args, session=session, bulk_writer=bulk_writer, **pymongo_kwargs
         )
 
-    @wrap_with_actions(EventTypes.DELETE)
+    @ActionRegistry.wrap_with_actions(EventTypes.DELETE)
     async def delete(
         self,
         *,
@@ -773,7 +768,7 @@ class Document(
         )
         return {k: v for k, v in dictionary.items() if v is None}
 
-    @wrap_with_actions(EventTypes.VALIDATE_ON_SAVE)
+    @ActionRegistry.wrap_with_actions(EventTypes.VALIDATE_ON_SAVE)
     async def _validate_self(
         self,
         *,
