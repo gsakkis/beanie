@@ -3,10 +3,10 @@ from typing import ClassVar, Dict
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from beanie.odm.interfaces.find import FindInterface
-from beanie.odm.interfaces.settings import BaseSettings
+from beanie.odm.interfaces.settings import BaseSettings, SettingsInterface
 
 
-class UnionDoc(FindInterface[BaseSettings]):
+class UnionDoc(SettingsInterface[BaseSettings], FindInterface):
     _settings_type = BaseSettings
     _children: ClassVar[Dict[str, type]]
 

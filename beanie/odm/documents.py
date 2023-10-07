@@ -36,7 +36,7 @@ from beanie.odm.actions import ActionDirections, ActionRegistry, EventTypes
 from beanie.odm.bulk import BulkWriter, Operation
 from beanie.odm.fields import IndexModel, PydanticObjectId
 from beanie.odm.interfaces.find import FindInterface
-from beanie.odm.interfaces.settings import BaseSettings
+from beanie.odm.interfaces.settings import BaseSettings, SettingsInterface
 from beanie.odm.links import Link, LinkedModelMixin, LinkInfo
 from beanie.odm.models import (
     InspectionError,
@@ -98,7 +98,12 @@ def _json_schema_extra(schema: Dict[str, Any]) -> None:
     schema["properties"] = props
 
 
-class Document(LazyModel, LinkedModelMixin, FindInterface[DocumentSettings]):
+class Document(
+    LazyModel,
+    LinkedModelMixin,
+    SettingsInterface[DocumentSettings],
+    FindInterface,
+):
     """
     Document Mapping class.
 

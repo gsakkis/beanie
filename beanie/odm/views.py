@@ -4,7 +4,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel, field_validator
 
 from beanie.odm.interfaces.find import FindInterface
-from beanie.odm.interfaces.settings import BaseSettings
+from beanie.odm.interfaces.settings import BaseSettings, SettingsInterface
 from beanie.odm.links import LinkedModelMixin
 
 
@@ -18,7 +18,9 @@ class ViewSettings(BaseSettings):
         return v.get_collection_name() if issubclass(v, FindInterface) else v
 
 
-class View(BaseModel, LinkedModelMixin, FindInterface[ViewSettings]):
+class View(
+    BaseModel, LinkedModelMixin, SettingsInterface[ViewSettings], FindInterface
+):
     _settings_type = ViewSettings
 
     @classmethod

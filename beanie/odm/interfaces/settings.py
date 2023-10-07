@@ -77,5 +77,9 @@ class SettingsInterface(Generic[SettingsT]):
         return cls.get_settings().name
 
     @classmethod
+    def get_class_id(cls) -> str:
+        return cls.get_settings().class_id
+
+    @classmethod
     def get_cache(cls) -> Optional[LRUCache[str, Any]]:
         return cls.get_settings().cache

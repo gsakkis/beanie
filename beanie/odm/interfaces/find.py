@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from typing import (
     Any,
     List,
@@ -7,6 +8,7 @@ from typing import (
     Type,
     TypeVar,
     Union,
+    cast,
     overload,
 )
 
@@ -16,7 +18,7 @@ from typing_extensions import Self
 
 import beanie
 from beanie.odm.fields import SortDirection
-from beanie.odm.interfaces.settings import SettingsInterface, SettingsT
+from beanie.odm.interfaces.settings import BaseSettings, SettingsInterface
 from beanie.odm.operators import FieldName, FieldNameMapping
 from beanie.odm.queries.aggregation import AggregationQuery
 from beanie.odm.queries.find import FindMany, FindOne
@@ -25,7 +27,12 @@ from beanie.odm.utils.parsing import ParseableModel
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
-class FindInterface(SettingsInterface[SettingsT]):
+class FindInterface(ABC):
+    @classmethod
+    @abstractmethod
+    def get_class_id(cls) -> str:
+        ...
+
     @overload
     @classmethod
     def find_one(
@@ -80,7 +87,8 @@ class FindInterface(SettingsInterface[SettingsT]):
         :return: [FindOne](query.md#findone) - find query instance
         """
         args = cls._add_class_id_filter(*args, with_children=with_children)
-        return FindOne(document_model=cls).find(
+        document_model = cast(Type[SettingsInterface[BaseSettings]], cls)
+        return FindOne(document_model=document_model).find(
             *args,
             projection_model=cls._get_parseable_model(projection_model),
             session=session,
@@ -164,7 +172,8 @@ class FindInterface(SettingsInterface[SettingsT]):
         :return: [FindMany](query.md#findmany) - query instance
         """
         args = cls._add_class_id_filter(*args, with_children=with_children)
-        return FindMany(document_model=cls).find(
+        document_model = cast(Type[SettingsInterface[BaseSettings]], cls)
+        return FindMany(document_model=document_model).find(
             *args,
             sort=sort,
             skip=skip,
@@ -275,7 +284,7 @@ class FindInterface(SettingsInterface[SettingsT]):
     def _add_class_id_filter(
         cls, *args: FieldNameMapping, with_children: bool
     ) -> Tuple[FieldNameMapping, ...]:
-        class_id = cls.get_settings().class_id
+        class_id = cls.get_class_id()
         # skip if _class_id is already added
         if any(class_id in a for a in args):
             return args

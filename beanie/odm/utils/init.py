@@ -1,5 +1,5 @@
 import importlib
-from typing import List, Optional, Type, Union
+from typing import List, Optional, Sequence, Type, Union
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pydantic import BaseModel
@@ -111,7 +111,7 @@ def type_sort_key(doctype: Type[DocumentLike]) -> int:
 async def init_beanie(
     database: Optional[AsyncIOMotorDatabase] = None,
     connection_string: Optional[str] = None,
-    document_models: Optional[List[Union[Type[DocumentLike], str]]] = None,
+    document_models: Optional[Sequence[Union[Type[DocumentLike], str]]] = None,
     allow_index_dropping: bool = False,
     recreate_views: bool = False,
 ) -> None:
