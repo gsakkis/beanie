@@ -24,7 +24,7 @@ from pydantic import ConfigDict, Field, TypeAdapter, ValidationError
 from pymongo.client_session import ClientSession
 from pymongo.errors import DuplicateKeyError
 from pymongo.results import DeleteResult, InsertManyResult
-from typing_extensions import Self
+from typing_extensions import Annotated, Self
 
 from beanie.exceptions import (
     DocumentNotFound,
@@ -171,8 +171,11 @@ class Document(
                 parent_cls = parent_cls._parent_document_cls()
 
         # set up id class and adapter
-        id_annotation = cls.model_fields["id"].annotation
+        id_field = cls.model_fields["id"]
+        id_annotation = id_field.annotation
         cls._id_class = extract_id_class(id_annotation)
+        if id_field.metadata:
+            id_annotation = Annotated[(id_annotation, *id_field.metadata)]
         cls._id_adapter = TypeAdapter(id_annotation)
 
         # set up hidden fields
