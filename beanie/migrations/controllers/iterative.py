@@ -1,128 +1,120 @@
 import asyncio
-from inspect import isclass, signature
-from typing import List, Optional, Type, Union
+from functools import partial
+from inspect import signature
+from typing import Any, Callable, Dict, Mapping, Sequence, Type, Union
+
+from pydantic.utils import lenient_issubclass
+from pymongo.client_session import ClientSession
 
 from beanie.migrations.controllers.base import BaseMigrationController
-from beanie.migrations.utils import update_dict
+from beanie.migrations.controllers.free_fall import (
+    MigrationFunction,
+    drop_self,
+)
 from beanie.odm.documents import Document
 
 
-class DummyOutput:
-    def __init__(self):
-        super(DummyOutput, self).__setattr__("_internal_structure_dict", {})
+def recursive_update(d: Dict[str, Any], u: Mapping[str, Any]) -> None:
+    for k, v in u.items():
+        if isinstance(v, dict):
+            d.setdefault(k, {})
+            recursive_update(d[k], v)
+        else:
+            d[k] = v
 
-    def __setattr__(self, key, value):
-        self._internal_structure_dict[key] = value
 
-    def __getattr__(self, item):
+class DummyDocument(Dict[str, Any]):
+    def __setattr__(self, key: str, value: Any) -> None:
+        self[key] = value
+
+    def __getattr__(self, attr: str) -> Any:
         try:
-            return self._internal_structure_dict[item]
+            return self[attr]
         except KeyError:
-            self._internal_structure_dict[item] = DummyOutput()
-            return self._internal_structure_dict[item]
+            return self.setdefault(attr, DummyDocument())
 
-    def dict(self, to_parse: Optional[Union[dict, "DummyOutput"]] = None):
-        if to_parse is None:
-            to_parse = self
-        input_dict = (
-            to_parse._internal_structure_dict
-            if isinstance(to_parse, DummyOutput)
-            else to_parse
+    def dict(
+        self, input_dict: Union[Dict[str, Any], None] = None
+    ) -> Dict[str, Any]:
+        if input_dict is None:
+            input_dict = self
+        return {
+            k: self.dict(v) if isinstance(v, dict) else v
+            for k, v in input_dict.items()
+        }
+
+
+class IterativeMigration(BaseMigrationController):
+    def __init__(
+        self,
+        document_models: Sequence[Type[Document]],
+        batch_size: int,
+        function: MigrationFunction,
+    ):
+        function_params = signature(function).parameters
+        self.input_document_model = self._validate_parameter(
+            function_params, "input_document"
         )
-        result_dict = {}
-        for key, value in input_dict.items():
-            if isinstance(value, (DummyOutput, dict)):
-                result_dict[key] = self.dict(to_parse=value)
-            else:
-                result_dict[key] = value
-        return result_dict
+        self.output_document_model = self._validate_parameter(
+            function_params, "output_document"
+        )
+        self.function = drop_self(function)
+        self.document_models = document_models
+        self.batch_size = batch_size
+
+    @property
+    def models(self) -> Sequence[Type[Document]]:
+        return [
+            *self.document_models,
+            self.input_document_model,
+            self.output_document_model,
+        ]
+
+    async def run(self, session: ClientSession) -> None:
+        replacements = []
+        output_documents = []
+        input_documents = self.input_document_model.find_all(session=session)
+        async for input_document in input_documents:
+            output_document = DummyDocument()
+            await self.function(
+                input_document=input_document, output_document=output_document
+            )
+            output_dict = input_document.dict()
+            recursive_update(output_dict, output_document.dict())
+            output_documents.append(
+                self.output_document_model.model_validate(output_dict)
+            )
+            if len(output_documents) == self.batch_size:
+                replacements.append(
+                    self.output_document_model.replace_many(
+                        output_documents, session=session
+                    )
+                )
+                output_documents = []
+        if output_documents:
+            replacements.append(
+                self.output_document_model.replace_many(
+                    output_documents, session=session
+                )
+            )
+        await asyncio.gather(*replacements)
+
+    @staticmethod
+    def _validate_parameter(
+        function_params: Mapping[str, Any], name: str
+    ) -> Type[Document]:
+        signature = function_params.get(name)
+        if signature is None:
+            raise TypeError(f"function must take {name} parameter")
+        annotation: Type[Document] = signature.annotation
+        if not lenient_issubclass(annotation, Document):
+            raise TypeError(
+                f"{name} must have annotation of Document subclass"
+            )
+        return annotation
 
 
 def iterative_migration(
-    document_models: Optional[List[Type[Document]]] = None,
-    batch_size: int = 10000,
-):
-    class IterativeMigration(BaseMigrationController):
-        def __init__(self, function):
-            self.function = function
-            self.function_signature = signature(function)
-            input_signature = self.function_signature.parameters.get(
-                "input_document"
-            )
-            if input_signature is None:
-                raise RuntimeError("input_signature must not be None")
-            self.input_document_model: Type[
-                Document
-            ] = input_signature.annotation
-            output_signature = self.function_signature.parameters.get(
-                "output_document"
-            )
-            if output_signature is None:
-                raise RuntimeError("output_signature must not be None")
-            self.output_document_model: Type[
-                Document
-            ] = output_signature.annotation
-
-            if (
-                not isclass(self.input_document_model)
-                or not issubclass(self.input_document_model, Document)
-                or not isclass(self.output_document_model)
-                or not issubclass(self.output_document_model, Document)
-            ):
-                raise TypeError(
-                    "input_document and output_document "
-                    "must have annotation of Document subclass"
-                )
-
-            self.batch_size = batch_size
-
-        def __call__(self, *args, **kwargs):
-            pass
-
-        @property
-        def models(self) -> List[Type[Document]]:
-            preset_models = document_models
-            if preset_models is None:
-                preset_models = []
-            return preset_models + [
-                self.input_document_model,
-                self.output_document_model,
-            ]
-
-        async def run(self, session):
-            output_documents = []
-            all_migration_ops = []
-            async for input_document in self.input_document_model.find_all(
-                session=session
-            ):
-                output = DummyOutput()
-                function_kwargs = {
-                    "input_document": input_document,
-                    "output_document": output,
-                }
-                if "self" in self.function_signature.parameters:
-                    function_kwargs["self"] = None
-                await self.function(**function_kwargs)
-                output_dict = input_document.dict()
-                update_dict(output_dict, output.dict())
-                output_documents.append(
-                    self.output_document_model.model_validate(output_dict)
-                )
-
-                if len(output_documents) == self.batch_size:
-                    all_migration_ops.append(
-                        self.output_document_model.replace_many(
-                            documents=output_documents, session=session
-                        )
-                    )
-                    output_documents = []
-
-            if output_documents:
-                all_migration_ops.append(
-                    self.output_document_model.replace_many(
-                        documents=output_documents, session=session
-                    )
-                )
-            await asyncio.gather(*all_migration_ops)
-
-    return IterativeMigration
+    document_models: Sequence[Type[Document]] = (), batch_size: int = 10000
+) -> Callable[[MigrationFunction], BaseMigrationController]:
+    return partial(IterativeMigration, document_models, batch_size)

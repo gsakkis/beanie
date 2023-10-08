@@ -1,28 +1,39 @@
+from functools import partial, wraps
 from inspect import signature
-from typing import List, Type
+from typing import Awaitable, Callable, Sequence, Type
+
+from pymongo.client_session import ClientSession
 
 from beanie.migrations.controllers.base import BaseMigrationController
 from beanie.odm.documents import Document
 
+MigrationFunction = Callable[..., Awaitable[None]]
 
-def free_fall_migration(document_models: List[Type[Document]]):
-    class FreeFallMigrationController(BaseMigrationController):
-        def __init__(self, function):
-            self.function = function
-            self.function_signature = signature(function)
-            self.document_models = document_models
 
-        def __call__(self, *args, **kwargs):
-            pass
+def drop_self(function: MigrationFunction) -> MigrationFunction:
+    if "self" in signature(function).parameters:
+        function = wraps(function)(partial(function, None))
+    return function
 
-        @property
-        def models(self) -> List[Type[Document]]:
-            return self.document_models
 
-        async def run(self, session):
-            function_kwargs = {"session": session}
-            if "self" in self.function_signature.parameters:
-                function_kwargs["self"] = None
-            await self.function(**function_kwargs)
+class FreeFallMigrationController(BaseMigrationController):
+    def __init__(
+        self,
+        document_models: Sequence[Type[Document]],
+        function: MigrationFunction,
+    ):
+        self.function = drop_self(function)
+        self.document_models = document_models
 
-    return FreeFallMigrationController
+    @property
+    def models(self) -> Sequence[Type[Document]]:
+        return self.document_models
+
+    async def run(self, session: ClientSession) -> None:
+        await self.function(session=session)
+
+
+def free_fall_migration(
+    document_models: Sequence[Type[Document]],
+) -> Callable[[MigrationFunction], BaseMigrationController]:
+    return partial(FreeFallMigrationController, document_models)
