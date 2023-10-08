@@ -24,7 +24,10 @@ from beanie.odm.fields import ExpressionField, SortDirection
 from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.links import LinkedModelMixin
 from beanie.odm.operators import FieldName, FieldNameMapping
-from beanie.odm.queries.aggregation import AggregationQuery
+from beanie.odm.queries.aggregation import (
+    AggregationPipelineT,
+    AggregationQuery,
+)
 from beanie.odm.queries.cursor import BaseCursorQuery
 from beanie.odm.queries.delete import DeleteMany
 from beanie.odm.queries.find_query import FindQuery, get_projection
@@ -234,7 +237,7 @@ class FindMany(FindQuery, BaseCursorQuery[ModelT], UpdateMethods):
         self,
         projection_model: Optional[Type[ParseableModel]],
         *aggregation_expressions: Mapping[str, Any],
-    ) -> List[Mapping[str, Any]]:
+    ) -> AggregationPipelineT:
         pipeline: List[Mapping[str, Any]] = []
 
         if self.fetch_links:
@@ -269,7 +272,7 @@ class FindMany(FindQuery, BaseCursorQuery[ModelT], UpdateMethods):
     @overload
     def aggregate(
         self,
-        aggregation_pipeline: List[Mapping[str, Any]],
+        aggregation_pipeline: AggregationPipelineT,
         projection_model: Type[ParseableModel],
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
@@ -280,7 +283,7 @@ class FindMany(FindQuery, BaseCursorQuery[ModelT], UpdateMethods):
     @overload
     def aggregate(
         self,
-        aggregation_pipeline: List[Mapping[str, Any]],
+        aggregation_pipeline: AggregationPipelineT,
         projection_model: None = None,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
@@ -290,7 +293,7 @@ class FindMany(FindQuery, BaseCursorQuery[ModelT], UpdateMethods):
 
     def aggregate(
         self,
-        aggregation_pipeline: List[Mapping[str, Any]],
+        aggregation_pipeline: AggregationPipelineT,
         projection_model: Optional[Type[ParseableModel]] = None,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
@@ -446,7 +449,7 @@ class FindMany(FindQuery, BaseCursorQuery[ModelT], UpdateMethods):
         ignore_cache: bool = False,
         **pymongo_kwargs: Any,
     ) -> Optional[float]:
-        pipeline: List[Mapping[str, Any]] = [
+        pipeline: AggregationPipelineT = [
             {"$group": {"_id": None, "value": {f"${operator}": f"${field}"}}},
             {"$project": {"_id": 0, "value": 1}},
         ]

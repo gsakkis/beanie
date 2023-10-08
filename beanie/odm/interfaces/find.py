@@ -20,7 +20,10 @@ import beanie
 from beanie.odm.fields import SortDirection
 from beanie.odm.interfaces.settings import BaseSettings, SettingsInterface
 from beanie.odm.operators import FieldName, FieldNameMapping
-from beanie.odm.queries.aggregation import AggregationQuery
+from beanie.odm.queries.aggregation import (
+    AggregationPipelineT,
+    AggregationQuery,
+)
 from beanie.odm.queries.find import FindMany, FindOne
 from beanie.odm.utils.parsing import ParseableModel
 
@@ -246,7 +249,7 @@ class FindInterface(ABC):
     @classmethod
     def aggregate(
         cls,
-        aggregation_pipeline: List[Mapping[str, Any]],
+        aggregation_pipeline: AggregationPipelineT,
         projection_model: Optional[Type[ModelT]] = None,
         session: Optional[ClientSession] = None,
         ignore_cache: bool = False,
