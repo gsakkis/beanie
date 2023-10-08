@@ -43,9 +43,10 @@ from beanie.odm.models import (
     InspectionResult,
     InspectionStatuses,
 )
-from beanie.odm.operators import BaseOperator, FieldNameMapping
+from beanie.odm.operators import BaseOperator
 from beanie.odm.operators import update as update_ops
 from beanie.odm.operators.comparison import In
+from beanie.odm.queries import FieldNameMapping
 from beanie.odm.queries.update import UpdateMany, UpdateResponse
 from beanie.odm.state import (
     BaseDocumentState,

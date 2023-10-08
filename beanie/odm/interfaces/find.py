@@ -19,7 +19,8 @@ from typing_extensions import Self
 import beanie
 from beanie.odm.fields import SortDirection
 from beanie.odm.interfaces.settings import BaseSettings, SettingsInterface
-from beanie.odm.operators import FieldName, FieldNameMapping
+from beanie.odm.operators import FieldName
+from beanie.odm.queries import FieldNameMapping
 from beanie.odm.queries.aggregation import (
     AggregationPipelineT,
     AggregationQuery,

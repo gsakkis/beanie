@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING, Any, Optional
 from pymongo.client_session import ClientSession
 
 from beanie.odm.bulk import BulkWriter
-from beanie.odm.operators import FieldNameMapping
 from beanie.odm.operators.update import CurrentDate, Inc, Set
+from beanie.odm.queries import FieldNameMapping
 
 if TYPE_CHECKING:
     from beanie.odm.queries.update import UpdateQuery

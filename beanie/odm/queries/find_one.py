@@ -12,7 +12,7 @@ from beanie.exceptions import DocumentNotFound
 from beanie.odm.bulk import BulkWriter, Operation
 from beanie.odm.fields import ExpressionField
 from beanie.odm.interfaces.update import UpdateMethods
-from beanie.odm.operators import FieldNameMapping
+from beanie.odm.queries import FieldNameMapping
 from beanie.odm.queries.delete import DeleteOne
 from beanie.odm.queries.find_many import FindMany
 from beanie.odm.queries.find_query import FindQuery, get_projection

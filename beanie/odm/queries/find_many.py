@@ -23,7 +23,8 @@ from beanie.odm.bulk import BulkWriter
 from beanie.odm.fields import ExpressionField, SortDirection
 from beanie.odm.interfaces.update import UpdateMethods
 from beanie.odm.links import LinkedModelMixin
-from beanie.odm.operators import FieldName, FieldNameMapping
+from beanie.odm.operators import FieldName
+from beanie.odm.queries import FieldNameMapping
 from beanie.odm.queries.aggregation import (
     AggregationPipelineT,
     AggregationQuery,

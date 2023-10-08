@@ -11,14 +11,6 @@ if TYPE_CHECKING:
     from beanie.odm.fields import ExpressionField
 
 
-FieldName = Union["ExpressionField", str]
-
-# Mappings are invariant in the key type (https://github.com/python/typing/issues/445,
-# https://github.com/python/typing/pull/273) so we can't pass a Mapping[str, Any] to
-# a function expecting a Mapping[FieldName, Any]. As a workaround, we use a Union
-FieldNameMapping = Union[Mapping[str, Any], Mapping[FieldName, Any]]
-
-
 class BaseOperator(Mapping[str, Any]):
     def __init__(self, key: str, value: Any):
         assert isinstance(key, str)
@@ -42,6 +34,9 @@ class BaseNonFieldOperator(BaseOperator):
 
     def __init__(self, expression: Any):
         super().__init__(self.operator, expression)
+
+
+FieldName = Union["ExpressionField", str]
 
 
 class BaseFieldOperator(BaseOperator):
