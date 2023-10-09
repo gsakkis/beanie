@@ -10,7 +10,6 @@ import click
 import toml
 
 from beanie.migrations import template
-from beanie.migrations.database import DBHandler
 from beanie.migrations.models import RunningDirections, RunningMode
 from beanie.migrations.runner import MigrationNode
 
@@ -105,8 +104,9 @@ def migrations():
 
 
 async def run_migrate(settings: MigrationSettings):
-    DBHandler.set_db(settings.connection_uri, settings.database_name)
-    root = await MigrationNode.build(settings.path)
+    root = await MigrationNode.build(
+        settings.path, settings.connection_uri, settings.database_name
+    )
     mode = RunningMode(
         direction=settings.direction, distance=settings.distance
     )

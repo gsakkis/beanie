@@ -1,68 +1,53 @@
 import logging
+from dataclasses import dataclass
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
-from typing import Optional, Type, cast
+from typing import Optional, Type
 
-from beanie.migrations.controllers.iterative import BaseMigrationController
-from beanie.migrations.database import DBHandler
-from beanie.migrations.models import (
-    MigrationLog,
-    RunningDirections,
-    RunningMode,
-)
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+
 from beanie.odm.documents import Document
 from beanie.odm.utils.init import init_beanie
+
+from .controllers.base import BaseMigrationController
+from .models import MigrationLog, RunningDirections, RunningMode
 
 logger = logging.getLogger(__name__)
 
 
+@dataclass
 class MigrationNode:
-    def __init__(
-        self,
-        name: str,
-        forward_class: Optional[Type[Document]] = None,
-        backward_class: Optional[Type[Document]] = None,
-        next_migration: Optional["MigrationNode"] = None,
-        prev_migration: Optional["MigrationNode"] = None,
-    ):
-        """
-        Node of the migration linked list
+    """
+    Node of the migration linked list
 
-        :param name: name of the migration
-        :param forward_class: Forward class of the migration
-        :param backward_class: Backward class of the migration
-        :param next_migration: link to the next migration
-        :param prev_migration: link to the previous migration
-        """
-        self.name = name
-        self.forward_class = forward_class
-        self.backward_class = backward_class
-        self.next_migration = next_migration
-        self.prev_migration = prev_migration
+    :param client: AsyncIOMotorClient
+    :param database: AsyncIOMotorDatabase
+    :param name: name of the migration
+    :param forward_class: Forward class of the migration
+    :param backward_class: Backward class of the migration
+    :param next_migration: link to the next migration
+    :param prev_migration: link to the previous migration
+    """
+
+    client: AsyncIOMotorClient
+    database: AsyncIOMotorDatabase
+    name: str
+    forward_class: Optional[Type[Document]] = None
+    backward_class: Optional[Type[Document]] = None
+    next_migration: Optional["MigrationNode"] = None
+    prev_migration: Optional["MigrationNode"] = None
 
     @staticmethod
-    async def clean_current_migration():
-        await MigrationLog.find(
-            {"is_current": True},
-        ).update({"$set": {"is_current": False}})
+    async def clean_current_migration() -> None:
+        await MigrationLog.find_many({"is_current": True}).update(
+            {"$set": {"is_current": False}}
+        )
 
-    async def update_current_migration(self):
-        """
-        Set sel as a current migration
-
-        :return:
-        """
+    async def update_current_migration(self) -> None:
         await self.clean_current_migration()
         await MigrationLog(is_current=True, name=self.name).insert()
 
-    async def run(self, mode: RunningMode, allow_index_dropping: bool):
-        """
-        Migrate
-
-        :param mode: RunningMode
-        :param allow_index_dropping: if index dropping is allowed
-        :return: None
-        """
+    async def run(self, mode: RunningMode, allow_index_dropping: bool) -> None:
         if mode.direction == RunningDirections.FORWARD:
             migration_node = self.next_migration
             if migration_node is None:
@@ -70,18 +55,14 @@ class MigrationNode:
             if mode.distance == 0:
                 logger.info("Running migrations forward without limit")
                 while True:
-                    await migration_node.run_forward(
-                        allow_index_dropping=allow_index_dropping
-                    )
+                    await migration_node.run_forward(allow_index_dropping)
                     migration_node = migration_node.next_migration
                     if migration_node is None:
                         break
             else:
                 logger.info(f"Running {mode.distance} migrations forward")
                 for i in range(mode.distance):
-                    await migration_node.run_forward(
-                        allow_index_dropping=allow_index_dropping
-                    )
+                    await migration_node.run_forward(allow_index_dropping)
                     migration_node = migration_node.next_migration
                     if migration_node is None:
                         break
@@ -90,30 +71,26 @@ class MigrationNode:
             if mode.distance == 0:
                 logger.info("Running migrations backward without limit")
                 while True:
-                    await migration_node.run_backward(
-                        allow_index_dropping=allow_index_dropping
-                    )
+                    await migration_node.run_backward(allow_index_dropping)
                     migration_node = migration_node.prev_migration
                     if migration_node is None:
                         break
             else:
                 logger.info(f"Running {mode.distance} migrations backward")
                 for i in range(mode.distance):
-                    await migration_node.run_backward(
-                        allow_index_dropping=allow_index_dropping
-                    )
+                    await migration_node.run_backward(allow_index_dropping)
                     migration_node = migration_node.prev_migration
                     if migration_node is None:
                         break
 
-    async def run_forward(self, allow_index_dropping):
+    async def run_forward(self, allow_index_dropping: bool) -> None:
         if self.forward_class is not None:
             await self.run_migration_class(
                 self.forward_class, allow_index_dropping=allow_index_dropping
             )
         await self.update_current_migration()
 
-    async def run_backward(self, allow_index_dropping):
+    async def run_backward(self, allow_index_dropping: bool) -> None:
         if self.backward_class is not None:
             await self.run_migration_class(
                 self.backward_class, allow_index_dropping=allow_index_dropping
@@ -123,31 +100,22 @@ class MigrationNode:
         else:
             await self.clean_current_migration()
 
-    async def run_migration_class(self, cls: Type, allow_index_dropping: bool):
-        """
-        Run Backward or Forward migration class
-
-        :param cls:
-        :param allow_index_dropping: if index dropping is allowed
-        :return:
-        """
+    async def run_migration_class(
+        self, cls: Type[Document], allow_index_dropping: bool
+    ) -> None:
         migrations = [
             getattr(cls, migration)
             for migration in dir(cls)
             if isinstance(getattr(cls, migration), BaseMigrationController)
         ]
 
-        client = DBHandler.get_cli()
-        db = DBHandler.get_db()
-        if client is None:
-            raise RuntimeError("client must not be None")
-        async with await client.start_session() as s:
+        async with await self.client.start_session() as s:
             async with s.start_transaction():
                 for migration in migrations:
                     for model in migration.models:
                         await init_beanie(
-                            database=db,
-                            document_models=[model],  # type: ignore
+                            database=self.database,
+                            document_models=[model],
                             allow_index_dropping=allow_index_dropping,
                         )  # TODO this is slow
                     logger.info(
@@ -157,46 +125,34 @@ class MigrationNode:
                     await migration.run(session=s)
 
     @classmethod
-    async def build(cls, path: Path):
-        """
-        Build the migrations linked list
-
-        :param path: Relative path to the migrations directory
-        :return:
-        """
+    async def build(
+        cls, path: Path, db_uri: str, db_name: str
+    ) -> "MigrationNode":
         logger.info("Building migration list")
-        names = []
-        for modulepath in path.glob("*.py"):
-            names.append(modulepath.name)
-        names.sort()
+        names = sorted(modulepath.name for modulepath in path.glob("*.py"))
 
-        db = DBHandler.get_db()
-        await init_beanie(
-            database=db, document_models=[MigrationLog]  # type: ignore
-        )
-        current_migration = cast(
-            Optional[MigrationLog],
-            await MigrationLog.find_one({"is_current": True}),
-        )
-
-        root_migration_node = cls("root")
+        client = AsyncIOMotorClient(db_uri)
+        database = client[db_name]
+        await init_beanie(database=database, document_models=[MigrationLog])
+        current_migration = await MigrationLog.find_one({"is_current": True})
+        root_migration_node = cls(client, database, "root")
         prev_migration_node = root_migration_node
-
         for name in names:
-            module = SourceFileLoader(
-                (path / name).stem, str((path / name).absolute())
-            ).load_module((path / name).stem)
-            forward_class = getattr(module, "Forward", None)
-            backward_class = getattr(module, "Backward", None)
+            file_path = path / name
+            loader = SourceFileLoader(
+                file_path.stem, str(file_path.absolute())
+            )
+            module = loader.load_module(file_path.stem)
             migration_node = cls(
+                client=client,
+                database=database,
                 name=name,
                 prev_migration=prev_migration_node,
-                forward_class=forward_class,
-                backward_class=backward_class,
+                forward_class=getattr(module, "Forward", None),
+                backward_class=getattr(module, "Backward", None),
             )
             prev_migration_node.next_migration = migration_node
             prev_migration_node = migration_node
-
             if (
                 current_migration is not None
                 and current_migration.name == name
