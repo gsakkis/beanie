@@ -4,7 +4,7 @@ import os
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import click
 import toml
@@ -17,74 +17,70 @@ logging.basicConfig(format="%(message)s", level=logging.INFO)
 
 
 class MigrationSettings:
-    def __init__(self, **kwargs):
-        self.direction = (
-            kwargs.get("direction")
+    def __init__(
+        self,
+        direction: Optional[str] = None,
+        distance: Optional[int] = None,
+        connection_uri: Optional[str] = None,
+        database_name: Optional[str] = None,
+        path: Optional[str] = None,
+        allow_index_dropping: bool = False,
+    ):
+        self.direction = RunningDirections(
+            direction
             or self.get_env_value("direction")
             or self.get_from_toml("direction")
-            or RunningDirections.FORWARD
+            or "FORWARD"
         )
-
         self.distance = int(
-            kwargs.get("distance")
+            distance
             or self.get_env_value("distance")
             or self.get_from_toml("distance")
             or 0
         )
         self.connection_uri = str(
-            kwargs.get("connection_uri")
+            connection_uri
             or self.get_env_value("connection_uri")
             or self.get_from_toml("connection_uri")
         )
         self.database_name = str(
-            kwargs.get("database_name")
+            database_name
             or self.get_env_value("database_name")
             or self.get_from_toml("database_name")
         )
         self.path = Path(
-            kwargs.get("path")
-            or self.get_env_value("path")
-            or self.get_from_toml("path")
+            path or self.get_env_value("path") or self.get_from_toml("path")
         )
         self.allow_index_dropping = bool(
-            kwargs.get("allow_index_dropping")
+            allow_index_dropping
             or self.get_env_value("allow_index_dropping")
             or self.get_from_toml("allow_index_dropping")
             or False
         )
 
     @staticmethod
-    def get_env_value(field_name) -> Any:
+    def get_env_value(field_name: str) -> Optional[str]:
+        def get_value(key: str) -> Optional[str]:
+            return os.getenv(key.upper()) or os.getenv(key.lower())
+
         if field_name == "connection_uri":
-            value = (
-                os.environ.get("BEANIE_URI")
-                or os.environ.get("BEANIE_CONNECTION_URI")
-                or os.environ.get("BEANIE_CONNECTION_STRING")
-                or os.environ.get("BEANIE_MONGODB_DSN")
-                or os.environ.get("BEANIE_MONGODB_URI")
-                or os.environ.get("beanie_uri")
-                or os.environ.get("beanie_connection_uri")
-                or os.environ.get("beanie_connection_string")
-                or os.environ.get("beanie_mongodb_dsn")
-                or os.environ.get("beanie_mongodb_uri")
+            return (
+                get_value("BEANIE_URI")
+                or get_value("BEANIE_CONNECTION_URI")
+                or get_value("BEANIE_CONNECTION_STRING")
+                or get_value("BEANIE_MONGODB_DSN")
+                or get_value("BEANIE_MONGODB_URI")
             )
-        elif field_name == "database_name":
-            value = (
-                os.environ.get("BEANIE_DB")
-                or os.environ.get("BEANIE_DB_NAME")
-                or os.environ.get("BEANIE_DATABASE_NAME")
-                or os.environ.get("beanie_db")
-                or os.environ.get("beanie_db_name")
-                or os.environ.get("beanie_database_name")
+        if field_name == "database_name":
+            return (
+                get_value("BEANIE_DB")
+                or get_value("BEANIE_DB_NAME")
+                or get_value("BEANIE_DATABASE_NAME")
             )
-        else:
-            value = os.environ.get(
-                f"BEANIE_{field_name.upper()}"
-            ) or os.environ.get(f"beanie_{field_name.lower()}")
-        return value
+        return get_value(f"BEANIE_{field_name}")
 
     @staticmethod
-    def get_from_toml(field_name) -> Any:
+    def get_from_toml(field_name: str) -> Any:
         path = Path("pyproject.toml")
         if path.is_file():
             val = (
@@ -98,12 +94,7 @@ class MigrationSettings:
         return val.get(field_name)
 
 
-@click.group()
-def migrations():
-    pass
-
-
-async def run_migrate(settings: MigrationSettings):
+async def run_migrate(settings: MigrationSettings) -> None:
     root = await MigrationNode.build(
         settings.path, settings.connection_uri, settings.database_name
     )
@@ -115,91 +106,69 @@ async def run_migrate(settings: MigrationSettings):
     )
 
 
+@click.group()
+def migrations() -> None:
+    pass
+
+
 @migrations.command()
 @click.option(
     "--forward",
     "direction",
-    required=False,
     flag_value="FORWARD",
     help="Roll the migrations forward. This is default",
 )
 @click.option(
     "--backward",
     "direction",
-    required=False,
     flag_value="BACKWARD",
     help="Roll the migrations backward",
 )
 @click.option(
     "-d",
     "--distance",
-    required=False,
-    help="How many migrations should be done since the current? "
-    "0 - all the migrations. Default is 0",
+    type=int,
+    help="How many migrations should be done since the current? 0 - all the migrations. Default is 0",
 )
-@click.option(
-    "-uri",
-    "--connection-uri",
-    required=False,
-    type=str,
-    help="MongoDB connection URI",
-)
-@click.option(
-    "-db", "--database_name", required=False, type=str, help="DataBase name"
-)
-@click.option(
-    "-p",
-    "--path",
-    required=False,
-    type=str,
-    help="Path to the migrations directory",
-)
+@click.option("-uri", "--connection-uri", help="MongoDB connection URI")
+@click.option("-db", "--database_name", help="DataBase name")
+@click.option("-p", "--path", help="Path to the migrations directory")
 @click.option(
     "--allow-index-dropping/--forbid-index-dropping",
-    required=False,
     default=False,
     help="if allow-index-dropping is set, Beanie will drop indexes from your collection",
 )
 def migrate(
-    direction,
-    distance,
-    connection_uri,
-    database_name,
-    path,
-    allow_index_dropping,
-):
-    settings_kwargs = {}
-    if direction:
-        settings_kwargs["direction"] = direction
-    if distance:
-        settings_kwargs["distance"] = distance
-    if connection_uri:
-        settings_kwargs["connection_uri"] = connection_uri
-    if database_name:
-        settings_kwargs["database_name"] = database_name
-    if path:
-        settings_kwargs["path"] = path
-    if allow_index_dropping:
-        settings_kwargs["allow_index_dropping"] = allow_index_dropping
-    settings = MigrationSettings(**settings_kwargs)
-
+    direction: Optional[str],
+    distance: Optional[int],
+    connection_uri: Optional[str],
+    database_name: Optional[str],
+    path: Optional[str],
+    allow_index_dropping: bool,
+) -> None:
+    settings = MigrationSettings(
+        direction=direction,
+        distance=distance,
+        connection_uri=connection_uri,
+        database_name=database_name,
+        path=path,
+        allow_index_dropping=allow_index_dropping,
+    )
     asyncio.run(run_migrate(settings))
 
 
 @migrations.command()
-@click.option("-n", "--name", required=True, type=str, help="Migration name")
+@click.option("-n", "--name", required=True, help="Migration name")
 @click.option(
     "-p",
     "--path",
     required=True,
-    type=str,
+    type=Path,
     help="Path to the migrations directory",
 )
-def new_migration(name, path):
-    path = Path(path)
+def new_migration(name: str, path: Path) -> None:
     ts_string = datetime.now().strftime("%Y%m%d%H%M%S")
     file_name = f"{ts_string}_{name}.py"
-
     shutil.copy(template.__file__, path / file_name)
 
 
