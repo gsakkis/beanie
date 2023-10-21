@@ -248,8 +248,7 @@ class Document(
             self.get_dict(), session=session
         )
         self.id = self._parse_document_id(result.inserted_id)
-        self._save_state()
-        self._swap_revision()
+        self._save_state(swap_revision=True)
         return self
 
     async def create(self, session: Optional[ClientSession] = None) -> Self:
@@ -371,8 +370,7 @@ class Document(
                 raise RevisionIdWasChanged
             else:
                 raise DocumentNotFound
-        self._save_state()
-        self._swap_revision()
+        self._save_state(swap_revision=True)
         return self
 
     @classmethod
@@ -890,11 +888,9 @@ class Document(
         self.__state = state
         return state
 
-    def _save_state(self) -> None:
+    def _save_state(self, swap_revision: bool = False) -> None:
         if self.id is not None:
             self._state.save()
-
-    def _swap_revision(self) -> None:
-        if self.get_settings().use_revision:
+        if swap_revision and self.get_settings().use_revision:
             self._previous_revision_id = self.revision_id
             self.revision_id = uuid4()

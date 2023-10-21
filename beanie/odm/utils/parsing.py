@@ -58,7 +58,6 @@ def parse_obj(
         )
 
     if isinstance(result, beanie.Document):
-        result._save_state()
-        result._swap_revision()
+        result._save_state(swap_revision=True)
 
     return result
