@@ -8,17 +8,7 @@ from ipaddress import (
     IPv6Network,
 )
 from pathlib import Path
-from typing import (
-    Any,
-    Callable,
-    ClassVar,
-    Dict,
-    List,
-    Optional,
-    Set,
-    Tuple,
-    Union,
-)
+from typing import ClassVar, Dict, List, Optional, Set, Tuple, Union
 from uuid import UUID, uuid4
 
 import pymongo
@@ -33,8 +23,7 @@ from pydantic import (
     SecretStr,
     validate_call,
 )
-from pydantic.fields import FieldInfo
-from pydantic_core import core_schema
+from pydantic_extra_types.color import Color
 
 from beanie import (
     DecimalAnnotation,
@@ -53,49 +42,6 @@ from beanie.odm.fields import PydanticObjectId
 from beanie.odm.links import BackLink, Link
 from beanie.odm.timeseries import TimeSeriesConfig
 from beanie.odm.union_doc import UnionDoc
-
-
-class Color:
-    def __init__(self, value):
-        self.value = value
-
-    def as_rgb(self):
-        return self.value
-
-    def as_hex(self):
-        return self.value
-
-    @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
-
-    @classmethod
-    def validate(cls, value):
-        if isinstance(value, Color):
-            return value
-        if isinstance(value, dict):
-            return Color(value["value"])
-        return Color(value)
-
-    @classmethod
-    def __get_pydantic_core_schema__(
-        cls,
-        _source_type: Any,
-        _handler: Callable[[Any], core_schema.CoreSchema],  # type: ignore
-    ) -> core_schema.CoreSchema:  # type: ignore
-        def validate(value, _: FieldInfo) -> Color:
-            if isinstance(value, Color):
-                return value
-            if isinstance(value, dict):
-                return Color(value["value"])
-            return Color(value)
-
-        python_schema = core_schema.general_plain_validator_function(validate)
-
-        return core_schema.json_or_python_schema(
-            json_schema=core_schema.str_schema(),
-            python_schema=python_schema,
-        )
 
 
 class Option2(BaseModel):
@@ -255,6 +201,9 @@ class DocumentWithCustomFiledsTypes(Document):
     set_type: Set[str]
     tuple_type: Tuple[int, str]
     path: Path
+
+    class Settings:
+        bson_encoders = {Color: str}
 
 
 class DocumentWithBsonEncodersFiledsTypes(Document):
