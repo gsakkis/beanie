@@ -23,6 +23,7 @@ from bson import DBRef
 from pydantic import BaseModel, TypeAdapter, model_validator
 from pydantic.fields import FieldInfo
 from pydantic_core import core_schema
+from typing_extensions import Self
 
 import beanie
 from beanie.odm.fields import ExpressionField
@@ -62,6 +63,19 @@ class Link(Generic[T]):
     def __init__(self, ref: DBRef, document_class: Type[T]):
         self.ref = ref
         self.document_class = document_class
+
+    @classmethod
+    def from_document_id(
+        cls,
+        document_id: Any,
+        document_class: Type[T],
+        collection: Optional[str] = None,
+    ) -> Self:
+        if collection is None:
+            collection = document_class.get_collection_name()
+        id_type = document_class.model_fields["id"].annotation
+        valid_id = TypeAdapter(id_type).validate_python(document_id)
+        return cls(DBRef(collection, valid_id), document_class)
 
     async def fetch(self, fetch_links: bool = False) -> Union[T, "Link[T]"]:
         result = await self.document_class.get(
@@ -116,15 +130,13 @@ class Link(Generic[T]):
                 return cls(v, document_class)
             if isinstance(v, Link):
                 return v
+            if isinstance(v, dict) and v.keys() == {"id", "collection"}:
+                return cls.from_document_id(
+                    v["id"], document_class, collection=v["collection"]
+                )
             if isinstance(v, (dict, BaseModel)):
                 return cast(T, parse_obj(document_class, v))
-
-            id_type = document_class.model_fields["id"].annotation
-            ref = DBRef(
-                collection=document_class.get_collection_name(),
-                id=TypeAdapter(id_type).validate_python(v),
-            )
-            return cls(ref, document_class)
+            return cls.from_document_id(v, document_class)
 
         return core_schema.json_or_python_schema(
             python_schema=core_schema.no_info_plain_validator_function(

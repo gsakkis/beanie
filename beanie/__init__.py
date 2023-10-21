@@ -7,8 +7,7 @@ from beanie.odm.actions import (
     before_event,
 )
 from beanie.odm.bulk import BulkWriter
-from beanie.odm.custom_types import DecimalAnnotation
-from beanie.odm.custom_types.bson.binary import BsonBinary
+from beanie.odm.custom_types import BsonBinary, DecimalAnnotation
 from beanie.odm.documents import DeleteRules, Document, WriteRules
 from beanie.odm.fields import Indexed, PydanticObjectId
 from beanie.odm.links import BackLink, Link
@@ -31,7 +30,7 @@ Before = ActionDirections.BEFORE
 After = ActionDirections.AFTER
 del EventTypes, ActionDirections
 
-__version__ = "1.22.5"
+__version__ = "1.23.0"
 __all__ = [
     "DATABASE_MAJOR_VERSION",
     # ODM

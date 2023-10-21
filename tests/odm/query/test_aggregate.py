@@ -3,7 +3,9 @@ import copy
 import pytest
 from pydantic import Field
 from pydantic.main import BaseModel
+from pymongo.errors import OperationFailure
 
+from beanie.odm.fields import SortDirection
 from tests.odm.models import Sample
 
 
@@ -35,6 +37,36 @@ async def test_aggregate_with_filter(preset_documents):
     assert {"_id": "test_1", "total": 2} in result
     assert {"_id": "test_2", "total": 6} in result
     assert {"_id": "test_3", "total": 3} in result
+
+
+async def test_aggregate_with_sort_skip(preset_documents):
+    q = Sample.find(sort="_id", skip=2).aggregate(
+        [{"$group": {"_id": "$string", "total": {"$sum": "$integer"}}}]
+    )
+    assert q.aggregation_pipeline == [
+        {"$group": {"_id": "$string", "total": {"$sum": "$integer"}}},
+        {"$sort": {"_id": SortDirection.ASCENDING}},
+        {"$skip": 2},
+    ]
+    assert await q.to_list() == [
+        {"_id": "test_2", "total": 6},
+        {"_id": "test_3", "total": 3},
+    ]
+
+
+async def test_aggregate_with_sort_limit(preset_documents):
+    q = Sample.find(sort="_id", limit=2).aggregate(
+        [{"$group": {"_id": "$string", "total": {"$sum": "$integer"}}}]
+    )
+    assert q.aggregation_pipeline == [
+        {"$group": {"_id": "$string", "total": {"$sum": "$integer"}}},
+        {"$sort": {"_id": SortDirection.ASCENDING}},
+        {"$limit": 2},
+    ]
+    assert await q.to_list() == [
+        {"_id": "test_0", "total": 0},
+        {"_id": "test_1", "total": 3},
+    ]
 
 
 async def test_aggregate_with_projection_model(preset_documents):
@@ -86,17 +118,11 @@ async def test_aggregate_with_session(preset_documents, session):
 
 
 async def test_aggregate_pymongo_kwargs(preset_documents):
-    with pytest.raises(TypeError):
+    with pytest.raises(OperationFailure):
         await Sample.find(Sample.increment >= 4).aggregate(
             [{"$group": {"_id": "$string", "total": {"$sum": "$integer"}}}],
             wrong=True,
-        )
-
-    with pytest.raises(TypeError):
-        await Sample.find(Sample.increment >= 4).aggregate(
-            [{"$group": {"_id": "$string", "total": {"$sum": "$integer"}}}],
-            hint="integer_1",
-        )
+        ).to_list()
 
 
 async def test_clone(preset_documents):

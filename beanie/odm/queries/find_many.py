@@ -320,7 +320,7 @@ class FindMany(FindQuery, BaseCursorQuery[ModelT], UpdateMethods):
             cache_key_dict=self._cache_key_dict(),
             ignore_cache=ignore_cache,
             session=self.session,
-            **pymongo_kwargs,
+            pymongo_kwargs=pymongo_kwargs,
         )
 
     async def sum(

@@ -1,4 +1,5 @@
 from enum import Enum
+from functools import partial
 from typing import (
     TYPE_CHECKING,
     AbstractSet,
@@ -247,8 +248,8 @@ class Document(
             self.get_dict(), session=session
         )
         self.id = self._parse_document_id(result.inserted_id)
-        self._swap_revision()
         self._save_state()
+        self._swap_revision()
         return self
 
     async def create(self, session: Optional[ClientSession] = None) -> Self:
@@ -370,8 +371,8 @@ class Document(
                 raise RevisionIdWasChanged
             else:
                 raise DocumentNotFound
-        self._swap_revision()
         self._save_state()
+        self._swap_revision()
         return self
 
     @classmethod
@@ -881,8 +882,11 @@ class Document(
                 cls = DocumentState
             else:
                 cls = PreviousDocumentState
+            get_state = partial(
+                self.get_dict, exclude={"revision_id", "_previous_revision_id"}
+            )
             replace_objects = settings.state_management_replace_objects
-            state = cls(self.get_dict, replace_objects)
+            state = cls(get_state, replace_objects)
         self.__state = state
         return state
 

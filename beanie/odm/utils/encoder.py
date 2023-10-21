@@ -11,6 +11,7 @@ from typing import Any, Callable, Container, Iterable, Mapping, Optional, Tuple
 
 import bson
 import pydantic
+import pydantic_core
 
 import beanie
 from beanie.odm.links import Link, LinkTypes
@@ -24,6 +25,7 @@ DEFAULT_CUSTOM_ENCODERS: Mapping[type, SingleArgCallable] = {
     ipaddress.IPv6Interface: str,
     ipaddress.IPv6Network: str,
     pathlib.PurePath: str,
+    pydantic_core.Url: str,
     pydantic.SecretBytes: pydantic.SecretBytes.get_secret_value,
     pydantic.SecretStr: pydantic.SecretStr.get_secret_value,
     datetime.timedelta: operator.methodcaller("total_seconds"),

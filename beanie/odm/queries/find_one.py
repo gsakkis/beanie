@@ -17,7 +17,6 @@ from beanie.odm.queries.delete import DeleteOne
 from beanie.odm.queries.find_many import FindMany
 from beanie.odm.queries.find_query import FindQuery, get_projection
 from beanie.odm.queries.update import UpdateOne, UpdateResponse
-from beanie.odm.utils.encoder import Encoder
 from beanie.odm.utils.parsing import ParseableModel, parse_obj
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
@@ -165,7 +164,7 @@ class FindOne(FindQuery, UpdateMethods, Generic[ModelT]):
                 Operation(
                     operation_class=pymongo.ReplaceOne,
                     first_query=self.get_filter_query(),
-                    second_query=Encoder(exclude={"_id"}).encode(document),
+                    second_query=document.get_dict(exclude={"_id"}),
                     object_class=self.document_model,
                     pymongo_kwargs=self.pymongo_kwargs,
                 )

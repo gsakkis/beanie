@@ -26,6 +26,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    HttpUrl,
     PrivateAttr,
     RootModel,
     SecretBytes,
@@ -47,7 +48,7 @@ from beanie import (
     ValidateOnSave,
 )
 from beanie.odm.actions import after_event, before_event
-from beanie.odm.custom_types.bson.binary import BsonBinary
+from beanie.odm.custom_types import BsonBinary
 from beanie.odm.fields import PydanticObjectId
 from beanie.odm.links import BackLink, Link
 from beanie.odm.timeseries import TimeSeriesConfig
@@ -468,6 +469,15 @@ class Window(Document):
     x: int
     y: int
     lock: Optional[Link[Lock]] = None
+
+
+class WindowWithValidationOnSave(Document):
+    x: int
+    y: int
+    lock: Optional[Link[Lock]] = None
+
+    class Settings:
+        validate_on_save = True
 
 
 class Door(Document):
@@ -922,3 +932,7 @@ class DocWithCallWrapper(Document):
     @validate_call
     def foo(self, bar: str) -> None:
         print(f"foo {bar}")
+
+
+class DocumentWithHttpUrlField(Document):
+    url_field: HttpUrl
