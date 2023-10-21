@@ -7,7 +7,7 @@ from pydantic import BaseModel
 import beanie
 from beanie.exceptions import MongoDBVersionError
 from beanie.odm.documents import Document
-from beanie.odm.fields import ExpressionField, IndexModel
+from beanie.odm.fields import ExpressionField, IndexModel, IndexModelFactory
 from beanie.odm.union_doc import UnionDoc
 from beanie.odm.views import View
 
@@ -32,13 +32,10 @@ async def init_timeseries(
 
 
 async def init_indexes(cls: Type[Document], drop_old: bool) -> None:
-    # Indexed field wrapped with Indexed()
     new_indexes = []
     for k, v in cls.model_fields.items():
-        if v.metadata and isinstance(v.metadata[0], dict):
-            get_index_model = v.metadata[0].get("get_index_model")
-            if get_index_model:
-                new_indexes.append(get_index_model(v.alias or k))
+        if v.metadata and isinstance(v.metadata[0], IndexModelFactory):
+            new_indexes.append(v.metadata[0](v.alias or k))
 
     settings = cls.get_settings()
     merge_indexes = IndexModel.merge_indexes

@@ -1,15 +1,6 @@
 from enum import Enum
 from functools import cached_property
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Iterator,
-    List,
-    Mapping,
-    Tuple,
-    Union,
-    cast,
-)
+from typing import TYPE_CHECKING, Any, Iterator, List, Mapping, Tuple, Union
 
 import bson
 import pymongo
@@ -27,8 +18,6 @@ from beanie.odm.operators import BaseOperator, comparison
 
 if TYPE_CHECKING:
     from types import GenericAlias
-else:
-    GenericAlias = Any
 
 
 def _validate_objectid(v: Any) -> bson.ObjectId:
@@ -124,24 +113,6 @@ class ExpressionField:
         return expression
 
 
-def Indexed(
-    annotation: Union[type, "GenericAlias"],
-    index_type: int = pymongo.ASCENDING,
-    **kwargs: Any,
-) -> "GenericAlias":
-    """
-    Returns an Annotated type with a `{"get_index_model" : f}` dict metadata, where
-    f is a function `f(key) -> IndexModel` that generates a pymongo Index instance
-    for the given key.
-    """
-
-    def get_index_model(key: str) -> IndexModel:
-        return IndexModel([(key, index_type)], **kwargs)
-
-    metadata = {"get_index_model": get_index_model}
-    return cast(GenericAlias, Annotated[annotation, metadata])
-
-
 class IndexModel(pymongo.IndexModel):
     @classmethod
     def from_pymongo(cls, index: pymongo.IndexModel) -> Self:
@@ -151,7 +122,7 @@ class IndexModel(pymongo.IndexModel):
 
     @cached_property
     def name(self) -> str:
-        return cast(str, self.document["name"])
+        return str(self.document["name"])
 
     @cached_property
     def keys(self) -> Tuple[Tuple[str, int], ...]:
@@ -197,3 +168,21 @@ class IndexModel(pymongo.IndexModel):
         return core_schema.no_info_before_validator_function(
             validate, schema=handler(source_type)
         )
+
+
+class IndexModelFactory:
+    def __init__(self, index_type: int, **kwargs: Any):
+        self.index_type = index_type
+        self.kwargs = kwargs
+
+    def __call__(self, key: str) -> IndexModel:
+        return IndexModel([(key, self.index_type)], **self.kwargs)
+
+
+def Indexed(
+    annotation: Union[type, "GenericAlias"],
+    index_type: int = pymongo.ASCENDING,
+    **kwargs: Any,
+) -> Any:
+    """Returns an Annotated type with an `IndexModelFactory` as metadata."""
+    return Annotated[annotation, IndexModelFactory(index_type, **kwargs)]
