@@ -1,8 +1,7 @@
+import warnings
 from enum import Enum
 from functools import partial
 from typing import (
-    TYPE_CHECKING,
-    AbstractSet,
     Any,
     ClassVar,
     Dict,
@@ -24,7 +23,7 @@ from pydantic import ConfigDict, Field, TypeAdapter, ValidationError
 from pymongo.client_session import ClientSession
 from pymongo.errors import DuplicateKeyError
 from pymongo.results import DeleteResult, InsertManyResult
-from typing_extensions import Annotated, Literal, Self
+from typing_extensions import Annotated, Self
 
 from beanie.exceptions import (
     DocumentNotFound,
@@ -60,9 +59,6 @@ from beanie.odm.utils.encoder import Encoder
 from beanie.odm.utils.parsing import merge_models
 from beanie.odm.utils.typing import extract_id_class
 
-if TYPE_CHECKING:
-    from pydantic.main import IncEx
-
 
 class DocumentSettings(BaseSettings):
     use_state_management: bool = False
@@ -92,12 +88,17 @@ class WriteRules(str, Enum):
     WRITE = "WRITE"
 
 
-def _json_schema_extra(schema: Dict[str, Any]) -> None:
-    props = {}
-    for k, v in schema.get("properties", {}).items():
-        if not v.get("hidden", False):
-            props[k] = v
-    schema["properties"] = props
+def _json_schema_extra(
+    schema: Dict[str, Any], model: Type["Document"]
+) -> None:
+    # remove excluded fields from the json schema
+    properties = schema.get("properties")
+    if not properties:
+        return
+    for k, field in model.model_fields.items():
+        k = field.alias or k
+        if k in properties and field.exclude:
+            del properties[k]
 
 
 class Document(
@@ -126,9 +127,7 @@ class Document(
     )
 
     # State
-    revision_id: Optional[UUID] = Field(
-        default=None, json_schema_extra={"hidden": True}
-    )
+    revision_id: Optional[UUID] = Field(default=None, exclude=True)
     _previous_revision_id: Optional[UUID] = None
     __state: BaseDocumentState
 
@@ -140,7 +139,6 @@ class Document(
     _settings_type = DocumentSettings
     _id_class: ClassVar[type]
     _id_adapter: ClassVar[TypeAdapter[Any]]
-    _hidden_fields: ClassVar[Set[str]] = set()
 
     @classmethod
     def init_from_database(cls, database: AsyncIOMotorDatabase) -> None:
@@ -177,13 +175,22 @@ class Document(
             id_annotation = Annotated[(id_annotation, *id_field.metadata)]
         cls._id_adapter = TypeAdapter(id_annotation)
 
-        # set up hidden fields
-        cls._hidden_fields = set()
-        for k, v in cls.model_fields.items():
-            if isinstance(
-                v.json_schema_extra, dict
-            ) and v.json_schema_extra.get("hidden"):
-                cls._hidden_fields.add(k)
+        # look for "hidden" fields and change them to exclude
+        hidden_fields = [
+            (name, field)
+            for name, field in cls.model_fields.items()
+            if field.json_schema_extra
+            and field.json_schema_extra.get("hidden") is True
+        ]
+        if hidden_fields:
+            warnings.warn(
+                f"{cls.__name__}: 'hidden=True' is deprecated, please use 'exclude=True'",
+                DeprecationWarning,
+            )
+            for name, field in hidden_fields:
+                field.exclude = True
+                del field.json_schema_extra["hidden"]
+            cls.model_rebuild(force=True)
 
         # set up actions
         ActionRegistry.register_type(cls)
@@ -743,48 +750,6 @@ class Document(
                     )
                 )
         return inspection_result
-
-    def model_dump(
-        self,
-        *,
-        mode: Literal["json", "python"] = "python",
-        include: "IncEx" = None,
-        exclude: "IncEx" = None,
-        by_alias: bool = False,
-        exclude_hidden: bool = True,
-        exclude_unset: bool = False,
-        exclude_defaults: bool = False,
-        exclude_none: bool = False,
-        round_trip: bool = False,
-        warnings: bool = True,
-    ) -> Dict[str, Any]:
-        """
-        Overriding of the respective method from Pydantic
-        Hides fields, marked as "hidden
-        """
-        if exclude_hidden:
-            if isinstance(exclude, AbstractSet):
-                exclude = {*self._hidden_fields, *exclude}
-            elif isinstance(exclude, Mapping):
-                exclude = dict(
-                    {k: True for k in self._hidden_fields}, **exclude
-                )
-            elif exclude is None:
-                exclude = self._hidden_fields
-
-        kwargs = {
-            "mode": mode,
-            "include": include,
-            "exclude": exclude,
-            "by_alias": by_alias,
-            "exclude_unset": exclude_unset,
-            "exclude_defaults": exclude_defaults,
-            "exclude_none": exclude_none,
-            "round_trip": round_trip,
-            "warnings": warnings,
-        }
-        dump: Dict[str, Any] = super().model_dump(**kwargs)
-        return dump
 
     def get_dict(
         self,

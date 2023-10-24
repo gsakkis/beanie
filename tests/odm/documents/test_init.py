@@ -5,6 +5,7 @@ from motor.motor_asyncio import AsyncIOMotorCollection
 from beanie import Document, Indexed, init_beanie
 from beanie.odm.queries.find import get_projection
 from tests.odm.models import (
+    Color,
     DocumentTestModel,
     DocumentTestModelStringImport,
     DocumentTestModelWithComplexIndex,
@@ -280,3 +281,20 @@ async def test_merge_indexes():
 
 async def test_custom_init():
     assert DocumentWithCustomInit.s == "TEST2"
+
+
+async def test_index_on_custom_types(db):
+    class Sample1(Document):
+        name: Indexed(Color, unique=True)
+
+        class Settings:
+            name = "sample"
+
+    await db.drop_collection("sample")
+
+    await init_beanie(
+        database=db,
+        document_models=[Sample1],
+    )
+
+    await db.drop_collection("sample")

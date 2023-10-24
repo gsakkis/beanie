@@ -82,7 +82,7 @@ class FindQuery(CacheableQuery):
             return expression
 
         # TODO add all the cases
-        new_query = {}
+        new_query: Dict[str, Any] = {}
         for k, v in expression.items():
             ksplit = k.split(".")
             if (
@@ -91,7 +91,16 @@ class FindQuery(CacheableQuery):
                 and ksplit[1] == "id"
             ):
                 k = ".".join((ksplit[0], "_id" if self.fetch_links else "$id"))
-            new_query[k] = self._convert_ids(v) if isinstance(v, dict) else v
+
+            if isinstance(v, Mapping):
+                new_query[k] = self._convert_ids(v)
+            elif isinstance(v, list):
+                new_query[k] = [
+                    self._convert_ids(e) if isinstance(e, Mapping) else e
+                    for e in v
+                ]
+            else:
+                new_query[k] = v
         return new_query
 
 
