@@ -2,6 +2,7 @@ import datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import AbstractSet, Mapping
+from uuid import uuid4
 
 import pytest
 from pydantic import BaseModel, ValidationError
@@ -11,6 +12,7 @@ from beanie.odm.fields import PydanticObjectId
 from beanie.odm.utils.encoder import Encoder
 from tests.odm.models import (
     DocumentTestModel,
+    DocumentTestModelIndexFlagsAnnotated,
     DocumentWithBsonEncodersFiledsTypes,
     DocumentWithCustomFiledsTypes,
     DocumentWithDeprecatedHiddenField,
@@ -147,3 +149,17 @@ async def test_param_exclude(document, exclude):
 def test_expression_fields():
     assert Sample.nested.integer == "nested.integer"
     assert Sample.nested["integer"] == "nested.integer"
+
+
+def test_indexed_field() -> None:
+    """Test that fields can be declared and instantiated with Indexed()
+    and Annotated[..., Indexed()]."""
+
+    # No error should be raised the document is properly initialized
+    # and `Indexed` is implemented correctly.
+    DocumentTestModelIndexFlagsAnnotated(
+        str_index="test",
+        str_index_annotated="test",
+        uuid_index=uuid4(),
+        uuid_index_annotated=uuid4(),
+    )

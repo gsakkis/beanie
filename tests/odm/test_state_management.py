@@ -413,3 +413,27 @@ class TestStateManagement:
 
             assert saved_doc_previous._state.saved["num_1"] == 100
             assert saved_doc_previous._state.previous_saved["num_1"] == 1
+
+        async def test_exclude_revision_id(self, saved_doc_previous):
+            saved_doc_previous.num_1 = 100
+            await saved_doc_previous.replace()
+
+            assert saved_doc_previous._state.saved["num_1"] == 100
+            assert saved_doc_previous._state.previous_saved["num_1"] == 1
+
+            assert saved_doc_previous._state.saved.get("revision_id") is None
+            assert (
+                saved_doc_previous._state.saved.get("previous_revision_id")
+                is None
+            )
+
+            assert (
+                saved_doc_previous._state.previous_saved.get("revision_id")
+                is None
+            )
+            assert (
+                saved_doc_previous._state.previous_saved.get(
+                    "previous_revision_id"
+                )
+                is None
+            )

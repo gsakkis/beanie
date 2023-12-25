@@ -337,8 +337,8 @@ def detect_link(field_info: FieldInfo, field_name: str) -> Optional[LinkInfo]:
         if cls is Link:
             lookup_field_name = field_name
         elif isinstance(field_info.json_schema_extra, dict):
-            lookup_field_name = field_info.json_schema_extra.get(
-                "original_field"
+            lookup_field_name = cast(
+                str, field_info.json_schema_extra.get("original_field")
             )
         if lookup_field_name is None:
             continue

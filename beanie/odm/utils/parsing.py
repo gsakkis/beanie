@@ -6,10 +6,6 @@ import beanie
 
 
 def merge_models(left: BaseModel, right: BaseModel) -> None:
-    if isinstance(left, beanie.Document) and isinstance(
-        right, beanie.Document
-    ):
-        left._previous_revision_id = right._previous_revision_id
     for k, rvalue in right:
         lvalue = getattr(left, k)
         if (
@@ -58,6 +54,6 @@ def parse_obj(
         )
 
     if isinstance(result, beanie.Document):
-        result._save_state(swap_revision=True)
+        result._save_state()
 
     return result

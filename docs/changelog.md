@@ -2,6 +2,106 @@
 
 Beanie project
 
+## [1.24.0] - 2023-12-24
+        
+### Exclude revision_id From The get_changes Method
+- Author - [Roman Right](https://github.com/roman-right)
+- PR <https://github.com/roman-right/beanie/pull/759>
+            
+### Add Support For Custom Bucket Fields In Time Series
+- Author - [Lucas Hardt](https://github.com/Luc1412)
+- PR <https://github.com/roman-right/beanie/pull/760>
+            
+### Add Bson Maxkey And Minkey
+- Author - [Noah Witt](https://github.com/noah-witt)
+- PR <https://github.com/roman-right/beanie/pull/768>
+            
+### Update Model During Save Validation
+- Author - [Roman Right](https://github.com/roman-right)
+- PR <https://github.com/roman-right/beanie/pull/776>
+            
+### Fix init_beanie document_models Type Hint
+- Author - [Capi Etheriel](https://github.com/barraponto)
+- PR <https://github.com/roman-right/beanie/pull/784>
+            
+### Fix Encoding Keys In `Mapping` Branch Of `Encoder`
+- Author - [Rubikoid](https://github.com/Rubikoid)
+- PR <https://github.com/roman-right/beanie/pull/785>
+            
+### Improve Write Performances
+- Author - [Thibault Djaballah](https://github.com/tdjaballah)
+- PR <https://github.com/roman-right/beanie/pull/786>
+            
+### Doc Update: Queue
+- Author - [Roman Right](https://github.com/roman-right)
+- PR <https://github.com/roman-right/beanie/pull/794>
+            
+### Tests For Indexed Fields
+- Author - [Roman Right](https://github.com/roman-right)
+- PR <https://github.com/roman-right/beanie/pull/795>
+            
+### Rework Revision
+- Author - [Roman Right](https://github.com/roman-right)
+- PR <https://github.com/roman-right/beanie/pull/797>
+            
+### Add Missing Type Signature To `Document` Constructor
+- Author - [None](https://github.com/johnthagen)
+- PR <https://github.com/roman-right/beanie/pull/813>
+            
+[1.24.0]: https://pypi.org/project/beanie/1.24.0
+
+## [1.23.6] - 2023-11-12
+        
+### Fix Multiprocessing Mode
+- Author - [Roman Right](https://github.com/roman-right)
+- PR <https://github.com/roman-right/beanie/pull/782>
+            
+[1.23.6]: https://pypi.org/project/beanie/1.23.6
+
+## [1.23.5] - 2023-11-12
+        
+### Multiprocessing Mode For Init
+- Author - [Roman Right](https://github.com/roman-right)
+- PR <https://github.com/roman-right/beanie/pull/781>
+            
+[1.23.5]: https://pypi.org/project/beanie/1.23.5
+
+## [1.23.4] - 2023-11-12
+        
+### Args For `get_model_dump`
+- Author - [Roman Right](https://github.com/roman-right)
+- PR <https://github.com/roman-right/beanie/pull/780>
+            
+[1.23.4]: https://pypi.org/project/beanie/1.23.4
+
+## [1.23.3] - 2023-11-08
+        
+### Fix Id Notation
+- Author - [Roman Right](https://github.com/roman-right)
+- PR <https://github.com/roman-right/beanie/pull/772>
+            
+[1.23.3]: https://pypi.org/project/beanie/1.23.3
+
+## [1.23.2] - 2023-11-08
+        
+### Fix Aggregations With Text Queries
+- Author - [Benjamin Earle](https://github.com/MrEarle)
+- PR <https://github.com/roman-right/beanie/pull/752>
+            
+### Handle Annotated Indexes
+- Author - [Benjamin Earle](https://github.com/MrEarle)
+- PR <https://github.com/roman-right/beanie/pull/762>
+            
+### Fix Docstring
+- Author - [Andrew Grinevich](https://github.com/Derfirm)
+- PR <https://github.com/roman-right/beanie/pull/766>
+            
+### Build Aggregation Pipeline From Find Query Without Fetch
+- Author - [Roman Right](https://github.com/roman-right)
+- PR <https://github.com/roman-right/beanie/pull/770>
+            
+[1.23.2]: https://pypi.org/project/beanie/1.23.2
+
 ## [1.23.1] - 2023-10-23
         
 ### Fix: Issue #631

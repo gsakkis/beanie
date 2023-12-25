@@ -1,3 +1,4 @@
+import asyncio
 import warnings
 from enum import Enum
 from functools import partial
@@ -128,7 +129,6 @@ class Document(
 
     # State
     revision_id: Optional[UUID] = Field(default=None, exclude=True)
-    _previous_revision_id: Optional[UUID] = None
     __state: BaseDocumentState
 
     # Inheritance
@@ -247,15 +247,16 @@ class Document(
         if link_rule == WriteRules.WRITE:
             for field_info in self.get_link_fields().values():
                 if not field_info.link_type.is_back:
-                    for subdoc in self._iter_linked_documents(field_info):
-                        await subdoc.save(
-                            link_rule=WriteRules.WRITE, session=session
-                        )
+                    saves = [
+                        subdoc.save(link_rule=link_rule, session=session)
+                        for subdoc in self._iter_linked_documents(field_info)
+                    ]
+                    await asyncio.gather(*saves)
         result = await self.get_motor_collection().insert_one(
             self.get_dict(), session=session
         )
         self.id = self._parse_document_id(result.inserted_id)
-        self._save_state(swap_revision=True)
+        self._save_state()
         return self
 
     async def create(self, session: Optional[ClientSession] = None) -> Self:
@@ -354,18 +355,22 @@ class Document(
 
         if link_rule == WriteRules.WRITE:
             for field_info in self.get_link_fields().values():
-                for subdoc in self._iter_linked_documents(field_info):
-                    await subdoc.replace(
+                replacements = [
+                    subdoc.replace(
                         link_rule=link_rule,
                         bulk_writer=bulk_writer,
                         ignore_revision=ignore_revision,
                         session=session,
                     )
+                    for subdoc in self._iter_linked_documents(field_info)
+                ]
+                await asyncio.gather(*replacements)
 
         use_revision_id = self.get_settings().use_revision
         find_query: Dict[str, Any] = {"_id": self.id}
         if use_revision_id and not ignore_revision:
-            find_query["revision_id"] = self._previous_revision_id
+            find_query["revision_id"] = self.revision_id
+            self.revision_id = uuid4()
         try:
             await self.find_one(find_query).replace(
                 self,
@@ -377,7 +382,7 @@ class Document(
                 raise RevisionIdWasChanged
             else:
                 raise DocumentNotFound
-        self._save_state(swap_revision=True)
+        self._save_state()
         return self
 
     @classmethod
@@ -424,8 +429,11 @@ class Document(
         await self._validate_self(skip_actions=skip_actions)
         if link_rule == WriteRules.WRITE:
             for field_info in self.get_link_fields().values():
-                for subdoc in self._iter_linked_documents(field_info):
-                    await subdoc.save(link_rule=link_rule, session=session)
+                saves = [
+                    subdoc.save(link_rule=link_rule, session=session)
+                    for subdoc in self._iter_linked_documents(field_info)
+                ]
+                await asyncio.gather(*saves)
 
         update_args: List[BaseOperator] = [update_ops.Set(self.get_dict())]
         if self.get_settings().keep_nulls is False:
@@ -499,10 +507,10 @@ class Document(
             "_id": self.id if self.id is not None else PydanticObjectId()
         }
         if use_revision_id and not ignore_revision:
-            find_query["revision_id"] = self._previous_revision_id
+            find_query["revision_id"] = self.revision_id
 
         if use_revision_id:
-            arguments.append(update_ops.SetRevisionId(self.revision_id))
+            arguments.append(update_ops.SetRevisionId(uuid4()))
         try:
             result = await self.find_one(find_query).update(
                 *arguments,
@@ -659,12 +667,15 @@ class Document(
         """
         if link_rule == DeleteRules.DELETE_LINKS:
             for field_info in self.get_link_fields().values():
-                for subdoc in self._iter_linked_documents(field_info):
-                    await subdoc.delete(
-                        link_rule=DeleteRules.DELETE_LINKS,
+                deletes = [
+                    subdoc.delete(
+                        link_rule=link_rule,
                         session=session,
                         **pymongo_kwargs,
                     )
+                    for subdoc in self._iter_linked_documents(field_info)
+                ]
+                await asyncio.gather(*deletes)
         return await self.find_one({"_id": self.id}).delete(
             session=session, bulk_writer=bulk_writer, **pymongo_kwargs
         )
@@ -828,8 +839,7 @@ class Document(
     ) -> None:
         # TODO: it can be sync, but needs some actions controller improvements
         if self.get_settings().validate_on_save:
-            data = self.model_dump()
-            self.__class__.model_validate(data)
+            merge_models(self, self.model_validate(self.model_dump()))
 
     @property
     def _state(self) -> BaseDocumentState:
@@ -845,17 +855,12 @@ class Document(
                 cls = DocumentState
             else:
                 cls = PreviousDocumentState
-            get_state = partial(
-                self.get_dict, exclude={"revision_id", "_previous_revision_id"}
-            )
+            get_state = partial(self.get_dict, exclude={"revision_id"})
             replace_objects = settings.state_management_replace_objects
             state = cls(get_state, replace_objects)
         self.__state = state
         return state
 
-    def _save_state(self, swap_revision: bool = False) -> None:
+    def _save_state(self) -> None:
         if self.id is not None:
             self._state.save()
-        if swap_revision and self.get_settings().use_revision:
-            self._previous_revision_id = self.revision_id
-            self.revision_id = uuid4()

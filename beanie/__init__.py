@@ -9,7 +9,12 @@ from beanie.odm.actions import (
 from beanie.odm.bulk import BulkWriter
 from beanie.odm.custom_types import BsonBinary, DecimalAnnotation
 from beanie.odm.documents import DeleteRules, Document, WriteRules
-from beanie.odm.fields import Indexed, PydanticObjectId
+from beanie.odm.fields import (
+    BeanieObjectId,
+    Indexed,
+    PydanticObjectId,
+    SortDirection,
+)
 from beanie.odm.links import BackLink, Link
 from beanie.odm.queries.update import UpdateResponse
 from beanie.odm.timeseries import Granularity, TimeSeriesConfig
@@ -30,7 +35,7 @@ Before = ActionDirections.BEFORE
 After = ActionDirections.AFTER
 del EventTypes, ActionDirections
 
-__version__ = "1.23.1"
+__version__ = "1.24.0"
 __all__ = [
     "DATABASE_MAJOR_VERSION",
     # ODM
@@ -39,9 +44,11 @@ __all__ = [
     "UnionDoc",
     "init_beanie",
     "PydanticObjectId",
+    "BeanieObjectId",
     "Indexed",
     "TimeSeriesConfig",
     "Granularity",
+    "SortDirection",
     # Actions
     "before_event",
     "after_event",

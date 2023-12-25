@@ -1,3 +1,4 @@
+import asyncio
 import importlib
 from typing import List, Optional, Sequence, Type, Union
 
@@ -34,8 +35,11 @@ async def init_timeseries(
 async def init_indexes(cls: Type[Document], drop_old: bool) -> None:
     new_indexes = []
     for k, v in cls.model_fields.items():
-        if v.metadata and isinstance(v.metadata[0], IndexModelFactory):
-            new_indexes.append(v.metadata[0](v.alias or k))
+        try:
+            f = next(m for m in v.metadata if isinstance(m, IndexModelFactory))
+            new_indexes.append(f(v.alias or k))
+        except StopIteration:
+            pass
 
     settings = cls.get_settings()
     merge_indexes = IndexModel.merge_indexes
@@ -111,6 +115,7 @@ async def init_beanie(
     document_models: Optional[Sequence[Union[Type[DocumentLike], str]]] = None,
     allow_index_dropping: bool = False,
     recreate_views: bool = False,
+    multiprocessing_mode: bool = False,
 ) -> None:
     """
     Beanie initialization
@@ -121,6 +126,8 @@ async def init_beanie(
     or strings with dot separated paths
     :param allow_index_dropping: bool - if index dropping is allowed. Default False
     :param recreate_views: bool - if views should be recreated. Default False
+    :param multiprocessing_mode: bool - if multiprocessing mode is on
+        it will patch the motor client to use process's event loop. Default False
     :return: None
     """
     if document_models is None:
@@ -135,6 +142,9 @@ async def init_beanie(
     if database is None:
         client = AsyncIOMotorClient(connection_string)
         database = client.get_default_database()
+
+    if multiprocessing_mode:
+        database.client.get_io_loop = asyncio.get_running_loop  # type: ignore[method-assign]
 
     build_info = await database.command({"buildInfo": 1})
     beanie.DATABASE_MAJOR_VERSION = int(build_info["version"].split(".")[0])

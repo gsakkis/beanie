@@ -165,12 +165,18 @@ class TestInsert:
         house.windows.append(window)
 
         house = await house.insert(link_rule=WriteRules.WRITE)
-        new_window = Window(x=11, y=22)
-        house.windows.append(new_window)
+        new_window_1 = Window(x=11, y=22)
+        assert new_window_1.id is None
+        house.windows.append(new_window_1)
+        new_window_2 = Window(x=12, y=23)
+        assert new_window_2.id is None
+        house.windows.append(new_window_2)
         await house.save(link_rule=WriteRules.WRITE)
         for win in house.windows:
             assert isinstance(win, Window)
             assert win.id
+        assert new_window_1.id is not None
+        assert new_window_2.id is not None
 
     async def test_fetch_after_insert(self, house_not_inserted):
         await house_not_inserted.fetch_all_links()
@@ -399,15 +405,20 @@ class TestSave:
 
     async def test_write(self, house):
         house.door.t = 100
-        house.windows = [Window(x=100, y=100, lock=Lock(k=100))]
+        new_window = Window(x=100, y=100, lock=Lock(k=100))
+        house.windows = [new_window]
+        assert new_window.id is None
         await house.save(link_rule=WriteRules.WRITE)
         new_house = await House.get(house.id, fetch_links=True)
         assert new_house.door.t == 100
         for window in new_house.windows:
             assert window.x == 100
             assert window.y == 100
+            assert window.id is not None
             assert isinstance(window.lock, Lock)
             assert window.lock.k == 100
+            assert window.lock.id is not None
+        assert new_window.id is not None
 
 
 class TestDelete:
@@ -537,6 +548,35 @@ class TestOther:
         )
 
         assert addresses_count[0] == {"count": 10}
+
+    async def test_with_chaining_aggregation_and_text_search(self):
+        linked_document = LinkDocumentForTextSeacrh(i=1)
+        await linked_document.insert()
+
+        for i in range(10):
+            await DocumentWithTextIndexAndLink(
+                s="lower" if i < 5 else "UPPER", link=linked_document
+            ).insert()
+
+        linked_document_2 = LinkDocumentForTextSeacrh(i=2)
+        await linked_document_2.insert()
+
+        for i in range(10):
+            await DocumentWithTextIndexAndLink(
+                s="lower" if i < 5 else "UPPER", link=linked_document_2
+            ).insert()
+
+        document_count = (
+            await DocumentWithTextIndexAndLink.find(
+                {"$text": {"$search": "lower"}},
+                DocumentWithTextIndexAndLink.link.i == 1,
+                fetch_links=True,
+            )
+            .aggregate([{"$count": "count"}])
+            .to_list()
+        )
+
+        assert document_count[0] == {"count": 5}
 
     async def test_with_extra_allow(self, houses):
         res = await House.find(fetch_links=True).to_list()
@@ -781,3 +821,36 @@ class TestDeleteBackLinks:
                 PersonForReversedOrderInit,
             ],
         )
+
+
+class TestBuildAggregations:
+    async def test_find_aggregate_without_fetch_links(self, houses):
+        door = await Door.find_one()
+        aggregation = House.find(House.door.id == door.id).aggregate(
+            [
+                {"$group": {"_id": "$height", "count": {"$sum": 1}}},
+            ]
+        )
+        assert aggregation.aggregation_pipeline == [
+            {"$match": {"door.$id": door.id}},
+            {"$group": {"_id": "$height", "count": {"$sum": 1}}},
+        ]
+        result = await aggregation.to_list()
+        assert result == [{"_id": 0, "count": 1}]
+
+    async def test_find_aggregate_with_fetch_links(self, houses):
+        door = await Door.find_one()
+        aggregation = House.find(
+            House.door.id == door.id, fetch_links=True
+        ).aggregate(
+            [
+                {"$group": {"_id": "$height", "count": {"$sum": 1}}},
+            ]
+        )
+        assert len(aggregation.aggregation_pipeline) == 12
+        assert aggregation.aggregation_pipeline[10:] == [
+            {"$match": {"door._id": door.id}},
+            {"$group": {"_id": "$height", "count": {"$sum": 1}}},
+        ]
+        result = await aggregation.to_list()
+        assert result == [{"_id": 0, "count": 1}]

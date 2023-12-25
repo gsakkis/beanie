@@ -1,6 +1,10 @@
-import pytest
-from pydantic import ValidationError
+from typing import Optional
 
+import pytest
+from bson import ObjectId
+from pydantic import BaseModel, ValidationError
+
+from beanie import PydanticObjectId
 from tests.odm.models import (
     DocumentWithValidationOnSave,
     Lock,
@@ -29,6 +33,25 @@ async def test_validate_on_save_changes():
     doc.num_1 = "wrong_value"
     with pytest.raises(ValidationError):
         await doc.save_changes()
+
+
+async def test_validate_on_save_keep_the_id_type():
+    class UpdateModel(BaseModel):
+        num_1: Optional[int] = None
+        related: Optional[PydanticObjectId] = None
+
+    doc = DocumentWithValidationOnSave(num_1=1, num_2=2)
+    await doc.insert()
+    update = UpdateModel(related=PydanticObjectId())
+    doc = doc.model_copy(update=update.model_dump(exclude_unset=True))
+    doc.num_2 = 1000
+    await doc.save()
+    in_db = await DocumentWithValidationOnSave.get_motor_collection().find_one(
+        {"_id": doc.id}
+    )
+    assert isinstance(in_db["related"], ObjectId)
+    new_doc = await DocumentWithValidationOnSave.get(doc.id)
+    assert isinstance(new_doc.related, ObjectId)
 
 
 async def test_validate_on_save_action():

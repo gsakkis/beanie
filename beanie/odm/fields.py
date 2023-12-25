@@ -1,6 +1,15 @@
 from enum import Enum
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, Iterator, List, Mapping, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Iterator,
+    List,
+    Mapping,
+    Optional,
+    Tuple,
+    Union,
+)
 
 import bson
 import pymongo
@@ -33,6 +42,8 @@ PydanticObjectId = Annotated[
     PlainSerializer(lambda v: str(v)),
     WithJsonSchema({"type": "string", "example": "5eb7cf5a86d9755df3a6c593"}),
 ]
+
+BeanieObjectId = PydanticObjectId
 
 
 class SortDirection(int, Enum):
@@ -180,9 +191,13 @@ class IndexModelFactory:
 
 
 def Indexed(
-    annotation: Union[type, "GenericAlias"],
+    annotation: Optional[Union[type, "GenericAlias"]] = None,
     index_type: int = pymongo.ASCENDING,
     **kwargs: Any,
 ) -> Any:
-    """Returns an Annotated type with an `IndexModelFactory` as metadata."""
-    return Annotated[annotation, IndexModelFactory(index_type, **kwargs)]
+    """
+    If `annotation` is not None, return an Annotated type with an `IndexModelFactory`
+    as metadata; otherwise, return an `IndexModelFactory` instance.
+    """
+    factory = IndexModelFactory(index_type, **kwargs)
+    return factory if annotation is None else Annotated[annotation, factory]

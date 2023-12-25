@@ -13,8 +13,10 @@ from uuid import UUID, uuid4
 
 import pymongo
 from pydantic import (
+    UUID4,
     BaseModel,
     ConfigDict,
+    EmailStr,
     Field,
     HttpUrl,
     PrivateAttr,
@@ -24,6 +26,7 @@ from pydantic import (
     validate_call,
 )
 from pydantic_extra_types.color import Color
+from typing_extensions import Annotated
 
 from beanie import (
     DecimalAnnotation,
@@ -131,6 +134,13 @@ class DocumentTestModelWithIndexFlagsAliases(Document):
     test_str: Indexed(str, index_type=pymongo.DESCENDING, unique=True) = Field(
         alias="testStr"
     )
+
+
+class DocumentTestModelIndexFlagsAnnotated(Document):
+    str_index: Indexed(str, index_type=pymongo.TEXT)
+    str_index_annotated: Indexed(str, index_type=pymongo.ASCENDING)
+    uuid_index: Indexed(UUID4, unique=True)
+    uuid_index_annotated: Annotated[UUID4, Indexed(unique=True)]
 
 
 class DocumentTestModelWithComplexIndex(Document):
@@ -374,6 +384,7 @@ class DocumentWithTurnedOffStateManagement(Document):
 class DocumentWithValidationOnSave(Document):
     num_1: int
     num_2: int
+    related: PydanticObjectId = Field(default_factory=PydanticObjectId)
 
     @after_event(ValidateOnSave)
     def num_2_plus_1(self):
@@ -889,3 +900,13 @@ class DocWithCallWrapper(Document):
 
 class DocumentWithHttpUrlField(Document):
     url_field: HttpUrl
+
+
+class DocumentWithComplexDictKey(Document):
+    dict_field: Dict[UUID, datetime.datetime]
+
+
+class DocumentWithIndexedObjectId(Document):
+    pyid: Indexed(PydanticObjectId)
+    uuid: Annotated[UUID4, Indexed(unique=True)]
+    email: Annotated[EmailStr, Indexed(unique=True)]

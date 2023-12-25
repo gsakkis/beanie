@@ -234,10 +234,10 @@ class FindMany(FindQuery, BaseCursorQuery[ModelT], UpdateMethods):
             pymongo_kwargs=pymongo_kwargs,
         )
 
-    def _build_aggregation_pipeline(
+    def build_aggregation_pipeline(
         self,
-        projection_model: Optional[Type[ParseableModel]],
         *aggregation_expressions: Mapping[str, Any],
+        projection_model: Optional[Type[ParseableModel]] = None,
     ) -> AggregationPipelineT:
         pipeline: List[Mapping[str, Any]] = []
 
@@ -251,11 +251,11 @@ class FindMany(FindQuery, BaseCursorQuery[ModelT], UpdateMethods):
                 pipeline.extend(link_info.iter_pipeline_stages())
 
         if filter_query := self.get_filter_query():
-            text_query = filter_query.pop("$text", None)
-            if text_query is not None:
-                pipeline.insert(0, {"$match": {"$text": text_query}})
-            if filter_query:
-                pipeline.append({"$match": filter_query})
+            text_query, non_text_query = _split_text_query(filter_query)
+            if text_query:
+                pipeline.insert(0, {"$match": text_query})
+            if non_text_query:
+                pipeline.append({"$match": non_text_query})
 
         if aggregation_expressions:
             pipeline.extend(aggregation_expressions)
@@ -312,8 +312,8 @@ class FindMany(FindQuery, BaseCursorQuery[ModelT], UpdateMethods):
         """
         self.set_session(session)
         return AggregationQuery(
-            aggregation_pipeline=self._build_aggregation_pipeline(
-                projection_model, *aggregation_pipeline
+            aggregation_pipeline=self.build_aggregation_pipeline(
+                *aggregation_pipeline, projection_model=projection_model
             ),
             document_model=self.document_model,
             projection_model=projection_model,
@@ -475,7 +475,9 @@ class FindMany(FindQuery, BaseCursorQuery[ModelT], UpdateMethods):
     def _motor_cursor(self) -> AgnosticBaseCursor:
         if self.fetch_links:
             return self.document_model.get_motor_collection().aggregate(
-                self._build_aggregation_pipeline(self.projection_model),
+                self.build_aggregation_pipeline(
+                    projection_model=self.projection_model
+                ),
                 session=self.session,
                 **self.pymongo_kwargs,
             )
@@ -489,3 +491,46 @@ class FindMany(FindQuery, BaseCursorQuery[ModelT], UpdateMethods):
             session=self.session,
             **self.pymongo_kwargs,
         )
+
+
+def _split_text_query(
+    query: Dict[str, Any]
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """Divide query into text and non-text matches
+
+    :param query: Dict[str, Any] - query dict
+    :return: Tuple[Dict[str, Any], Dict[str, Any]] - text and non-text queries,
+        respectively
+    """
+    text_queries: List[Dict[str, Any]] = []
+    if root_text_query_args := query.get("$text", None):
+        text_queries.append({"$text": root_text_query_args})
+
+    non_text_queries: List[Dict[str, Any]] = []
+    root_non_text_queries = {
+        k: v for k, v in query.items() if k not in {"$text", "$and"}
+    }
+    if root_non_text_queries:
+        non_text_queries.append(root_non_text_queries)
+
+    for match_case in query.get("$and", ()):
+        if "$text" in match_case:
+            text_queries.append(match_case)
+        else:
+            non_text_queries.append(match_case)
+
+    if len(text_queries) > 1:
+        text_query = {"$and": text_queries}
+    elif len(text_queries) == 1:
+        text_query = text_queries[0]
+    else:
+        text_query = {}
+
+    if len(non_text_queries) > 1:
+        non_text_query = {"$and": non_text_queries}
+    elif len(non_text_queries) == 1:
+        non_text_query = non_text_queries[0]
+    else:
+        non_text_query = {}
+
+    return text_query, non_text_query
